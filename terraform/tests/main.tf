@@ -24,10 +24,10 @@ terraform {
 
 provider "juju" {}
 
-module "__charm_name__" {
+module "falco" {
   source   = "./.."
-  app_name = "__charm_name__"
+  app_name = "falco"
   channel  = var.channel
-  model    = "prod-__charm_name__-example"
+  model    = "prod-falco-example"
   revision = var.revision
 }
