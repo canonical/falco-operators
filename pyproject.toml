@@ -2,9 +2,9 @@
 # See LICENSE file for licensing details.
 
 [project]
-name = "platform-engineering-charm-template"
-version = "0.0.0"
-description = "A very short one-line summary of the charm."
+name = "falco"
+version = "0.42.1"
+description = "Juju charmed operator for Falco"
 readme = "README.md"
 requires-python = ">=3.12"
 classifiers = [
