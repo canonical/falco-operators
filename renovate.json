@@ -15,6 +15,26 @@
       ],
       "matchStringsStrategy": "any",
       "versioningTemplate": "ubuntu"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "github-tags",
+      "description": "Update Falco version from git tags (semver)",
+      "fileMatch": ["^\\.versions$"],
+      "matchStrings": [
+        "# renovate: depName=(?<depName>.*?)\\nFALCO_VERSION=(?<currentValue>.*)"
+      ],
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "github-tags",
+      "description": "Update Falco plugins version from git tags (non-semver)",
+      "fileMatch": ["^\\.versions$"],
+      "matchStrings": [
+        "# renovate: depName=(?<depName>.*?)\\nFALCO_K8SAUDIT_PLUGIN_VERSION=(?<currentValue>.*)"
+      ],
+      "extractVersionTemplate": "^plugins/k8saudit/v(?<version>.*)$"
     }
   ],
   "extends": [
