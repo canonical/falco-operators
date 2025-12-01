@@ -1,3 +1,6 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
 name: Build Falco Binary
 
 on:
@@ -19,7 +22,7 @@ jobs:
   build-falco:
     name: Build Falco from Source
     runs-on: ${{ matrix.runs-on }}
-    timeout-minutes: 120
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -36,7 +39,7 @@ jobs:
       FALCO_PLUGINS_GIT_REPO:  "https://github.com/falcosecurity/plugins.git"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.0
 
       - name: Extract Falco and Falco plugin version
         id: version
@@ -70,7 +73,7 @@ jobs:
           echo "Plugins source cloned at $FALCO_PLUGINS_SOURCE with tag: plugins/k8saudit/v${{ steps.version.outputs.k8saudit_plugin_version }}"
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6.1.0
         with:
           cache: false
           go-version: "1.25"
@@ -79,13 +82,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git \
-            cmake \
-            clang \
             build-essential \
+            clang \
+            cmake \
+            git \
+            libelf-dev \
             linux-tools-common \
-            linux-tools-generic \
-            libelf-dev
+            linux-tools-generic
 
       - name: Build Falco binary
         run: |
@@ -93,10 +96,10 @@ jobs:
 
           mkdir -p $FALCO_SOURCE/build && cd $FALCO_SOURCE/build
           cmake \
-            -DCMAKE_C_COMPILER="$(which gcc)" \
-            -DCMAKE_CXX_COMPILER="$(which g++)" \
-            -DCMAKE_VERBOSE_MAKEFILE=On \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER="$(which g++)" \
+            -DCMAKE_C_COMPILER="$(which gcc)" \
+            -DCMAKE_VERBOSE_MAKEFILE=On \
             -DUSE_BUNDLED_DEPS=On \
             ..
           make -j$(nproc) falco
@@ -141,7 +144,7 @@ jobs:
           mv $TARBALL ${{ github.workspace }}/
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5.0.0
         with:
           name: falco-${{ steps.version.outputs.falco_version }}-${{ steps.version.outputs.arch }}
           path: |
@@ -155,15 +158,15 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6.0.0
         with:
           pattern: falco-${{ needs.build-falco.outputs.falco-version }}-*
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.5.0
         with:
           name: ${{ needs.build-falco.outputs.falco-version }}
           tag_name: falco/${{ needs.build-falco.outputs.falco-version }}
