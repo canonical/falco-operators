@@ -5,3 +5,5 @@ FALCO_VERSION=0.42.1
 # Falco plugins version to build from source
 # renovate: depName=falcosecurity/plugins
 FALCO_K8SAUDIT_PLUGIN_VERSION=0.16.0
+# renovate: depName=falcosecurity/plugins
+FALCO_JSON_PLUGIN_VERSION=0.7.3

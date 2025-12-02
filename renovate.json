@@ -29,7 +29,17 @@
     {
       "customType": "regex",
       "datasourceTemplate": "github-tags",
-      "description": "Update Falco plugins version from git tags (non-semver)",
+      "description": "Update Falco json plugin version from git tags (non-semver)",
+      "fileMatch": ["^\\.versions$"],
+      "matchStrings": [
+        "# renovate: depName=(?<depName>.*?)\\nFALCO_JSON_PLUGIN_VERSION=(?<currentValue>.*)"
+      ],
+      "extractVersionTemplate": "^plugins/json/v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "github-tags",
+      "description": "Update Falco k8saudit plugin version from git tags (non-semver)",
       "fileMatch": ["^\\.versions$"],
       "matchStrings": [
         "# renovate: depName=(?<depName>.*?)\\nFALCO_K8SAUDIT_PLUGIN_VERSION=(?<currentValue>.*)"

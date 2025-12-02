@@ -29,11 +29,13 @@ jobs:
           source .versions
           echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
           echo "falco_version=${FALCO_VERSION}" >> $GITHUB_OUTPUT
+          echo "json_plugin_version=${FALCO_JSON_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
           echo "k8saudit_plugin_version=${FALCO_K8SAUDIT_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
 
           echo "Build information:"
           echo "Architecture: $(uname -m)"
           echo "Building Falco version: ${FALCO_VERSION}"
+          echo "Building Falco json plugin version: ${FALCO_JSON_PLUGIN_VERSION}"
           echo "Building Falco k8saudit plugin version: ${FALCO_K8SAUDIT_PLUGIN_VERSION}"
 
       - name: Get latest build workflow run
@@ -60,8 +62,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2.5.0
         with:
-          name: Falco ${{ steps.version.outputs.falco_version }} and k8saudit plugin ${{ steps.version.outputs.k8saudit_plugin_version }})
-          tag_name: falco/${{ steps.version.outputs.falco_version }}-k8saudit/${{ steps.version.outputs.k8saudit_plugin_version }}
+          name: ${{ steps.version.outputs.falco_version }}
+          tag_name: falco/${{ steps.version.outputs.falco_version }}
           body: |
             # Falco binary release for Falco Operator
 
@@ -70,6 +72,7 @@ jobs:
             ## What's Included
 
             - Falco binary at version: **${{ steps.version.outputs.falco_version }}**
+            - Falco json at plugin version: **${{ steps.version.outputs.json_plugin_version }}**
             - Falco k8saudit at plugin version: **${{ steps.version.outputs.k8saudit_plugin_version }}**
             - Default rules for Falco
             - Default rules for k8saudit plugin
