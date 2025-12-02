@@ -64,14 +64,7 @@ After the pull request is reviewed and approved, merge the pull request to the `
 
 ### 5. Create a GitHub Release
 
-Merging the PR to `main` will **NOT** trigger the [Create Falco Release](.github/workflows/release_falco.yaml) workflow.
-Instead, you need to create a tag and push it to the repository to trigger the release process. The tag format is
-`falco/<version>`, for example `falco/0.42.1`.
-
-```bash
-git tag -a falco/<version> -m "release: Falco version <version>"
-git push origin tag falco/<version>
-```
+Merging the PR to `main` will trigger the [Create Falco Release](.github/workflows/release_falco.yaml) workflow.
 
 ### 6. Verify the Release
 
@@ -83,7 +76,7 @@ After the workflow completes:
 
 ```bash
 # Download the release tarball
-wget https://github.com/canonical/falco-operator/releases/download/falco/<version>/falco-<version>-x86_64.tar.gz
+wget https://github.com/canonical/falco-operator/releases/download/falco/<tag>/falco-<version>-x86_64.tar.gz
 
 # Extract and verify contents
 tar -tzf falco-<version>-x86_64.tar.gz
