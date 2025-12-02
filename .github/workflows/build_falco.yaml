@@ -10,17 +10,7 @@ on:
     paths:
       - ".versions"
       - ".github/workflows/build_falco.yaml"
-  workflow_call:
-    outputs:
-      arch:
-        description: "The architecture string"
-        value: ${{ jobs.build-falco.outputs.arch }}
-      falco-version:
-        description: "The falco version string"
-        value: ${{ jobs.build-falco.outputs.falco-version }}
-      k8saudit-plugin-version:
-        description: "The k8saudit plugin version string"
-        value: ${{ jobs.build-falco.outputs.k8saudit-plugin-version }}
+      - ".github/workflows/release_falco.yaml"
 
 jobs:
   build-falco:
@@ -31,10 +21,6 @@ jobs:
       fail-fast: false
       matrix:
         runs-on: [ubuntu-24.04]
-    outputs:
-      arch: $"{{ steps.version.outputs.arch }}"
-      falco-version: "${{ steps.version.outputs.falco_version }}"
-      k8saudit-plugin-version: "${{ steps.version.outputs.k8saudit_plugin_version }}"
     env:
       ARTIFACT_ROOT: /tmp/artifacts
       FALCO_SOURCE: /tmp/source/falco
