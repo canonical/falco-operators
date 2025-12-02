@@ -1,3 +1,6 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
 # Falco version to build from source
 # renovate: depName=falcosecurity/falco
 FALCO_VERSION=0.42.1
