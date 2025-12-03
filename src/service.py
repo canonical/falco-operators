@@ -100,7 +100,7 @@ class Template:
             self.destination.write_text(content, encoding="utf-8")
             logger.debug("Template file generated at %s", self.destination)
         except OSError as e:
-            logger.error("Failed to write template to %s: %s", self.destination, e)
+            logger.exception("Failed to write template to %s", self.destination)
             raise TemplateRenderError(f"Failed to write template to {self.destination}") from e
 
 
@@ -164,8 +164,7 @@ class FalcoService:
         """Remove the Falco service and clean up files."""
         logger.info("Removing Falco service")
 
-        if self.check_active():
-            systemd.service_stop(self.service_file.service_name)
+        systemd.service_stop(self.service_file.service_name)
         systemd.service_disable(self.service_file.service_name)
         systemd.daemon_reload()
 

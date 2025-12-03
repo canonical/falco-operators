@@ -3,8 +3,6 @@
 
 """Unit tests for Falco charm."""
 
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import ops
@@ -13,25 +11,6 @@ import pytest
 from scenario.errors import UncaughtCharmError
 
 from charm import Charm
-
-
-@pytest.fixture
-def mock_falco_dir():
-    """Create a temporary Falco directory structure."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        falco_dir = Path(tmpdir) / "falco"
-        falco_dir.mkdir()
-        (falco_dir / "usr/bin").mkdir(parents=True)
-        (falco_dir / "usr/share/falco/plugins").mkdir(parents=True)
-        (falco_dir / "etc/falco/default_rules").mkdir(parents=True)
-        (falco_dir / "usr/bin/falco").touch()
-        yield falco_dir
-
-
-@pytest.fixture
-def mock_charm_dir(mock_falco_dir):
-    """Mock charm directory containing Falco directory."""
-    return mock_falco_dir.parent
 
 
 class TestCharm:

@@ -3,8 +3,6 @@
 
 """Unit tests for Falco service module."""
 
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,36 +16,6 @@ from service import (
     Template,
     TemplateRenderError,
 )
-
-
-@pytest.fixture
-def temp_dir():
-    """Create a temporary directory."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
-
-
-@pytest.fixture
-def falco_base_dir(temp_dir):
-    """Create a mock Falco base directory structure."""
-    base = temp_dir / "falco"
-    base.mkdir()
-    (base / "usr/bin").mkdir(parents=True)
-    (base / "usr/share/falco/plugins").mkdir(parents=True)
-    (base / "etc/falco/default_rules").mkdir(parents=True)
-    (base / "usr/bin/falco").touch()
-    return base
-
-
-@pytest.fixture
-def mock_charm():
-    """Create a mock charm."""
-    charm = MagicMock()
-    charm.model.name = "test-model"
-    charm.model.uuid = "test-uuid"
-    charm.app.name = "test-app"
-    charm.unit.name = "test-unit/0"
-    return charm
 
 
 class TestFalcoLayout:
@@ -70,15 +38,15 @@ class TestFalcoLayout:
         assert layout.rules_dir.exists()
         assert layout.rules_dir.is_dir()
 
-    def test_init_nonexistent_directory(self, temp_dir):
+    def test_init_nonexistent_directory(self, tmp_path):
         """Test initialization with nonexistent directory."""
-        nonexistent = temp_dir / "nonexistent"
+        nonexistent = tmp_path / "nonexistent"
         with pytest.raises(ValueError, match="does not exist or is not a directory"):
             FalcoLayout(nonexistent)
 
-    def test_init_file_not_directory(self, temp_dir):
+    def test_init_file_not_directory(self, tmp_path):
         """Test initialization with a file instead of directory."""
-        file_path = temp_dir / "file"
+        file_path = tmp_path / "file"
         file_path.touch()
         with pytest.raises(ValueError, match="does not exist or is not a directory"):
             FalcoLayout(file_path)
@@ -88,14 +56,14 @@ class TestTemplate:
     """Test Template class."""
 
     @patch("service.Environment")
-    def test_init(self, mock_env_class, temp_dir):
+    def test_init(self, mock_env_class, tmp_path):
         """Test template initialization."""
         mock_env = MagicMock()
         mock_template = MagicMock()
         mock_env.get_template.return_value = mock_template
         mock_env_class.return_value = mock_env
 
-        dest = temp_dir / "output.txt"
+        dest = tmp_path / "output.txt"
         context = {"key": "value"}
         template = Template("test.j2", dest, context)
 
@@ -105,16 +73,16 @@ class TestTemplate:
         mock_env.get_template.assert_called_once_with("test.j2")
 
     @patch("service.Environment")
-    def test_init_empty_context(self, mock_env_class, temp_dir):
+    def test_init_empty_context(self, mock_env_class, tmp_path):
         """Test template initialization with None context."""
         mock_env = MagicMock()
         mock_env_class.return_value = mock_env
 
-        template = Template("test.j2", temp_dir / "output.txt", None)
+        template = Template("test.j2", tmp_path / "output.txt", None)
         assert template.context == {}
 
     @patch("service.Environment")
-    def test_install(self, mock_env_class, temp_dir):
+    def test_install(self, mock_env_class, tmp_path):
         """Test template installation."""
         mock_env = MagicMock()
         mock_template = MagicMock()
@@ -122,7 +90,7 @@ class TestTemplate:
         mock_env.get_template.return_value = mock_template
         mock_env_class.return_value = mock_env
 
-        dest = temp_dir / "output.txt"
+        dest = tmp_path / "output.txt"
         context = {"key": "value"}
         template = Template("test.j2", dest, context)
         template.install()
@@ -132,7 +100,7 @@ class TestTemplate:
         mock_template.render.assert_called_once_with(context)
 
     @patch("service.Environment")
-    def test_install_creates_parent_directory(self, mock_env_class, temp_dir):
+    def test_install_creates_parent_directory(self, mock_env_class, tmp_path):
         """Test that install creates parent directories."""
         mock_env = MagicMock()
         mock_template = MagicMock()
@@ -140,7 +108,7 @@ class TestTemplate:
         mock_env.get_template.return_value = mock_template
         mock_env_class.return_value = mock_env
 
-        dest = temp_dir / "subdir" / "output.txt"
+        dest = tmp_path / "subdir" / "output.txt"
         template = Template("test.j2", dest, {})
         template.install()
 
@@ -148,12 +116,12 @@ class TestTemplate:
         assert dest.exists()
 
     @patch("service.Environment")
-    def test_remove(self, mock_env_class, temp_dir):
+    def test_remove(self, mock_env_class, tmp_path):
         """Test template removal."""
         mock_env = MagicMock()
         mock_env_class.return_value = mock_env
 
-        dest = temp_dir / "output.txt"
+        dest = tmp_path / "output.txt"
         dest.touch()
 
         template = Template("test.j2", dest, {})
@@ -162,17 +130,17 @@ class TestTemplate:
         assert not dest.exists()
 
     @patch("service.Environment")
-    def test_remove_nonexistent(self, mock_env_class, temp_dir):
+    def test_remove_nonexistent(self, mock_env_class, tmp_path):
         """Test removing nonexistent template file."""
         mock_env = MagicMock()
         mock_env_class.return_value = mock_env
 
-        dest = temp_dir / "nonexistent.txt"
+        dest = tmp_path / "nonexistent.txt"
         template = Template("test.j2", dest, {})
         template.remove()
 
     @patch("service.Environment")
-    def test_render_write_error(self, mock_env_class, temp_dir):
+    def test_render_write_error(self, mock_env_class, tmp_path):
         """Test render error handling."""
         mock_env = MagicMock()
         mock_template = MagicMock()
@@ -181,7 +149,7 @@ class TestTemplate:
         mock_env_class.return_value = mock_env
 
         # Use a path that will cause write error
-        dest = temp_dir / "readonly" / "output.txt"
+        dest = tmp_path / "readonly" / "output.txt"
         dest.parent.mkdir()
         dest.parent.chmod(0o444)
 
@@ -252,10 +220,8 @@ class TestFalcoService:
         mock_systemd.service_enable.assert_called_once_with(FALCO_SERVICE_NAME)
 
     @patch("service.systemd")
-    def test_remove_active_service(self, mock_systemd):
+    def test_remove_service(self, mock_systemd):
         """Test removing active Falco service."""
-        mock_systemd.service_running.return_value = True
-
         mock_config = MagicMock()
         mock_service_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
@@ -263,29 +229,11 @@ class TestFalcoService:
         service = FalcoService(mock_config, mock_service_file)
         service.remove()
 
-        mock_systemd.service_running.assert_called_once_with(FALCO_SERVICE_NAME)
         mock_systemd.service_stop.assert_called_once_with(FALCO_SERVICE_NAME)
         mock_systemd.service_disable.assert_called_once_with(FALCO_SERVICE_NAME)
         mock_systemd.daemon_reload.assert_called_once()
         mock_config.remove.assert_called_once()
         mock_service_file.remove.assert_called_once()
-
-    @patch("service.systemd")
-    def test_remove_inactive_service(self, mock_systemd):
-        """Test removing inactive Falco service."""
-        mock_systemd.service_running.return_value = False
-
-        mock_config = MagicMock()
-        mock_service_file = MagicMock()
-        mock_service_file.service_name = FALCO_SERVICE_NAME
-
-        service = FalcoService(mock_config, mock_service_file)
-        service.remove()
-
-        mock_systemd.service_running.assert_called_once_with(FALCO_SERVICE_NAME)
-        mock_systemd.service_stop.assert_not_called()
-        mock_systemd.service_disable.assert_called_once_with(FALCO_SERVICE_NAME)
-        mock_systemd.daemon_reload.assert_called_once()
 
     @patch("service.systemd")
     def test_configure(self, mock_systemd):
