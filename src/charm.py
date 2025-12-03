@@ -10,7 +10,8 @@ import typing
 
 import ops
 
-# Log messages can be retrieved using juju debug-log
+from service import FalcoConfig, FalcoLayout, FalcoService, FalcoServiceFile
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,26 +23,38 @@ class Charm(ops.CharmBase):
     """
 
     def __init__(self, *args: typing.Any):
-        """Charm the service.
-
-        Arguments:
-            args: Arguments passed to the CharmBase parent constructor.
-        """
+        """Charm the service."""
         super().__init__(*args)
-        self.framework.observe(self.on.install, self._on_install)
-        self.framework.observe(self.on.config_changed, self._on_config_changed)
 
-    def _on_install(self, _: ops.InstallEvent) -> None:
-        """Handle install event."""
-        logger.info("Installing Falco")
-        self.unit.status = ops.MaintenanceStatus("Installing Falco")
-        # TODO: Add Falco installation logic
-        self.unit.status = ops.ActiveStatus()
+        self.falco_layout = FalcoLayout(base_dir=self.charm_dir / "falco")
+        self.falco_service_file = FalcoServiceFile(self.falco_layout)
+        self.managed_falco_config = FalcoConfig(self.falco_layout, self)
+        self.falco_service = FalcoService(self.managed_falco_config, self.falco_service_file)
 
-    def _on_config_changed(self, _: ops.ConfigChangedEvent) -> None:
-        """Handle config changed event."""
-        logger.info("Configuring Falco")
-        # TODO: Add Falco configuration logic
+        self.framework.observe(self.on.remove, self._on_remove)
+        self.framework.observe(self.on.install, self._on_install_or_upgrade)
+        self.framework.observe(self.on.upgrade_charm, self._on_install_or_upgrade)
+        self.framework.observe(self.on.update_status, self._update_status)
+
+    def _on_remove(self, _: ops.RemoveEvent) -> None:
+        """Handle remove event."""
+        self.unit.status = ops.MaintenanceStatus("Removing Falco service")
+        self.falco_service.remove()
+
+    def _on_install_or_upgrade(self, _: ops.InstallEvent | ops.UpgradeCharmEvent) -> None:
+        """Handle install or upgrade charm event."""
+        self.unit.status = ops.MaintenanceStatus("Installing Falco service")
+        self.falco_service.install()
+        self.reconcile()
+
+    def _update_status(self, _: ops.UpdateStatusEvent) -> None:
+        """Update the unit status."""
+        self.reconcile()
+
+    def reconcile(self) -> None:
+        """Reconcile the charm state."""
+        if not self.falco_service.check_active():
+            raise RuntimeError("Falco service is not running")
         self.unit.status = ops.ActiveStatus()
 
 

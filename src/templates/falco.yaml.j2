@@ -1,0 +1,52 @@
+##################################################################
+#                 Juju Managed Falco config file                 #
+#                                                                #
+#  For more information about the configuration please refer to  #
+#  https://falco.org/docs/reference/daemon/config-options/       #
+#                                                                #
+##################################################################
+
+config_files: []
+watch_config_files: true
+
+rules_files:
+  - {{ falco_home }}/etc/falco/rules.d
+
+load_plugins:
+  - json
+  - k8saudit
+  - container
+
+plugins:
+  - name: json
+    library_path: {{ falco_home }}/usr/share/falco/plugins/libjson.so
+  - name: k8saudit
+    library_path: {{ falco_home }}/usr/share/falco/plugins/libk8saudit.so
+    init_config: ""
+    open_params: "http://:9765/k8s-audit"
+  - name: container
+    library_path: {{ falco_home }}/usr/share/falco/plugins/libcontainer.so
+    init_config:
+      label_max_len: 100
+      with_size: false
+
+json_output: true
+json_include_tags_property: true
+json_include_message_property: false
+json_include_output_property: true
+json_include_output_fields_property: true
+
+stdout_output:
+  enabled: true
+
+syslog_output:
+  enabled: true
+
+append_output:
+  - suggested_output: true
+  - extra_fields:
+    - juju_unit: {{ juju_topology.unit }}
+    - juju_charm: {{ juju_topology.charm }}
+    - juju_model: {{ juju_topology.model }}
+    - juju_model_uuid: {{ juju_topology.model_uuid }}
+    - juju_application: {{ juju_topology.application }}
