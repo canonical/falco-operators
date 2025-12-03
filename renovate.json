@@ -45,6 +45,16 @@
         "# renovate: depName=(?<depName>.*?)\\nFALCO_K8SAUDIT_PLUGIN_VERSION=(?<currentValue>.*)"
       ],
       "extractVersionTemplate": "^plugins/k8saudit/v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "github-tags",
+      "description": "Update Falco version in charmcraft from git tags (non-semver)",
+      "fileMatch": ["charmcraft.yaml"],
+      "matchStrings": [
+        "# renovate: depName=(?<depName>.*?)\\n\\s+VERSION=(?<currentValue>.*)"
+      ],
+      "extractVersionTemplate": "^falco/(?<version>.*)$"
     }
   ],
   "extends": [

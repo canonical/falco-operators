@@ -38,6 +38,7 @@ parts:
       craftctl default
 
       # Set Falco version
+      # renovate: depName=canonical/falco-operator
       VERSION=0.42.1
       # Determine architecture
       ARCH="$(uname -m)"
