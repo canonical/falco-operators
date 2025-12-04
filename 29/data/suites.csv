@@ -1,0 +1,21 @@
+"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
+"
+    Arrange: Falco charm is deployed and integrated with a principal charm.
+    Act: Remove the integration between falco and the principal charm.
+    Assert: Falco service is stopped and files are cleaned up.
+    ","","test_remove_integration","tests.integration","","unknown","","","test_charm","",""
+"
+    Arrange: Deploy a principal charm with VM constraints and falco charm.
+    Act: Integrate falco charm with the principal charm.
+    Assert: Both applications are deployed and active.
+    ","","test_deploy_charms","tests.integration","","unknown","","","test_charm","",""
+"
+    Arrange: Falco charm is deployed and active.
+    Act: Check if falco systemd service is running.
+    Assert: Falco service is active and running.
+    ","","test_falco_service_running","tests.integration","","unknown","","","test_charm","",""
+"
+    Arrange: Falco charm is deployed and active.
+    Act: Check for expected files on the unit.
+    Assert: Falco binary, config, and systemd service files exist.
+    ","","test_falco_files_exist","tests.integration","","unknown","","","test_charm","",""
