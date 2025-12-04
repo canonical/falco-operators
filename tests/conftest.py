@@ -15,16 +15,22 @@ def pytest_addoption(parser):
         "--keep-models",
         action="store_true",
         default=False,
-        help="keep temporarily-created models",
+        help="Keep temporarily-created models",
     )
     parser.addoption(
         "--use-existing",
         action="store_true",
         default=False,
-        help="use existing models and not created models",
+        help="Use existing models and not created models",
     )
     parser.addoption(
         "--model",
         action="store",
-        help="temporarily-created model name",
+        help="Temporarily-created model name",
+    )
+    parser.addoption(
+        "--base",
+        action="store",
+        default="ubuntu@24.04",
+        help="Ubuntu base to deploy the charm on",
     )
