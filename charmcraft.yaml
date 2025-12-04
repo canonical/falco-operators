@@ -60,6 +60,34 @@ parts:
 
 config:
   options:
+    setting-repo:
+      type: string
+      description: |
+        A remote git repository for custom falco rules and falco configuration to customize falco operator.
+        The format of the config option must be `<schema>://<user>@<host>/<path>[@[branch|tag]][@[sub_path]]`.
+        For example,
+        * `git+ssh://git@github.com/canoincal/falco-operator.git`.
+        * `git+ssh://git@github.com/canoincal/falco-operator.git@main`.
+        * `git+ssh://git@github.com/canoincal/falco-operator.git@production@/src/mainfests`.
+
+        The repository should have the following structure
+
+        setting-repo/sub_path/
+          ├── falco.yaml
+          └── rules.d
+              ├── a.yaml
+              └── b.yaml
+
+        If the repository is not public, SSH key should be provided via secret, and the secret ID should be set in
+        `setting-repo-ssh-key-id`.
+    setting-repo-ssh-key-id:
+      type: secret
+      description: |
+        The Juju secret ID corresponding to the private key for SSH authentication to the git repository. The secret
+        should contain a single key, `value`, which maps to the actual SSH key. To create the secret, run the following
+        command. and use the secret ID output to configure this option.
+
+        `juju add-secret setting-repo-ssh-key value=<ssh-key> && juju grant-secret setting-repo-ssh-key falco`
 
 requires:
   general-info:
