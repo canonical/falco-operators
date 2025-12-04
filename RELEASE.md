@@ -1,4 +1,4 @@
-# Create a Falco Binary Release
+# Falco Binary Release
 
 This guide outlines the process for creating a new Falco binary release for the Falco Operator.
 
@@ -20,23 +20,19 @@ process for Falco binary. This Falco binary is used by the Falco Operator, and i
 > This step is typically performed by the renovate bot. Manual updates are only necessary if you are creating a release
 > outside of the regular schedule.
 
-Edit the `.versions` file in the repository root to specify the Falco and plugin versions to build:
+Edit the `.versions` file in the repository root to specify the Falco and plugin versions to build. You can find the
+latest versions on the respective GitHub releases pages.
 
-```bash
-# Falco version to build from source
-# renovate: depName=falcosecurity/falco
-FALCO_VERSION=0.42.1
+References:
 
-# Falco plugins version to build from source
-# renovate: depName=falcosecurity/plugins
-FALCO_K8SAUDIT_PLUGIN_VERSION=0.16.0
-```
-
-Update the version numbers as needed:
-- `FALCO_VERSION`: The Falco release version tag from [falcosecurity/falco](https://github.com/falcosecurity/falco/releases)
-- `FALCO_K8SAUDIT_PLUGIN_VERSION`: The k8saudit plugin version (not the tag) from [falcosecurity/plugins](https://github.com/falcosecurity/plugins/releases)
+- [Falco Releases](https://github.com/falcosecurity/falco/releases)
+- [Falco Plugins Releases](https://github.com/falcosecurity/plugins/releases)
 
 ### 2. Create a Pull Request
+
+> [!NOTE]
+> This step is typically performed by the renovate bot. Manual updates are only necessary if you are creating a release
+> outside of the regular schedule.
 
 Create a pull request with your version changes:
 

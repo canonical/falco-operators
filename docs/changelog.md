@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2025-12-04
+
+Create initial version of Falco operator.
+
+### Added
+- Initial version of Falco operator implementation
+- Unit test functional test for the Falco operator
+- Build and release workflow for Falco binary used in this charm
+- Renovate configuration for Falco dependency management
+- Updated `RELEASE.md` documentation
+
 ## 2025-11-25
 
 Set up initial Falco operator project.
