@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2025-12-05
+
+Add configuration for falco.
+
+### Added
+- Config option for falco operator that allows setting custom falco configuration
+- Opinionated setting manifests for Falco configuration
+- Unit tests for operator functionality
+
 ## 2025-12-04
 
 Create initial version of Falco operator.
