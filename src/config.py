@@ -122,7 +122,7 @@ class SettingRepoManager:
         Returns:
             The reference as a string or empty string if not specified
         """
-        return dict(self._setting_repo.query_params()).get("ref", "")
+        return dict(self._setting_repo.query_params()).get("ref", "").lstrip("/")
 
     @property
     def host(self) -> str:
@@ -193,7 +193,15 @@ class SettingRepoManager:
         return True
 
     def _rsync(self, source: str, destination: str) -> None:
-        """Rsync files from source to destination."""
+        """Rsync files from source to destination.
+
+        Args:
+            source (str): The source directory
+            destination (str): The destination directory
+
+        Raises:
+            RsyncError: If rsync fails
+        """
         rsync_cmd = [RSYNC, "-av", "--delete", source, destination]
         try:
             subprocess.run(rsync_cmd, check=True)
@@ -202,7 +210,11 @@ class SettingRepoManager:
             raise RsyncError(f"Rsync failed: {e.stderr}") from e
 
     def _add_ssh_key(self) -> None:
-        """Add the Ssh private key to the host."""
+        """Add the Ssh private key to the host.
+
+        Raises:
+            SshKeyWriteError: If writing the Ssh key fails
+        """
         Ssh_DIR.mkdir(mode=0o700, exist_ok=True)
         try:
             with SSH_KEY_FILE.open("w", encoding="utf-8") as key_file:
