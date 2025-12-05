@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 import ops
-from pydantic import AnyUrl, BaseModel
+from pydantic import AnyUrl, BaseModel, ValidationError, field_validator
 
 from service import FalcoLayout
 
@@ -30,6 +30,9 @@ KNOWN_HOSTS_FILE = Ssh_DIR / "known_hosts"
 # See `setting-repo` config option in `charmcraft.yaml` to learn more.
 RSYNC_CUSTOM_RULES_KEY = "rules.d"
 RSYNC_CUSTOM_CONFIGS_KEY = "config.override.d"
+
+# Supported URL schemes for setting-repo
+SUPPORTED_URL_SCHEMES = "git+ssh"
 
 
 class RsyncError(Exception):
@@ -58,6 +61,33 @@ class CharmConfig(BaseModel):
 
     setting_repo: str = ""
     setting_repo_ssh_key_id: Optional[ops.Secret] = None
+
+    @field_validator("setting_repo")
+    @classmethod
+    def validate_setting_repo(cls, v: str) -> str:
+        """Validate the setting_repo URL.
+
+        Args:
+            v (str): The setting_repo URL
+
+        Returns:
+            The validated setting_repo URL
+
+        Raises:
+            ValueError: If the URL is invalid
+        """
+        # No need to validate for empty URL
+        if not v:
+            return v
+
+        try:
+            url = AnyUrl(v)
+        except ValidationError as e:
+            raise ValueError(f"Invalid setting repo URL: {v}") from e
+
+        if url.scheme not in SUPPORTED_URL_SCHEMES:
+            raise ValueError(f"Only {SUPPORTED_URL_SCHEMES} are supported")
+        return v
 
 
 class SettingRepoManager:
