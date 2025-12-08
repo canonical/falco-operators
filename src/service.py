@@ -4,6 +4,8 @@
 """Falco workload management module."""
 
 import logging
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -12,7 +14,27 @@ from cosl import JujuTopology
 from jinja2 import Environment, FileSystemLoader
 from ops.charm import CharmBase
 
+import state
+
 logger = logging.getLogger(__name__)
+
+# Executable paths
+GIT = "/usr/bin/git"
+RSYNC = "/usr/bin/rsync"
+SSH_KEYSCAN = "/usr/bin/ssh-keyscan"
+
+# Ssh related paths
+SSH_DIR = Path.home() / ".ssh"
+SSH_KEY_FILE = SSH_DIR / "id_rsa"
+KNOWN_HOSTS_FILE = SSH_DIR / "known_hosts"
+
+# Keys to look for in the falco custom config repo.
+# See `custom-config-repo` config option in `charmcraft.yaml` to learn more.
+FALCO_CUSTOM_RULES_KEY = "rules.d"
+FALCO_CUSTOM_CONFIGS_KEY = "config.override.d"
+
+# Clone output directory
+CLONE_OUTPUT_DIR = Path.home() / "custom-falco-config-repository"
 
 
 FALCO_SERVICE_NAME = "falco"
@@ -21,8 +43,28 @@ TEMPLATE_DIR = "src/templates"
 SYSTEMD_SERVICE_DIR = Path("/etc/systemd/system")
 
 
+class RsyncError(Exception):
+    """Exception raised when rsync fails."""
+
+
+class GitCloneError(Exception):
+    """Exception raised when git clone fails."""
+
+
+class SshKeyScanError(Exception):
+    """Exception raised when Ssh keyscan fails."""
+
+
+class SshKeyWriteError(Exception):
+    """Exception raised when writing Ssh key fails."""
+
+
 class TemplateRenderError(Exception):
     """Exception raised when template rendering fails."""
+
+
+class FalcoConfigurationError(Exception):
+    """Exception raised when Falco configuration fails."""
 
 
 class FalcoLayout:
@@ -149,7 +191,7 @@ class FalcoServiceFile(Template):
         )
 
 
-class FalcoConfig(Template):
+class FalcoConfigFile(Template):
     """Falco config file manager."""
 
     template: str = "falco.yaml.j2"
@@ -165,12 +207,256 @@ class FalcoConfig(Template):
         )
 
 
+class FalcoCustomSetting:
+    """Falco custom setting manager.
+
+    Falco custom setting means the custom falco configuration files and custom falco rules files.
+    """
+
+    def __init__(self, falco_layout: FalcoLayout) -> None:
+        """Initialize the Falco custom setting manager.
+
+        Args:
+            falco_layout (FalcoLayout): The Falco file layout
+        """
+        self.falco_layout = falco_layout
+
+    def install(self) -> None:
+        """Install the Falco custom settings."""
+        logger.info("Installing Falco custom settings")
+
+        # Ensure the custom rules and config directories exist
+        self.falco_layout.rules_dir.mkdir(parents=True, exist_ok=True)
+        self.falco_layout.configs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Ensure SSH directory exists
+        SSH_DIR.mkdir(mode=0o700, exist_ok=True)
+
+        logger.info("Falco custom settings installed")
+
+    def remove(self) -> None:
+        """Remove the Falco custom settings."""
+        logger.info("Removing Falco custom settings")
+
+        # Remove all custom rules files
+        for rule_file in self.falco_layout.rules_dir.glob("*.yaml"):
+            rule_file.unlink()
+
+        # Remove all custom config files
+        for config_file in self.falco_layout.configs_dir.glob("*.yaml"):
+            config_file.unlink()
+
+        logger.info("Falco custom settings removed")
+
+    def configure(self, charm_state: state.CharmState) -> None:
+        """Configure the Falco custom settings.
+
+        Args:
+            charm_state (CharmState): The charm state
+        """
+        if not charm_state.custom_config_repo:
+            logger.info("No custom config repository set")
+            logger.debug("Removing Falco custom settings")
+            self.remove()
+            return
+
+        logger.info("Configuring Falco custom settings")
+
+        # Sync custom configuration repository
+        self._git_sync(
+            str(charm_state.custom_config_repo),
+            str(charm_state.custom_config_repo.host),
+            ref=charm_state.custom_config_repo_ref,
+            ssh_private_key=charm_state.custom_config_repo_ssh_key,
+        )
+
+        # Pull configuration files from the custom repository to falco config directories
+        self._pull_falco_rule_files()
+        self._pull_falco_config_files()
+
+        logger.info("Falco custom settings configured")
+
+    def _pull_falco_rule_files(self) -> None:
+        """Pull falco config files from custom config repository.
+
+        Raises:
+            RsyncError: If rsync fails
+        """
+        source = f"{CLONE_OUTPUT_DIR}/{FALCO_CUSTOM_RULES_KEY}/"
+        destination = f"{self.falco_layout.rules_dir}/"
+        rsync_cmd = [
+            RSYNC,
+            "-av",
+            "--delete",
+            "--include=*.yaml",
+            source,
+            destination,
+        ]
+        try:
+            logger.error("Rsync command: %s", rsync_cmd)
+            subprocess.run(rsync_cmd, check=True)
+        except subprocess.CalledProcessError as e:
+            logging.error("Rsync failed from %s to %s", source, destination)
+            raise RsyncError(f"Rsync failed: {e.stderr}") from e
+
+    def _pull_falco_config_files(self) -> None:
+        """Pull falco config files from custom config repository.
+
+        Raises:
+            RsyncError: If rsync fails
+        """
+        source = f"{CLONE_OUTPUT_DIR}/{FALCO_CUSTOM_CONFIGS_KEY}/"
+        destination = f"{self.falco_layout.configs_dir}/"
+        rsync_cmd = [
+            RSYNC,
+            "-av",
+            "--delete",
+            "--include=*.yaml",
+            source,
+            destination,
+        ]
+        try:
+            subprocess.run(rsync_cmd, check=True)
+        except subprocess.CalledProcessError as e:
+            logging.error("Rsync failed from %s to %s", source, destination)
+            raise RsyncError(f"Rsync failed: {e.stderr}") from e
+
+    def _git_sync(
+        self,
+        repo: str,
+        hostname: str,
+        ref: str = "",
+        ssh_private_key: str = "",
+    ) -> bool:
+        """Sync the repository to the specified destination.
+
+        Args:
+            repo (str): The repository URL
+            hostname (str): The host to scan for Ssh key
+            ref (str): The branch or tag to checkout
+            ssh_private_key (str): The SSH private key content
+
+        Returns:
+            True if the repository was already synced or synced successfully, False otherwise
+
+        Raises:
+            GitCloneError: If git clone fails
+            SshKeyScanError: If ssh-keyscan fails
+            SshKeyWriteError: If writing the Ssh key fails
+        """
+        repo_cloned = repo == self._get_cloned_repo_url()
+        repo_tag_matched = ref == self._get_cloned_repo_tag()
+        if repo_cloned and repo_tag_matched:
+            logger.info("Custom config repository already synced")
+            return True
+
+        if ssh_private_key:
+            self._setup_ssh_key(ssh_private_key)
+
+        self._add_known_hosts(hostname)
+        self._git_clone(repo, ref=ref)
+
+        return True
+
+    def _setup_ssh_key(self, ssh_private_key: str) -> None:
+        """Add the SSH private key to the host.
+
+        Args:
+            ssh_private_key (str): The SSH private key content
+
+        Raises:
+            SshKeyWriteError: If writing the Ssh key fails
+        """
+        try:
+            with SSH_KEY_FILE.open("w", encoding="utf-8") as key_file:
+                key_file.write(ssh_private_key)
+            SSH_KEY_FILE.chmod(0o600)
+        except OSError as e:
+            logging.error("Error writing SSH private key to %s", SSH_KEY_FILE)
+            raise SshKeyWriteError(f"Error writing SSH key to {SSH_KEY_FILE}") from e
+
+    def _add_known_hosts(self, hostname: str) -> None:
+        """Scan and add the Ssh host key to known_hosts.
+
+        Args:
+            hostname (str): The host to scan
+
+        Raises:
+            SshKeyScanError: If ssh-keyscan fails
+        """
+        add_known_hosts_cmd = [SSH_KEYSCAN, "-t", "rsa", hostname]
+        try:
+            out = subprocess.check_output(add_known_hosts_cmd).decode()
+            with KNOWN_HOSTS_FILE.open("w", encoding="utf-8") as known_hosts_file:
+                known_hosts_file.write(out)
+        except subprocess.CalledProcessError as e:
+            logging.error("'%s' failed for host %s", SSH_KEYSCAN, hostname)
+            raise SshKeyScanError(f"{SSH_KEYSCAN} failed for host {hostname}") from e
+        except OSError as e:
+            logging.error("Error writing to known hosts at %s", KNOWN_HOSTS_FILE)
+            raise SshKeyScanError(f"Error writing to known hosts at {KNOWN_HOSTS_FILE}") from e
+
+    def _git_clone(self, repo: str, ref: str = "") -> None:
+        """Clone a git repository using with depth 1.
+
+        Args:
+            repo (str): The repository URL
+            ref (str): The branch or tag to checkout
+
+        Raises:
+            GitCloneError: If git clone fails
+        """
+        git_clone_cmd = [GIT, "clone", "--depth", "1", repo, str(CLONE_OUTPUT_DIR)]
+        git_clone_cmd += ["-b", ref] if ref else []
+
+        try:
+            shutil.rmtree(CLONE_OUTPUT_DIR, ignore_errors=True)
+            subprocess.run(git_clone_cmd, check=True)
+        except subprocess.CalledProcessError as e:
+            logging.error("Error cloning repository %s", repo)
+            raise GitCloneError(f"Error cloning repository {repo}") from e
+
+    def _get_cloned_repo_url(self) -> str:
+        """Get the cloned repository URL.
+
+        Returns:
+            The repository URL as a string or empty string if the repository is not cloned.
+        """
+        cmd = [GIT, "-C", str(CLONE_OUTPUT_DIR), "config", "--get", "remote.origin.url"]
+        try:
+            url = subprocess.check_output(cmd).decode()
+        except subprocess.CalledProcessError as e:
+            logger.debug(e)
+            return ""
+        return url.strip()
+
+    def _get_cloned_repo_tag(self) -> str:
+        """Get the cloned repository tag.
+
+        Returns:
+            The repository tag as a string or empty string if the repository is not cloned.
+        """
+        cmd = [GIT, "-C", str(CLONE_OUTPUT_DIR), "describe", "--tags", "--exact-match"]
+        try:
+            tag = subprocess.check_output(cmd).decode()
+        except subprocess.CalledProcessError as e:
+            logger.debug(e)
+            return ""
+        return tag.strip()
+
+
 class FalcoService:
     """Falco service manager."""
 
-    def __init__(self, config_file: FalcoConfig, service_file: FalcoServiceFile) -> None:
+    def __init__(
+        self,
+        config_file: FalcoConfigFile,
+        service_file: FalcoServiceFile,
+        custom_setting: FalcoCustomSetting,
+    ) -> None:
         self.config_file = config_file
         self.service_file = service_file
+        self.custom_setting = custom_setting
 
     def install(self) -> None:
         """Install and configure the Falco service."""
@@ -178,7 +464,7 @@ class FalcoService:
 
         self.config_file.install()
         self.service_file.install()
-        self.configure()
+        self.custom_setting.install()
 
         systemd.service_enable(self.service_file.service_name)
 
@@ -194,12 +480,25 @@ class FalcoService:
 
         self.config_file.remove()
         self.service_file.remove()
+        self.custom_setting.remove()
 
         logger.info("Falco service removed")
 
-    def configure(self) -> None:
-        """Configure the Falco service."""
+    def configure(self, charm_state: state.CharmState) -> None:
+        """Configure the Falco service.
+
+        Args:
+            charm_state (CharmState): The charm state
+        Raises:
+            FalcoConfigurationError: If configuration validation fails
+        """
         logger.info("Configuring Falco service")
+
+        try:
+            self.custom_setting.configure(charm_state)
+        except (GitCloneError, SshKeyScanError, RsyncError) as e:
+            logger.error("Failed to configure Falco custom settings: %s", e)
+            raise FalcoConfigurationError("Failed to configure Falco service") from e
 
         systemd.daemon_reload()
         systemd.service_restart(self.service_file.service_name)

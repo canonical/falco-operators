@@ -12,7 +12,6 @@ Add configuration for falco.
 
 ### Added
 - Config option for falco operator that allows setting custom falco configuration
-- Opinionated setting manifests for Falco configuration
 - Unit tests for operator functionality
 
 ## 2025-12-04
