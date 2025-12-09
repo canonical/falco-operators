@@ -398,7 +398,7 @@ def _git_sync(
     hostname: str,
     ref: str = "",
     ssh_private_key: str = "",
-) -> bool:
+) -> None:
     """Sync the repository to the specified destination.
 
     Args:
@@ -406,9 +406,6 @@ def _git_sync(
         hostname (str): The host to scan for Ssh key
         ref (str): The branch or tag to checkout
         ssh_private_key (str): The SSH private key content
-
-    Returns:
-        True if the repository was already synced or synced successfully, False otherwise
 
     Raises:
         GitCloneError: If git clone fails
@@ -419,15 +416,13 @@ def _git_sync(
     repo_tag_matched = ref == _get_cloned_repo_tag()
     if repo_cloned and repo_tag_matched:
         logger.info("Custom config repository already synced")
-        return True
+        return
 
     if ssh_private_key:
         _setup_ssh_key(ssh_private_key)
 
     _add_known_hosts(hostname)
     _git_clone(repo, ref=ref)
-
-    return True
 
 
 def _setup_ssh_key(ssh_private_key: str) -> None:

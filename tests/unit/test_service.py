@@ -446,11 +446,8 @@ class TestUtilityFunctions:
 
         mock_subprocess.check_output.side_effect = check_output_side_effect
 
-        result = service._git_sync(
-            "git+ssh://git@github.com/user/repo.git", "github.com", ref="v1.0"
-        )
+        service._git_sync("git+ssh://git@github.com/user/repo.git", "github.com", ref="v1.0")
 
-        assert result is True
         # Should not call run (git clone) if already synced
         mock_subprocess.run.assert_not_called()
 
