@@ -183,7 +183,7 @@ class TestFalcoCustomSetting:
         custom_setting.configure(charm_state)
 
         # Verify rsync was called
-        assert mock_subprocess.run.called
+        mock_subprocess.run.assert_called()
 
     @patch("service.subprocess.run")
     def test_pull_falco_rule_files_rsync_error(self, mock_run, mock_falco_layout):

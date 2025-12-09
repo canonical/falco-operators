@@ -11,13 +11,9 @@ from typing import Optional
 import ops
 from pydantic import AnyUrl, BaseModel, ValidationError
 
-from config import CharmConfig
+from config import CharmConfig, InvalidCharmConfigError
 
 logger = logging.getLogger(__name__)
-
-
-class RecoverableStateError(Exception):
-    """Exception raised when a recoverable state error occurs."""
 
 
 class CharmState(BaseModel):
@@ -48,7 +44,7 @@ class CharmState(BaseModel):
             logger.error("Configuration validation error: %s", e)
             error_fields = set(itertools.chain.from_iterable(err["loc"] for err in e.errors()))
             error_field_str = " ".join(f"{f}" for f in error_fields)
-            raise RecoverableStateError(f"Invalid charm configuration {error_field_str}") from e
+            raise InvalidCharmConfigError(f"Invalid charm configuration {error_field_str}") from e
 
         repo = charm_config.custom_config_repository
         custom_config_repo = None
@@ -92,7 +88,7 @@ def _fetch_custom_ssh_key(model: ops.Model, config: CharmConfig) -> Optional[str
         The SSH key as a string, or None if not found.
 
     Raises:
-        RecoverableStateError: If the secret cannot be accessed properly.
+        InvalidCharmConfigError: If the secret cannot be accessed properly.
     """
     if not config.custom_config_repo_ssh_key:
         return None
@@ -101,12 +97,12 @@ def _fetch_custom_ssh_key(model: ops.Model, config: CharmConfig) -> Optional[str
         ssh_key_id = config.custom_config_repo_ssh_key.id
         ssh_key_secret = model.get_secret(id=ssh_key_id)
     except ops.SecretNotFoundError as exc:
-        raise RecoverableStateError("Repository secret not found.") from exc
+        raise InvalidCharmConfigError("Repository secret not found.") from exc
 
     ssh_key_content = ssh_key_secret.get_content(refresh=True).get("value")
 
     if not ssh_key_content:
-        raise RecoverableStateError(
+        raise InvalidCharmConfigError(
             "Repository secret is empty or does not contain the expected key 'value'."
         )
     return ssh_key_content

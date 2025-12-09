@@ -9,6 +9,10 @@ from ops import Secret
 from pydantic import AnyUrl, BaseModel, ConfigDict
 
 
+class InvalidCharmConfigError(Exception):
+    """Exception raised when the charm configuration is invalid."""
+
+
 class CharmConfig(BaseModel):
     """The pydantic model for charm config.
 

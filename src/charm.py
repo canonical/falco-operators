@@ -10,6 +10,7 @@ import typing
 
 import ops
 
+from config import InvalidCharmConfigError
 from service import (
     FalcoConfigFile,
     FalcoConfigurationError,
@@ -18,7 +19,7 @@ from service import (
     FalcoService,
     FalcoServiceFile,
 )
-from state import CharmBaseWithState, CharmState, RecoverableStateError
+from state import CharmBaseWithState, CharmState
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class Falco(CharmBaseWithState):
         """Reconcile the charm state."""
         try:
             self.falco_service.configure(self.state)
-        except RecoverableStateError:
+        except InvalidCharmConfigError:
             self.unit.status = ops.BlockedStatus("Invalid charm config")
             return
         except FalcoConfigurationError:

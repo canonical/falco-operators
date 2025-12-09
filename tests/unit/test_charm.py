@@ -3,11 +3,13 @@
 
 """Unit tests for Falco charm."""
 
+import shutil
 from unittest.mock import MagicMock, patch
 
 import ops
 import ops.testing
 import pytest
+from pydantic import AnyUrl
 
 from charm import Falco
 from service import FalcoConfigurationError
@@ -30,8 +32,6 @@ class TestCharm:
 
     def test_charm_initialization_missing_falco_directory(self, mock_charm_dir, mock_falco_layout):
         """Test charm initialization when Falco directory is missing."""
-        import shutil
-
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state = ops.testing.State()
 
@@ -156,10 +156,36 @@ class TestCharmConfigHandling:
         state_in = ops.testing.State(
             config={"custom-config-repository": "git+ssh://github.com/user/repo.git"}
         )
-        state_out = context.run(context.on.config_changed(), state_in)
 
-        assert mock_service.configure.called
-        assert state_out.unit_status == ops.testing.ActiveStatus()
+        with context(context.on.config_changed(), state_in) as mgr:
+            state = mgr.charm.state
+            assert state.custom_config_repo == AnyUrl("git+ssh://github.com/user/repo.git")
+            assert state.custom_config_repo_ref == ""
+            state_out = mgr.run()
+            mock_service.configure.assert_called_once()
+            assert state_out.unit_status == ops.testing.ActiveStatus()
+
+    @patch("charm.FalcoService")
+    def test_config_changed_with_custom_config_repository_and_ref(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout
+    ):
+        """Test config_changed event with custom config repository and ref configured."""
+        mock_service = MagicMock()
+        mock_service.check_active.return_value = True
+        mock_service_class.return_value = mock_service
+
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        state_in = ops.testing.State(
+            config={"custom-config-repository": "git+ssh://github.com/user/repo.git@production"}
+        )
+
+        with context(context.on.config_changed(), state_in) as mgr:
+            state = mgr.charm.state
+            assert state.custom_config_repo == AnyUrl("git+ssh://github.com/user/repo.git")
+            assert state.custom_config_repo_ref == "production"
+            state_out = mgr.run()
+            mock_service.configure.assert_called_once()
+            assert state_out.unit_status == ops.testing.ActiveStatus()
 
     @patch("charm.FalcoService")
     def test_config_changed_without_custom_config_repository(
@@ -172,10 +198,14 @@ class TestCharmConfigHandling:
 
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state_in = ops.testing.State()
-        state_out = context.run(context.on.config_changed(), state_in)
 
-        mock_service.configure.assert_called_once()
-        assert state_out.unit_status == ops.testing.ActiveStatus()
+        with context(context.on.config_changed(), state_in) as mgr:
+            state = mgr.charm.state
+            assert state.custom_config_repo is None
+            assert state.custom_config_repo_ref is None
+            state_out = mgr.run()
+            mock_service.configure.assert_called_once()
+            assert state_out.unit_status == ops.testing.ActiveStatus()
 
     @patch("charm.FalcoService")
     def test_config_changed_validation_error(
