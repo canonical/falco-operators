@@ -13,7 +13,7 @@ import pytest
 logger = logging.getLogger(__name__)
 
 FALCOSIDEKICK_APP = "falcosidekick"
-FALCOSIDEKICK_IMAGE = "falcosidekick"
+FALCOSIDEKICK_IMAGE = "falcosidekick-image"
 
 
 def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Config):

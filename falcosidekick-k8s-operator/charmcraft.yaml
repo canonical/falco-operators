@@ -36,9 +36,9 @@ config:
 
 containers:
   falcosidekick:
-    resource: falcosidekick
+    resource: falcosidekick-image
 
 resources:
-  falcosidekick:
+  falcosidekick-image:
     type: oci-image
     description: OCI image for the falcosidekick container
