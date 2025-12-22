@@ -148,7 +148,7 @@ jobs:
           mv $TARBALL ${{ github.workspace }}/
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v5.0.0
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: falco-${{ steps.version.outputs.falco_version }}-${{ steps.version.outputs.arch }}
           path: |

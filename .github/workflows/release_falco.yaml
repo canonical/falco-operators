@@ -54,7 +54,7 @@ jobs:
             core.setOutput('id', runs.workflow_runs[0].id);
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           run-id: ${{ steps.latest_build_workflow_run.outputs.id }}
           pattern: falco-${{ steps.version.outputs.falco_version }}-*
