@@ -11,11 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class InvalidCharmConfigError(Exception):
-    """Exception raised when the charm configuration is invalid.
-
-    This exception is raised when charm configuration validation fails,
-    typically due to invalid port numbers or other configuration values.
-    """
+    """Exception raised when the charm configuration is invalid."""
 
 
 class CharmConfig(BaseModel):
@@ -38,7 +34,7 @@ class CharmConfig(BaseModel):
             int: The validated port number.
 
         Raises:
-            InvalidCharmConfigError: If the port number is not in the valid range.
+            ValueError: If the port number is not in the valid range.
         """
         if not (1 <= value <= 65535):
             logger.error("Invalid port number: %d. Must be between 1 and 65535.", value)
