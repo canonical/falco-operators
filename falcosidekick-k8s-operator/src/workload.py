@@ -46,9 +46,6 @@ class Template:
 
         Returns:
             bool: True if there is change in configuration, False otherwise
-
-        Raises:
-            TemplateRenderError: If rendering or writing the template fails
         """
         logger.debug("Generating template file at %s", self.destination)
         try:
