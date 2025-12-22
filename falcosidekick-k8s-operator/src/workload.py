@@ -45,7 +45,7 @@ class Template:
             context (dict): Context for rendering the template
 
         Returns:
-            bool: True if there is change in configuration, False otherwise
+            True if there is change in configuration, False otherwise
         """
         logger.debug("Generating template file at %s", self.destination)
         try:
@@ -108,7 +108,7 @@ class Falcosidekick:
         """Determine if the Falcosidekick workload is ready for use.
 
         Returns:
-            bool: True if the container is ready and can be connected to, False otherwise.
+            True if the container is ready and can be connected to, False otherwise.
         """
         return self.container.can_connect()
 
@@ -119,7 +119,7 @@ class Falcosidekick:
         Checks all alive-level health checks for the workload.
 
         Returns:
-            bool: True if all health checks are UP, False otherwise.
+            True if all health checks are UP, False otherwise.
         """
         if not self.ready:
             logger.warning("Cannot determine health; container is not ready")
@@ -132,7 +132,7 @@ class Falcosidekick:
         """Get the Falcosidekick container.
 
         Returns:
-            ops.Container: The Falcosidekick container instance.
+            The Falcosidekick container instance.
         """
         return self.charm.unit.get_container(self.container_name)
 
@@ -143,7 +143,7 @@ class Falcosidekick:
             port: The port on which the health check endpoint is available.
 
         Returns:
-            ops.pebble.LayerDict: The Pebble layer configuration for health checks.
+            The Pebble layer configuration for health checks.
         """
         return {
             "checks": {

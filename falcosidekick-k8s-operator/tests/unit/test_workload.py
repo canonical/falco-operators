@@ -16,7 +16,12 @@ class TestTemplate:
     """Test Template class."""
 
     def test_install_template_ok_with_changes(self):
-        """Test template installation succeeds when configuration changes."""
+        """Test template installation succeeds when configuration changes.
+
+        Arrange: Set up mock container with old content different from new template.
+        Act: Install template with new configuration.
+        Assert: Template is pushed to container and returns True.
+        """
         # Arrange: Set up mock container with old content
         mock_container = Mock(spec=ops.Container)
         mock_pull = Mock()
@@ -36,7 +41,12 @@ class TestTemplate:
         assert mock_container.push.call_args[0][0] == Path("/etc/test.yaml")
 
     def test_install_template_ok_no_changes(self):
-        """Test template installation when configuration hasn't changed."""
+        """Test template installation when configuration hasn't changed.
+
+        Arrange: Set up mock container with content matching new template.
+        Act: Install template with same configuration.
+        Assert: Template is not pushed and returns False.
+        """
         # Arrange: Set up mock container with matching content
         mock_container = Mock(spec=ops.Container)
 
@@ -58,7 +68,12 @@ class TestTemplate:
             mock_container.push.assert_not_called()
 
     def test_install_template_creates_parent_directory(self):
-        """Test template installation creates parent directory if it doesn't exist."""
+        """Test template installation creates parent directory if it doesn't exist.
+
+        Arrange: Set up mock container where parent directory doesn't exist.
+        Act: Install template to path with non-existent parent directory.
+        Assert: Parent directory is created and template is pushed.
+        """
         # Arrange: Set up mock container where directory doesn't exist
         mock_container = Mock(spec=ops.Container)
         mock_container.pull.side_effect = ops.pebble.PathError("kind", "message")
@@ -76,7 +91,12 @@ class TestTemplate:
         mock_container.make_dir.assert_called_once_with("/etc/new", make_parents=True)
 
     def test_install_template_fail_handles_path_error(self):
-        """Test template installation handles PathError when file doesn't exist."""
+        """Test template installation handles PathError when file doesn't exist.
+
+        Arrange: Set up mock container that raises PathError on pull.
+        Act: Install template when file doesn't exist.
+        Assert: Template is installed treating missing file as empty content.
+        """
         # Arrange: Set up mock container that raises PathError on pull
         mock_container = Mock(spec=ops.Container)
         mock_container.pull.side_effect = ops.pebble.PathError("kind", "message")
@@ -98,7 +118,12 @@ class TestFalcosidekick:
 
     @patch("workload.Falcosidekick.health", new_callable=MagicMock)
     def test_configure_with_changes(self, mock_health):
-        """Test Falcosidekick configuration when configuration changes."""
+        """Test Falcosidekick configuration when configuration changes.
+
+        Arrange: Set up mock charm with healthy container and changed config.
+        Act: Configure workload with new CharmState.
+        Assert: Service is replanned and restarted.
+        """
         # Arrange: Set up mock charm and container
         mock_charm = Mock(spec=ops.CharmBase)
         mock_container = Mock(spec=ops.Container)
@@ -122,7 +147,12 @@ class TestFalcosidekick:
 
     @patch("workload.Falcosidekick.health", new_callable=MagicMock)
     def test_configure_without_changes(self, mock_health):
-        """Test Falcosidekick configuration when configuration hasn't changed."""
+        """Test Falcosidekick configuration when configuration hasn't changed.
+
+        Arrange: Set up mock charm with healthy container and unchanged config.
+        Act: Configure workload with same CharmState.
+        Assert: Service is not replanned or restarted.
+        """
         # Arrange: Set up mock charm and container
         mock_charm = Mock(spec=ops.CharmBase)
         mock_container = Mock(spec=ops.Container)
@@ -144,7 +174,12 @@ class TestFalcosidekick:
             mock_container.restart.assert_not_called()
 
     def test_configure_container_not_ready(self):
-        """Test Falcosidekick configuration when container is not ready."""
+        """Test Falcosidekick configuration when container is not ready.
+
+        Arrange: Set up mock charm with container that cannot connect.
+        Act: Attempt to configure workload.
+        Assert: Configuration install is not called.
+        """
         # Arrange: Set up mock charm with container that can't connect
         mock_charm = Mock(spec=ops.CharmBase)
         mock_container = Mock(spec=ops.Container)

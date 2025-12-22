@@ -67,7 +67,7 @@ class CharmBaseWithState(ops.CharmBase, ABC):
         """Get the charm state.
 
         Returns:
-            CharmState | None: The current charm state, or None if not initialized.
+            The current charm state, or None if not initialized.
         """
 
     @abstractmethod

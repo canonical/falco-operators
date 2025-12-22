@@ -16,7 +16,12 @@ class TestCharmState:
     """Test CharmState class."""
 
     def test_charm_state_creation(self):
-        """Test creating a CharmState instance."""
+        """Test creating a CharmState instance.
+
+        Arrange: Prepare port value.
+        Act: Create CharmState instance.
+        Assert: CharmState has correct port value.
+        """
         state = CharmState(falcosidekick_listenport=8080)
         assert state.falcosidekick_listenport == 8080
 
@@ -30,7 +35,12 @@ class TestCharmState:
         ],
     )
     def test_from_charm_with_valid_config(self, port):
-        """Test CharmState.from_charm with valid configuration."""
+        """Test CharmState.from_charm with valid configuration.
+
+        Arrange: Set up mock charm with valid port configuration.
+        Act: Create CharmState from charm.
+        Assert: CharmState has correct port value from config.
+        """
         # Arrange
         mock_charm = MagicMock()
         mock_charm.load_config.return_value = CharmConfig(port=port)
@@ -51,7 +61,12 @@ class TestCharmState:
         ],
     )
     def test_from_charm_with_invalid_config(self, port):
-        """Test CharmState.from_charm with invalid configuration."""
+        """Test CharmState.from_charm with invalid configuration.
+
+        Arrange: Set up mock charm with invalid port configuration.
+        Act: Create CharmState from charm.
+        Assert: InvalidCharmConfigError is raised with port error message.
+        """
         # Arrange
         mock_charm = MagicMock()
 
@@ -70,7 +85,12 @@ class TestCharmState:
         mock_charm.load_config.assert_called_once_with(CharmConfig)
 
     def test_from_charm_with_multiple_validation_errors(self):
-        """Test CharmState.from_charm with validation errors."""
+        """Test CharmState.from_charm with validation errors.
+
+        Arrange: Set up mock charm that raises ValidationError.
+        Act: Create CharmState from charm.
+        Assert: InvalidCharmConfigError is raised with port in error message.
+        """
         # Arrange
         mock_charm = MagicMock()
         # Create a ValidationError with actual validation failure

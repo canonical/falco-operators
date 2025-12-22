@@ -61,7 +61,7 @@ class FalcosidekickCharm(CharmBaseWithState):
         Sets the unit status to indicate that containers are being installed.
 
         Args:
-            _: The install event (unused).
+            _: The placeholder for the install event.
         """
         self.unit.status = ops.MaintenanceStatus("Installing containers")
 
@@ -72,7 +72,7 @@ class FalcosidekickCharm(CharmBaseWithState):
         Updates the unit status based on workload readiness and health.
 
         Args:
-            _: The event that triggered reconciliation (unused).
+            _: A placeholder for the event that triggered the reconciliation.
 
         Raises:
             RuntimeError: If the workload is not healthy after configuration.

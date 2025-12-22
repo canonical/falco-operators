@@ -13,15 +13,10 @@ Add port configuration option for falcosidekick-k8s-operator.
 ### Added
 
 - Add `port` configuration option to falcosidekick-k8s-operator
-- Add port validation (1-65535)
-- Add unit tests for charm, config, state, and workload modules
-- Add integration tests for config change scenarios
 
 ### Changed
 
-- Update charm to support configurable listen port
-- Update workload template rendering and configuration management
-- Update health check configuration to use configured port
+- Update charm logic to support configurable listen port
 
 ## 2025-12-10
 

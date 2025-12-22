@@ -17,7 +17,12 @@ class TestCharm:
     """Test Charm class."""
 
     def test_on_falcosidekick_pebble_ready_can_connect(self):
-        """Test on falcosidekick pebble ready event when container can connect."""
+        """Test on falcosidekick pebble ready event when container can connect.
+
+        Arrange: Set up mock container that can connect.
+        Act: Trigger pebble ready event.
+        Assert: Charm status is active.
+        """
         # Arrange: Set up the mock container to simulate a successful connection
         ctx = testing.Context(FalcosidekickCharm)
         # mypy thinks this can_connect argument does not exist.
@@ -31,7 +36,12 @@ class TestCharm:
         assert state_out.unit_status == ops.ActiveStatus()
 
     def test_on_falcosidekick_pebble_ready_cannot_connect(self):
-        """Test on falcosidekick pebble ready event when container cannot connect."""
+        """Test on falcosidekick pebble ready event when container cannot connect.
+
+        Arrange: Set up mock container that cannot connect.
+        Act: Trigger pebble ready event.
+        Assert: Charm status is waiting.
+        """
         # Arrange: Set up the mock container to simulate a successful connection
         ctx = testing.Context(FalcosidekickCharm)
         # mypy thinks this can_connect argument does not exist.
@@ -46,7 +56,12 @@ class TestCharm:
 
     @patch("charm.Falcosidekick.health", new_callable=PropertyMock)
     def test_on_falcosidekick_workload_healthy(self, mock_falcosidekick_health):
-        """Test falcosidekick workload is healthy."""
+        """Test falcosidekick workload is healthy.
+
+        Arrange: Set up mock container with healthy workload.
+        Act: Trigger pebble ready event.
+        Assert: Charm status is active.
+        """
         # Arrange: Set up the mock container to simulate a successful connection
         ctx = testing.Context(FalcosidekickCharm)
         # mypy thinks this can_connect argument does not exist.
@@ -62,7 +77,12 @@ class TestCharm:
 
     @patch("charm.Falcosidekick.health", new_callable=PropertyMock)
     def test_on_falcosidekick_workload_not_healthy(self, mock_falcosidekick_health):
-        """Test falcosidekick workload is not healthy."""
+        """Test falcosidekick workload is not healthy.
+
+        Arrange: Set up mock container with unhealthy workload.
+        Act: Trigger pebble ready event.
+        Assert: RuntimeError is raised.
+        """
         # Arrange: Set up the mock container to simulate a successful connection
         ctx = testing.Context(FalcosidekickCharm)
         # mypy thinks this can_connect argument does not exist.
@@ -87,7 +107,12 @@ class TestCharm:
         ],
     )
     def test_config_changed_with_valid_port(self, mock_falcosidekick_health, port):
-        """Test config changed event with valid port numbers."""
+        """Test config changed event with valid port numbers.
+
+        Arrange: Set up mock container with valid port configuration.
+        Act: Trigger config changed event.
+        Assert: Charm status is active.
+        """
         # Arrange: Set up the mock container and config with valid port
         ctx = testing.Context(FalcosidekickCharm)
         # mypy thinks this can_connect argument does not exist.
@@ -112,7 +137,12 @@ class TestCharm:
         ],
     )
     def test_config_changed_with_invalid_port(self, mock_falcosidekick_health, port):
-        """Test config changed event with invalid port numbers."""
+        """Test config changed event with invalid port numbers.
+
+        Arrange: Set up mock container with invalid port configuration.
+        Act: Trigger config changed event.
+        Assert: Charm status is blocked with invalid config message.
+        """
         # Arrange: Set up the mock container and config with invalid port
         ctx = testing.Context(FalcosidekickCharm)
         # mypy thinks this can_connect argument does not exist.

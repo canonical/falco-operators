@@ -28,10 +28,10 @@ class CharmConfig(BaseModel):
         """Validate the port number.
 
         Args:
-            value (int): The port number to validate.
+            value: The port input to validate.
 
         Returns:
-            int: The validated port number.
+            Valid port number for configuring Falcosidekick service.
 
         Raises:
             ValueError: If the port number is not in the valid range.
