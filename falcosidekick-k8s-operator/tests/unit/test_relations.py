@@ -53,7 +53,7 @@ class TestLokiRelationManager:
         mock_consumer_instance.loki_endpoints = []
         mock_loki_consumer.return_value = mock_consumer_instance
 
-        manager = LokiRelationManager(mock_charm, "send_loki_logs")
+        manager = LokiRelationManager(mock_charm, "send-loki-logs")
         url = manager.get_loki_http_url()
 
         assert url is None
@@ -76,7 +76,7 @@ class TestLokiRelationManager:
         ]
         mock_loki_consumer.return_value = mock_consumer_instance
 
-        manager = LokiRelationManager(mock_charm, "send_loki_logs")
+        manager = LokiRelationManager(mock_charm, "send-loki-logs")
 
         with pytest.raises(InvalidLokiRelationError):
             manager.get_loki_http_url()

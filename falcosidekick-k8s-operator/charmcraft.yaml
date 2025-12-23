@@ -54,6 +54,6 @@ resources:
     description: OCI image for the falcosidekick container
 
 requires:
-  send_loki_logs:
+  send-loki-logs:
     limit: 1
     interface: loki_push_api

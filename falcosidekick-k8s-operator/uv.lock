@@ -268,6 +268,7 @@ integration = [
     { name = "allure-pytest-collection-report" },
     { name = "jubilant" },
     { name = "pytest" },
+    { name = "requests" },
 ]
 lint = [
     { name = "codespell" },
@@ -308,6 +309,7 @@ integration = [
     { name = "allure-pytest-collection-report", git = "https://github.com/canonical/data-platform-workflows?subdirectory=python%2Fpytest_plugins%2Fallure_pytest_collection_report&rev=v24.0.0" },
     { name = "jubilant", specifier = "==1.6.2" },
     { name = "pytest" },
+    { name = "requests", specifier = ">=2.32.5" },
 ]
 lint = [
     { name = "codespell" },

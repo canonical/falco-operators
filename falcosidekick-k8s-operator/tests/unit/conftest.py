@@ -15,7 +15,7 @@ def loki_relation():
         A testing.Relation configured for loki_push_api interface with mock endpoint data.
     """
     return testing.Relation(
-        endpoint="send_loki_logs",
+        endpoint="send-loki-logs",
         interface="loki_push_api",
         remote_units_data={0: {"endpoint": '{"url": "http://loki:3100/loki/api/v1/push"}'}},
     )

@@ -195,4 +195,4 @@ class TestCharm:
 
         state_out = ctx.run(ctx.on.config_changed(), state_in)
 
-        assert state_out.unit_status == ops.BlockedStatus("Required relations: [send_loki_logs]")
+        assert state_out.unit_status == ops.BlockedStatus("Required relations: [send-loki-logs]")

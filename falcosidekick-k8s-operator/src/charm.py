@@ -18,7 +18,7 @@ from workload import Falcosidekick
 logger = logging.getLogger(__name__)
 
 # Defined in charmcraft.yaml
-LOKI_RELATION_NAME = "send_loki_logs"
+LOKI_RELATION_NAME = "send-loki-logs"
 
 
 class FalcosidekickCharm(CharmBaseWithState):
@@ -103,7 +103,7 @@ class FalcosidekickCharm(CharmBaseWithState):
             return
         except MissingLokiRelationError as e:
             logger.error("%s", e)
-            self.unit.status = ops.BlockedStatus("Required relations: [send_loki_logs]")
+            self.unit.status = ops.BlockedStatus("Required relations: [send-loki-logs]")
             return
 
         if not self.falcosidekick.health:
