@@ -6,15 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2025-12-22
+
+Add port configuration option for falcosidekick-k8s-operator.
+
+### Added
+
+- Add `port` configuration option to falcosidekick-k8s-operator
+
+### Changed
+
+- Update charm logic to support configurable listen port
+
 ## 2025-12-10
 
 Add `./falcosidekick-k8s-operator` to the monorepo.
 
 ### Added
+
 - Add falcosidekick rock image definition to monorepo.
 - Add falcosidekick-k8s-operator to monorepo.
 
 ### Changed
+
 - Update CI workflows to support `./falcosidekick-k8s-operator` directory.
 
 ## 2025-12-10
@@ -26,6 +40,7 @@ Migrate the repository to a monorepo structure.
 Add configuration for falco.
 
 ### Added
+
 - Config option for falco operator that allows setting custom falco configuration
 - Unit tests for operator functionality
 
@@ -34,6 +49,7 @@ Add configuration for falco.
 Create initial version of Falco operator.
 
 ### Added
+
 - Initial version of Falco operator implementation
 - Unit test functional test for the Falco operator
 - Build and release workflow for Falco binary used in this charm
@@ -45,6 +61,7 @@ Create initial version of Falco operator.
 Set up initial Falco operator project.
 
 ### Changed
+
 - Updated `charmcraft.yaml` with Falco-specific configuration
 - Updated `README.md` with minimal Falco operator information
 - Updated `CONTRIBUTING.md` with minimal documentation

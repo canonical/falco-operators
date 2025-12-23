@@ -33,6 +33,12 @@ parts:
 
 config:
   options:
+    port:
+      type: int
+      default: 2801
+      description: |
+        The port to listen for the falcosidekick daemon (default: 2801). Allowed values are between
+        1 and 65535.
 
 containers:
   falcosidekick:

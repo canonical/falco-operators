@@ -1,0 +1,12 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+#################################################################################################
+#                         Juju Managed Falcosidekick config file                                #
+#                                                                                               #
+#  For more information about the configuration please refer to                                 #
+#  https://github.com/falcosecurity/falcosidekick/tree/master?tab=readme-ov-file#configuration  #
+#################################################################################################
+
+listenport: {{ charm_state.falcosidekick_listenport }}
+listenaddress: "" # ip address to bind falcosidekick to (default: "" meaning all addresses)
