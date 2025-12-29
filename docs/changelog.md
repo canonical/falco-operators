@@ -8,13 +8,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-01-06
+
+Update terraform modules.
+
+### Changed
+
+- Update terraform juju provider to version >= 1.1.1
+- Update terraform module for falco-operator
+  - Update the channel for the falco-operator to "0.42/stable"
+  - Update terraform tests to check for expected outputs
+  - Update README.md for falco-operator terraform module
+- Update terraform module for falcosidekick-k8s-operator
+  - Update the channel for the falcosidekick-k8s-operator to "2/stable"
+  - Update terraform tests to check for expected outputs
+  - Update README.md for falcosidekick-k8s-operator terraform module
+
 ## 2026-01-05
 
 Add documentation workflows and RTD set up.
-
-### Removed
-
-- Removed unused files tflint.hcl
 
 ## 2025-12-29
 
