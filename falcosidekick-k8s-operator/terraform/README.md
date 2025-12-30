@@ -12,6 +12,7 @@ This folder contains a base [Terraform][Terraform] module for the `falcosidekick
 
 ## Module documentation
 
+<!-- vale off -->
 <!-- BEGIN_TF_DOCS -->
 
 ### Requirements
@@ -54,6 +55,7 @@ This folder contains a base [Terraform][Terraform] module for the `falcosidekick
 | <a name="output_send-loki-logs"></a> [send-loki-logs](#output_send-loki-logs) | Endpoint for sending logs to Loki HTTP API compatible targets. |
 
 <!-- END_TF_DOCS -->
+<!-- vale on -->
 
 ## Using `falcosidekick-k8s` base module in a higher level module
 

@@ -12,6 +12,7 @@ This folder contains a base [Terraform][Terraform] module for the `falco` charm.
 
 ## Module documentation
 
+<!-- vale off -->
 <!-- BEGIN_TF_DOCS -->
 
 ### Requirements
@@ -53,6 +54,7 @@ This folder contains a base [Terraform][Terraform] module for the `falco` charm.
 | <a name="output_general-info"></a> [general-info](#output_general-info) | Endpoint for integrating with any principal charm. |
 
 <!-- END_TF_DOCS -->
+<!-- vale on -->
 
 ## Using `falco` base module in higher level modules
 
