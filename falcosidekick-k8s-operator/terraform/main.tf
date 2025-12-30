@@ -7,13 +7,12 @@ resource "juju_application" "falcosidekick-k8s" {
 
   charm {
     name     = "falcosidekick-k8s"
+    base     = var.base
     channel  = var.channel
     revision = var.revision
-    base     = var.base
   }
 
-  config             = var.config
-  constraints        = var.constraints
-  units              = var.units
-  storage_directives = var.storage
+  units       = var.units
+  config      = var.config
+  constraints = var.constraints
 }

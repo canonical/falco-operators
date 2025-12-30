@@ -20,7 +20,7 @@ variable "channel" {
 }
 
 variable "config" {
-  description = "Application config. Details about available options can be found at https://charmhub.io/falco/configurations."
+  description = "Application config. Details about available options can be found at https://charmhub.io/falcosidekick-k8s/configurations."
   type        = map(string)
   default     = {}
 }
@@ -32,7 +32,7 @@ variable "constraints" {
 }
 
 variable "model_uuid" {
-  description = "Reference to the uuid of a `juju_model`."
+  description = "The UUID of the Juju model."
   type        = string
 }
 
@@ -40,12 +40,6 @@ variable "revision" {
   description = "Revision number of the charm"
   type        = number
   default     = null
-}
-
-variable "storage" {
-  description = "Map of storage used by the application."
-  type        = map(string)
-  default     = {}
 }
 
 variable "units" {

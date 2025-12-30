@@ -16,7 +16,7 @@ variable "base" {
 variable "channel" {
   description = "The channel to use when deploying a charm."
   type        = string
-  default     = "latest/stable"
+  default     = "0.42/stable"
 }
 
 variable "config" {
@@ -31,8 +31,8 @@ variable "constraints" {
   default     = ""
 }
 
-variable "model" {
-  description = "Reference to a `juju_model`."
+variable "model_uuid" {
+  description = "The UUID of the Juju model."
   type        = string
 }
 
@@ -40,16 +40,4 @@ variable "revision" {
   description = "Revision number of the charm"
   type        = number
   default     = null
-}
-
-variable "storage" {
-  description = "Map of storage used by the application."
-  type        = map(string)
-  default     = {}
-}
-
-variable "units" {
-  description = "Number of units to deploy"
-  type        = number
-  default     = 1
 }

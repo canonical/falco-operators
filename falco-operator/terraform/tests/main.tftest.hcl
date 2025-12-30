@@ -2,14 +2,25 @@
 # See LICENSE file for licensing details.
 
 variables {
-  channel = "latest/edge"
-  # renovate: depName="falco"
-  revision = 1
+  channel = "0.42/edge"
 }
 
-run "basic_deploy" {
+run "test_app_name" {
+
+  command = plan
+
   assert {
     condition     = module.falco.app_name == "falco"
-    error_message = "falco app_name did not match expected"
+    error_message = "Expect falco app_name matches 'falco'"
+  }
+}
+
+run "test_integration_general_info" {
+
+  command = plan
+
+  assert {
+    condition     = module.falco.general-info == "general-info"
+    error_message = "Expect falco module to provide 'general-info' output"
   }
 }

@@ -91,6 +91,7 @@ config:
         command. and use the secret ID output to configure this option.
 
         `juju add-secret custom-config-repo-ssh-key value=<ssh-key> && juju grant-secret custom-config-repo-ssh-key <falco-operator>`
+
 requires:
   general-info:
     interface: juju-info

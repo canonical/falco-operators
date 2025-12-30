@@ -2,12 +2,11 @@
 # See LICENSE file for licensing details.
 
 output "app_name" {
-  description = "Name of the deployed application."
   value       = juju_application.falco.name
+  description = "Name of the deployed application."
 }
 
-output "endpoints" {
-  value = {
-    ingress = "ingress"
-  }
+output "general-info" {
+  value       = "general-info"
+  description = "Endpoint for integrating with any principal charm."
 }
