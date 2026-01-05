@@ -4,7 +4,7 @@
 
 Falco supports the following integrations with other charms.
 
-### `general-info`
+## `general-info`
 
 <!-- vale Canonical.004-Canonical-product-names = NO -->
 _Interface_: juju-info

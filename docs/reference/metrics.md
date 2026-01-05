@@ -1,6 +1,6 @@
 (reference_metrics)=
 
-## Metrics
+# Metrics
 
 <!--
 TODO: Remember to update this file for your charm!!
