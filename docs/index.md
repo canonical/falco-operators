@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    "description lang=en": "TBD"
+    "description lang=en": "A Juju charm deploying and managing Falco on physical or virtual machines."
 ---
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
 
