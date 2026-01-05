@@ -1,0 +1,4 @@
+copilot:
+  version: v0.4.0
+  collections:
+    - pfe-docs
