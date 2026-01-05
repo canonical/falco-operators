@@ -8,7 +8,7 @@ myst:
 
 # How to
 
-Description TBD
+The following guides cover key processes and common tasks for managing and using the Falco charms.
 
 ```{toctree}
 :maxdepth: 1
