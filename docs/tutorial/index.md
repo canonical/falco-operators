@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    "description lang=en": "TBD"
+    "description lang=en": "The Falco charm tutorial that walks a user through a basic Falco deployment."
 ---
 
 (tutorial)=
