@@ -6,7 +6,7 @@ To make contributions to this charm, you'll need a working
 The code for this charm can be downloaded as follows:
 
 ```
-git clone https://github.com/canonical/falco-operator.git
+git clone https://github.com/canonical/falco-operators.git
 ```
 
 Make sure to install [`uv`](https://docs.astral.sh/uv/). For example, you can install `uv` on Ubuntu using:

@@ -17,8 +17,8 @@ description: |
 links:
   contact: https://launchpad.net/~canonical-is-devops
   documentation: https://charmhub.io/falco
-  issues: https://github.com/canonical/falco-operator/issues
-  source: https://github.com/canonical/falco-operator
+  issues: https://github.com/canonical/falco-operators/issues
+  source: https://github.com/canonical/falco-operators
 
 platforms:
   ubuntu@24.04:amd64:
@@ -38,14 +38,14 @@ parts:
       craftctl default
 
       # Set Falco version
-      # renovate: depName=canonical/falco-operator
+      # renovate: depName=canonical/falco-operators
       VERSION=0.42.1
       # Determine architecture
       ARCH="$(uname -m)"
       # Github release URL for Falco. The tarball is created in the build and release falco workflow:
-      # https//github.com/canonical/falco-operator/blob/main/.github/workflows/build_falco.yaml
-      # https//github.com/canonical/falco-operator/blob/main/.github/workflows/release_falco.yaml
-      DOWNLOAD_URL="https://github.com/canonical/falco-operator/releases/download/falco\/$VERSION/falco-$VERSION-$ARCH.tar.gz"
+      # https//github.com/canonical/falco-operators/blob/main/.github/workflows/build_falco.yaml
+      # https//github.com/canonical/falco-operators/blob/main/.github/workflows/release_falco.yaml
+      DOWNLOAD_URL="https://github.com/canonical/falco-operators/releases/download/falco\/$VERSION/falco-$VERSION-$ARCH.tar.gz"
 
       # Install falco
       curl -s -L -o $CRAFT_PART_SRC/falco-$VERSION-$ARCH.tar.gz $DOWNLOAD_URL

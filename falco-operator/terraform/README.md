@@ -26,7 +26,7 @@ data "juju_model" "my_model" {
 }
 
 module "falco" {
-  source = "git::https://github.com/canonical/falco-operator//terraform"
+  source = "git::https://github.com/canonical/falco-operators//terraform"
 
   model = juju_model.my_model.name
   # (Customize configuration variables here if needed)
