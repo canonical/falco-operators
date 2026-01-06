@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-01-07
+
+Customize RTD configuration and remove unnecessary files.
+
+### Changed
+
+- Update `docs/conf.py` to customize RTD configuration
+- Update `workflows/docs.yaml` to check for markdown files other than `docs`
+
+### Deleted
+
+- Remove `Makefile` and `Makefile.docs` as they are not needed for RTD builds
+
 ## 2026-01-06
 
 Update terraform modules.
