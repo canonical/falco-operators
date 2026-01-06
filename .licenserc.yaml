@@ -15,6 +15,7 @@ header:
   - '**/*.json'
   - '**/*.md'
   - '**/*.txt'
+  - '.codespellignore'
   - '.jujuignore'
   - '.gitignore'
   - '.trivyignore'
@@ -25,5 +26,7 @@ header:
   - 'pyproject.toml'
   - 'zap_rules.tsv'
   - '**/*.md.j2'
+  - '.readthedocs.yaml'
+  - 'docs/**'
   - 'uv.lock'
   comment: on-failure

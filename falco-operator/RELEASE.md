@@ -66,13 +66,13 @@ Merging the PR to `main` will trigger the [Create Falco Release](../.github/work
 
 After the workflow completes:
 
-1. Navigate to the [Releases page](https://github.com/canonical/falco-operator/releases)
+1. Navigate to the [Releases page](https://github.com/canonical/falco-operators/releases)
 2. Verify the new release appears with the correct version
 3. Download and verify the tarball contents (optional):
 
 ```bash
 # Download the release tarball
-wget https://github.com/canonical/falco-operator/releases/download/falco/<tag>/falco-<version>-x86_64.tar.gz
+wget https://github.com/canonical/falco-operators/releases/download/falco/<tag>/falco-<version>-x86_64.tar.gz
 
 # Extract and verify contents
 tar -tzf falco-<version>-x86_64.tar.gz

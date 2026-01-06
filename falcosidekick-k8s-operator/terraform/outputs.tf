@@ -2,12 +2,12 @@
 # See LICENSE file for licensing details.
 
 output "app_name" {
+  value       = juju_application.falcosidekick_k8s.name
   description = "Name of the deployed application."
-  value       = juju_application.falcosidekick-k8s.name
 }
 
-output "endpoints" {
+output "requires" {
   value = {
-    ingress = "ingress"
+    send_loki_logs = "send-loki-logs"
   }
 }

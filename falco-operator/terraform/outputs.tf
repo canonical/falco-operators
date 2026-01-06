@@ -2,12 +2,12 @@
 # See LICENSE file for licensing details.
 
 output "app_name" {
-  description = "Name of the deployed application."
   value       = juju_application.falco.name
+  description = "Name of the deployed application."
 }
 
-output "endpoints" {
+output "requires" {
   value = {
-    ingress = "ingress"
+    general_info = "general-info"
   }
 }

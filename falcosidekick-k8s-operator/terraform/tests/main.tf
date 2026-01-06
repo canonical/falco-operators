@@ -1,23 +1,6 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-variable "channel" {
-  description = "The channel to use when deploying a charm."
-  type        = string
-  default     = "2/edge"
-}
-
-variable "revision" {
-  description = "Revision number of the charm."
-  type        = number
-  default     = null
-}
-
-variable "model_uuid" {
-  description = "Reference to the uuid of a `juju_model`."
-  type        = string
-}
-
 terraform {
   required_version = ">= 1.14.0"
   required_providers {
@@ -30,10 +13,26 @@ terraform {
 
 provider "juju" {}
 
-module "falcosidekick-k8s" {
+variable "channel" {
+  description = "The channel to use when deploying a charm."
+  type        = string
+  default     = "2/edge"
+}
+
+variable "revision" {
+  description = "Revision number of the charm."
+  type        = number
+  default     = null
+}
+
+resource "juju_model" "test_model" {
+  name = "test-falcosidekick"
+}
+
+module "falcosidekick_k8s" {
   source     = "./.."
   app_name   = "falcosidekick-k8s"
   channel    = var.channel
-  model_uuid = var.model_uuid
   revision   = var.revision
+  model_uuid = juju_model.test_model.uuid
 }

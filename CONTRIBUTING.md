@@ -5,7 +5,7 @@ This document explains the processes and practices recommended for contributing 
 ## Overview
 
 - Generally, before developing enhancements to this charm, you should consider [opening an issue
-  ](https://github.com/canonical/falco-operator/issues) explaining your use case.
+  ](https://github.com/canonical/falco-operators/issues) explaining your use case.
 - If you would like to chat with us about your use-cases or proposed implementation, you can reach
   us at [Canonical Matrix public channel](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
   or [Discourse](https://discourse.charmhub.io/).
@@ -28,7 +28,7 @@ When contributing, you must abide by the
 ## Changelog
 
 Please ensure that any new feature, fix, or significant change is documented by
-adding an entry to the [CHANGELOG.md](https://github.com/canonical/falco-operator/blob/main/docs/changelog.md)
+adding an entry to the [CHANGELOG.md](https://github.com/canonical/falco-operators/blob/main/docs/changelog.md)
 file. Use the date of the contribution as the header for new entries.
 
 To learn more about changelog best practices, visit [Keep a Changelog](https://keepachangelog.com/).
@@ -40,7 +40,7 @@ notify in advance the people involved to avoid confusion;
 also, reference the issue or bug number when you submit the changes.
 
 - [Fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/about-forks)
-  our [GitHub repository](https://github.com/canonical/falco-operator)
+  our [GitHub repository](https://github.com/canonical/falco-operators)
   and add the changes to your fork, properly structuring your commits,
   providing detailed commit messages and signing your commits.
 - Make sure the updated project builds and runs without warnings or errors;

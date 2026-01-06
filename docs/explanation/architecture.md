@@ -1,3 +1,5 @@
+(explanation_architecture)=
+
 # Architecture
 
 <!--

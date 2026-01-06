@@ -1,10 +1,22 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+terraform {
+  required_version = ">= 1.14.0"
+  required_providers {
+    juju = {
+      version = "~> 1.1.1"
+      source  = "juju/juju"
+    }
+  }
+}
+
+provider "juju" {}
+
 variable "channel" {
   description = "The channel to use when deploying a charm."
   type        = string
-  default     = "latest/edge"
+  default     = "0.42/edge"
 }
 
 variable "revision" {
@@ -13,21 +25,14 @@ variable "revision" {
   default     = null
 }
 
-terraform {
-  required_providers {
-    juju = {
-      version = "~> 0.20.0"
-      source  = "juju/juju"
-    }
-  }
+resource "juju_model" "test_model" {
+  name = "test-falco"
 }
 
-provider "juju" {}
-
 module "falco" {
-  source   = "./.."
-  app_name = "falco"
-  channel  = var.channel
-  model    = "prod-falco-example"
-  revision = var.revision
+  source     = "./.."
+  app_name   = "falco"
+  channel    = var.channel
+  revision   = var.revision
+  model_uuid = juju_model.test_model.uuid
 }

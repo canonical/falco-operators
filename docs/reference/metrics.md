@@ -1,4 +1,6 @@
-## Metrics
+(reference_metrics)=
+
+# Metrics
 
 <!--
 TODO: Remember to update this file for your charm!!

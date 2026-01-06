@@ -3,14 +3,24 @@
 
 variables {
   channel = "2/edge"
-  model_uuid = "1d10a751-02c1-43d5-b46b-d84fe04d6fde"
-  # renovate: depName="falcosidekick-k8s"
-  revision = 1
 }
 
-run "basic_deploy" {
+run "test_app_name" {
+
+  command = plan
+
   assert {
     condition     = module.falcosidekick-k8s.app_name == "falcosidekick-k8s"
-    error_message = "falcosidekick-k8s app_name did not match expected"
+    error_message = "Expect falcosidekick-k8s app_name matches 'falcosidekick-k8s'"
+  }
+}
+
+run "test_integration_send_loki_logs" {
+
+  command = plan
+
+  assert {
+    condition     = module.falcosidekick-k8s.requires.send_loki_logs == "send-loki-logs"
+    error_message = "Expect falcosidekick-k8s module to provide 'requires.send_loki_logs' output"
   }
 }

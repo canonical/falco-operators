@@ -1,3 +1,5 @@
+(how_to_integrate_with_cos)=
+
 # Integrate with COS
 
 <!-- 
