@@ -21,6 +21,16 @@ run "test_integration_general_info" {
 
   assert {
     condition     = module.falco.requires.general_info == "general-info"
-    error_message = "Expect falco module to provide 'requires.general-info' output"
+    error_message = "Expect falco module to provide 'requires.general_info' output"
+  }
+}
+
+run "test_integration_http_endpoint" {
+
+  command = plan
+
+  assert {
+    condition     = module.falco.requires.http_endpoint == "http-endpoint"
+    error_message = "Expect falco module to provide 'requires.http_endpoint' output"
   }
 }

@@ -11,3 +11,9 @@ output "requires" {
     send_loki_logs = "send-loki-logs"
   }
 }
+
+output "provides" {
+  value = {
+    http_endpoint = "http-endpoint"
+  }
+}

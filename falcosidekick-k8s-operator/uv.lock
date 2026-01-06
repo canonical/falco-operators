@@ -80,6 +80,15 @@ wheels = [
 ]
 
 [[package]]
+name = "charmlibs-interfaces-http-endpoint"
+version = "1.0.0"
+source = { git = "https://github.com/chanchiwai-ray/charmlibs?subdirectory=interfaces%2Fhttp_endpoint&rev=e1f9411e9e1a74e55288bf28d86576f08456b1fb#e1f9411e9e1a74e55288bf28d86576f08456b1fb" }
+dependencies = [
+    { name = "ops" },
+    { name = "pydantic" },
+]
+
+[[package]]
 name = "charset-normalizer"
 version = "3.4.4"
 source = { registry = "https://pypi.org/simple" }
@@ -249,6 +258,7 @@ name = "falcosidekick-k8s"
 version = "2.32.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "charmlibs-interfaces-http-endpoint" },
     { name = "cosl" },
     { name = "jinja2" },
     { name = "ops" },
@@ -292,6 +302,7 @@ unit = [
 
 [package.metadata]
 requires-dist = [
+    { name = "charmlibs-interfaces-http-endpoint", git = "https://github.com/chanchiwai-ray/charmlibs?subdirectory=interfaces%2Fhttp_endpoint&rev=e1f9411e9e1a74e55288bf28d86576f08456b1fb" },
     { name = "cosl", specifier = ">=1.4.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "ops", specifier = "==3.5.0" },

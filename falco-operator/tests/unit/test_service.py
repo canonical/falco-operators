@@ -249,6 +249,7 @@ class TestFalcoService:
         mock_config = MagicMock()
         mock_service_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
+        mock_service_file.context = {}
         mock_custom_setting = MagicMock()
 
         service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
@@ -256,6 +257,8 @@ class TestFalcoService:
         service.configure(charm_state)
 
         mock_custom_setting.configure.assert_called_once_with(charm_state)
+        mock_service_file.install.assert_not_called()
+        mock_service_file.update.assert_called_once()
         mock_systemd.daemon_reload.assert_called_once()
         mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
 

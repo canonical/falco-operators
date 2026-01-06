@@ -277,3 +277,58 @@ class TestCharmConfigHandling:
         state_out = context.run(context.on.config_changed(), state_in)
 
         assert state_out.unit_status == ops.testing.BlockedStatus("Failed configuring Falco")
+
+
+class TestCharmWithHttpEndpointRelation:
+    """Test Charm behavior with HTTP endpoint relation."""
+
+    @patch("charm.FalcoService")
+    def test_charm_with_http_endpoint_relation(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout, http_endpoint_relation
+    ):
+        """Test charm behavior when HTTP endpoint relation is present.
+
+        Arrange: Set up testing context with charm and HTTP endpoint relation.
+        Act: Run config changed event.
+        Assert: Charm initializes successfully and retrieves HTTP endpoint data from relation.
+        """
+        mock_service = MagicMock()
+        mock_service.check_active.return_value = True
+        mock_service_class.return_value = mock_service
+
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        state_in = ops.testing.State(relations=[http_endpoint_relation])
+
+        with context(context.on.config_changed(), state_in) as mgr:
+            state_out = mgr.run()
+            charm_state = mgr.charm.state
+
+            # Verify charm retrieved http endpoint data from relation
+            assert charm_state.http_output is not None
+            assert charm_state.http_output["url"] == "http://127.0.0.1:8080/"
+            assert state_out.unit_status == ops.testing.ActiveStatus()
+
+    @patch("charm.FalcoService")
+    def test_charm_without_http_endpoint_relation(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout
+    ):
+        """Test charm behavior when HTTP endpoint relation is present.
+
+        Arrange: Set up testing context with charm and HTTP endpoint relation.
+        Act: Run config changed event.
+        Assert: Charm initializes successfully but does not retrieve HTTP endpoint data from relation.
+        """
+        mock_service = MagicMock()
+        mock_service.check_active.return_value = True
+        mock_service_class.return_value = mock_service
+
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        state_in = ops.testing.State(relations=[])
+
+        with context(context.on.config_changed(), state_in) as mgr:
+            state_out = mgr.run()
+            charm_state = mgr.charm.state
+
+            # Verify charm does notretrieved http endpoint data from relation
+            assert charm_state.http_output == {}
+            assert state_out.unit_status == ops.testing.ActiveStatus()

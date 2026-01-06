@@ -196,3 +196,30 @@ class TestCharm:
         state_out = ctx.run(ctx.on.config_changed(), state_in)
 
         assert state_out.unit_status == ops.BlockedStatus("Required relations: [send-loki-logs]")
+
+    @patch("charm.Falcosidekick.health", new_callable=PropertyMock)
+    @patch("workload.HttpEndpointProvider.update_config")
+    def test_charm_with_http_endpoint_relation(
+        self, mock_update_config, mock_falcosidekick_health, loki_relation, http_endpoint_relation
+    ):
+        """Test charm behavior with http-endpoint relation.
+
+        Arrange: Set up testing context with loki and http-endpoint relations.
+        Act: Run config changed event.
+        Assert: Http endpoint provider is configured with correct parameters.
+        """
+        ctx = testing.Context(FalcosidekickCharm)
+        # mypy thinks this can_connect argument does not exist.
+        container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
+        mock_falcosidekick_health.return_value = True
+        state_in = testing.State(
+            containers=[container], relations=[loki_relation, http_endpoint_relation]
+        )
+
+        state_out = ctx.run(ctx.on.config_changed(), state_in)
+
+        # Verify http endpoint provider was called with correct parameters
+        mock_update_config.assert_called_with(
+            path="/", scheme="http", listen_port=2801, set_ports=True
+        )
+        assert state_out.unit_status == ops.ActiveStatus()

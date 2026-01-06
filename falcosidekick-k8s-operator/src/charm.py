@@ -9,15 +9,17 @@ import logging
 import typing
 
 import ops
+from charmlibs.interfaces.http_endpoint import HttpEndpointProvider
+from charms.loki_k8s.v1.loki_push_api import LokiPushApiConsumer
 
 from config import InvalidCharmConfigError
-from relations import LokiRelationManager, MissingLokiRelationError
 from state import CharmBaseWithState, CharmState
-from workload import Falcosidekick
+from workload import Falcosidekick, MissingLokiRelationError
 
 logger = logging.getLogger(__name__)
 
-LOKI_RELATION_NAME = "send-loki-logs"
+SEND_LOKI_LOG_RELATION_NAME = "send-loki-logs"
+HTTP_ENDPOINT_RELATION_NAME = "http-endpoint"
 
 
 class FalcosidekickCharm(CharmBaseWithState):
@@ -40,17 +42,27 @@ class FalcosidekickCharm(CharmBaseWithState):
         self._state = None
 
         self.falcosidekick = Falcosidekick(self)
-        self.loki_relation = LokiRelationManager(self, relation_name=LOKI_RELATION_NAME)
+        self.loki_push_api_consumer = LokiPushApiConsumer(
+            self,
+            relation_name=SEND_LOKI_LOG_RELATION_NAME,
+        )
+        self.http_endpoint_provider = HttpEndpointProvider(
+            self, relation_name=HTTP_ENDPOINT_RELATION_NAME, set_ports=True
+        )
 
         self.framework.observe(self.on.install, self._install)
         self.framework.observe(self.on.config_changed, self.reconcile)
         self.framework.observe(self.on.falcosidekick_pebble_ready, self.reconcile)
 
         self.framework.observe(
-            self.loki_relation._loki_consumer.on.loki_push_api_endpoint_joined, self.reconcile
+            self.loki_push_api_consumer.on.loki_push_api_endpoint_joined, self.reconcile
         )
         self.framework.observe(
-            self.loki_relation._loki_consumer.on.loki_push_api_endpoint_departed, self.reconcile
+            self.loki_push_api_consumer.on.loki_push_api_endpoint_departed, self.reconcile
+        )
+
+        self.framework.observe(
+            self.on[HTTP_ENDPOINT_RELATION_NAME].relation_changed, self.reconcile
         )
 
     @property
@@ -63,7 +75,7 @@ class FalcosidekickCharm(CharmBaseWithState):
             CharmState: The current state of the charm.
         """
         if self._state is None:
-            self._state = CharmState.from_charm(self, self.loki_relation)
+            self._state = CharmState.from_charm(self, self.loki_push_api_consumer)
         return self._state
 
     def _install(self, _: ops.EventBase) -> None:
@@ -95,7 +107,7 @@ class FalcosidekickCharm(CharmBaseWithState):
 
         try:
             logger.info("Configuring '%s' workload", self.falcosidekick.container_name)
-            self.falcosidekick.configure(self.state)
+            self.falcosidekick.configure(self.state, self.http_endpoint_provider)
         except InvalidCharmConfigError as e:
             logger.error("%s", e)
             self.unit.status = ops.BlockedStatus(str(e))

@@ -8,6 +8,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-01-10
+
+Add integration between falco-operator and falcosidekick-k8s-operator via http_endpoint interface.
+
+### Added
+
+- Add http_endpoint interface to falco-operator
+- Add http_endpoint interface to falcosidekick-k8s-operator
+- Add relation logic in falco-operator to connect to falcosidekick-k8s-operator
+
+### Changed
+
+- Refactor falcosidekick-k8s-operator to not use `relations.py` module
+- Fix terraform module tests and README.md
+- Update terraform module to include additional relations
+
 ## 2026-01-07
 
 Customize RTD configuration.

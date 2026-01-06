@@ -24,15 +24,15 @@ This folder contains a base [Terraform][Terraform] module for the `falcosidekick
 
 ### Providers
 
-| Name                                                | Version  |
-| --------------------------------------------------- | -------- |
-| <a name="provider_juju"></a> [juju](#provider_juju) | >= 1.1.1 |
+| Name                                                | Version |
+| --------------------------------------------------- | ------- |
+| <a name="provider_juju"></a> [juju](#provider_juju) | 1.1.1   |
 
 ### Resources
 
 | Name                                                                                                                      | Type     |
 | ------------------------------------------------------------------------------------------------------------------------- | -------- |
-| [juju_application.falcosidekick-k8s](https://registry.terraform.io/providers/juju/juju/latest/docs/resources/application) | resource |
+| [juju_application.falcosidekick_k8s](https://registry.terraform.io/providers/juju/juju/latest/docs/resources/application) | resource |
 
 ### Inputs
 
@@ -49,10 +49,11 @@ This folder contains a base [Terraform][Terraform] module for the `falcosidekick
 
 ### Outputs
 
-| Name                                                                          | Description                                                    |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| <a name="output_app_name"></a> [app_name](#output_app_name)                   | Name of the deployed application.                              |
-| <a name="output_send-loki-logs"></a> [send-loki-logs](#output_send-loki-logs) | Endpoint for sending logs to Loki HTTP API compatible targets. |
+| Name                                                        | Description                       |
+| ----------------------------------------------------------- | --------------------------------- |
+| <a name="output_app_name"></a> [app_name](#output_app_name) | Name of the deployed application. |
+| <a name="output_provides"></a> [provides](#output_provides) | n/a                               |
+| <a name="output_requires"></a> [requires](#output_requires) | n/a                               |
 
 <!-- END_TF_DOCS -->
 <!-- vale on -->

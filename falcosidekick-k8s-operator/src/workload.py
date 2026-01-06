@@ -7,14 +7,18 @@ import logging
 from pathlib import Path
 
 import ops
+from charmlibs.interfaces.http_endpoint import HttpEndpointProvider
 from jinja2 import Environment, FileSystemLoader
 
 import state
-from relations import MissingLokiRelationError
 
 logger = logging.getLogger(__name__)
 
 TEMPLATE_DIR = "src/templates"
+
+
+class MissingLokiRelationError(Exception):
+    """Exception raised when the Loki relation is missing."""
 
 
 class Template:
@@ -172,7 +176,9 @@ class Falcosidekick:
             logger.error("Not able to add Healthcheck layer")
             logger.exception(connect_error)
 
-    def configure(self, charm_state: state.CharmState) -> None:
+    def configure(
+        self, charm_state: state.CharmState, http_endpoint_provider: HttpEndpointProvider
+    ) -> None:
         """Configure the Falcosidekick workload idempotently.
 
         Installs the configuration file, sets up health checks, and restarts
@@ -180,6 +186,10 @@ class Falcosidekick:
 
         Args:
             charm_state: The current charm state containing configuration parameters.
+            http_endpoint_provider: The HttpEndpointManager instance to set http output data.
+
+        Raises:
+            MissingLokiRelationError: If the Loki relation is missing.
         """
         if not self.ready:
             logger.warning("Cannot configure; container is not ready")
@@ -187,8 +197,16 @@ class Falcosidekick:
 
         if not charm_state.falcosidekick_loki_hostport:
             raise MissingLokiRelationError(
-                "Loki relation is missing; Falcosidekick requires at least one output"
+                "send-loki-logs relation is missing; Falcosidekick requires at least one output"
             )
+
+        # Set http output information idempotently
+        http_endpoint_provider.update_config(
+            path="/",
+            scheme="http",
+            listen_port=charm_state.falcosidekick_listenport,
+            set_ports=True,
+        )
 
         changed = self.config_file.install(context={"charm_state": charm_state})
         if not changed:

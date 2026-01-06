@@ -140,14 +140,18 @@ class TestFalcosidekick:
                 falcosidekick_loki_endpoint="/loki/api/v1/push",
                 falcosidekick_loki_hostport="http://loki:3100",
             )
+            mock_http_output_provider = Mock()
 
             # Act: Configure the workload
-            falcosidekick.configure(charm_state)
+            falcosidekick.configure(charm_state, mock_http_output_provider)
 
             # Assert: Verify replan and restart were called
             mock_container.add_layer.assert_called_once()
             mock_container.replan.assert_called_once()
             mock_container.restart.assert_called_once_with("falcosidekick")
+            mock_http_output_provider.update_config.assert_called_once_with(
+                path="/", scheme="http", listen_port=2801, set_ports=True
+            )
 
     @patch("workload.Falcosidekick.health", new_callable=MagicMock)
     def test_configure_without_changes(self, mock_health):
@@ -172,14 +176,19 @@ class TestFalcosidekick:
                 falcosidekick_loki_endpoint="/loki/api/v1/push",
                 falcosidekick_loki_hostport="http://loki:3100",
             )
+            mock_http_output_provider = Mock()
 
             # Act: Configure the workload
-            falcosidekick.configure(charm_state)
+            falcosidekick.configure(charm_state, mock_http_output_provider)
 
             # Assert: Verify replan and restart were NOT called
             mock_container.add_layer.assert_not_called()
             mock_container.replan.assert_not_called()
             mock_container.restart.assert_not_called()
+            # But http output info should still be set
+            mock_http_output_provider.update_config.assert_called_once_with(
+                path="/", scheme="http", listen_port=2801, set_ports=True
+            )
 
     def test_configure_container_not_ready(self):
         """Test Falcosidekick configuration when container is not ready.
@@ -200,10 +209,11 @@ class TestFalcosidekick:
             falcosidekick_loki_endpoint="/loki/api/v1/push",
             falcosidekick_loki_hostport="http://loki:3100",
         )
+        mock_http_output_provider = Mock()
 
         # Act: Attempt to configure the workload
         with patch.object(FalcosidekickConfigFile, "install") as mock_install:
-            falcosidekick.configure(charm_state)
+            falcosidekick.configure(charm_state, mock_http_output_provider)
 
             # Assert: Verify install was not called
             mock_install.assert_not_called()

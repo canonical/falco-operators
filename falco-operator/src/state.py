@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 import ops
+from charmlibs.interfaces.http_endpoint import HttpEndpointRequirer
 from pydantic import AnyUrl, BaseModel, ValidationError
 
 from config import CharmConfig, InvalidCharmConfigError
@@ -20,23 +21,32 @@ class CharmState(BaseModel):
     """The pydantic model for charm state.
 
     Attributes:
-        custom_config_repo (Optional[AnyUrl]): Optional URL to a custom configuration repository.
-        custom_config_repo_ref (Optional[str]): Optional branch or tag to a custom configuration repository.
-        custom_config_repo_ssh_key (Optional[str]): Optional SSH key for custom configuration repository.
+        custom_config_repo: Optional URL to a custom configuration repository.
+        custom_config_repo_ref: Optional branch or tag to a custom configuration repository.
+        custom_config_repo_ssh_key: Optional SSH key for custom configuration repository.
+        http_output: Optional HTTP output data from http-output relation.
     """
 
     custom_config_repo: Optional[AnyUrl] = None
     custom_config_repo_ref: Optional[str] = None
     custom_config_repo_ssh_key: Optional[str] = None
+    http_output: Optional[dict[str, str]] = None
 
     @classmethod
-    def from_charm(cls, charm: ops.CharmBase) -> "CharmState":
+    def from_charm(
+        cls, charm: ops.CharmBase, http_endpoint_requirer: HttpEndpointRequirer
+    ) -> "CharmState":
         """Create a CharmState from a charm instance.
 
         Args:
             charm: The charm instance.
+            http_endpoint_requirer: The HttpEndpointRequirer instance to get http output URL.
 
-        Returns: A CharmState instance.
+        Returns:
+            A CharmState instance.
+
+        Raises:
+            InvalidCharmConfigError: If configuration validation fails.
         """
         try:
             charm_config = charm.load_config(CharmConfig)
@@ -57,10 +67,19 @@ class CharmState(BaseModel):
 
         custom_config_repo_ssh_key = _fetch_custom_ssh_key(charm.model, charm_config)
 
+        http_output = {}
+        app_urls = http_endpoint_requirer.get_app_urls()
+        for url in app_urls.values():
+            # There should only be one URL since this relation is limited to 1, but if there are
+            # multiple, just take the last one.
+            http_output.update({"url": url})
+            logger.info("Retrieved url info from relation: %s", url)
+
         return cls(
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
+            http_output=http_output,
         )
 
 

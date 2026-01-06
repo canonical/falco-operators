@@ -9,6 +9,7 @@ import logging
 import typing
 
 import ops
+from charmlibs.interfaces.http_endpoint import HttpEndpointRequirer
 
 from config import InvalidCharmConfigError
 from service import (
@@ -23,6 +24,8 @@ from state import CharmBaseWithState, CharmState
 
 logger = logging.getLogger(__name__)
 
+HTTP_ENDPOINT_RELATION_NAME = "http-endpoint"
+
 
 class Falco(CharmBaseWithState):
     """Falco subordinate charm.
@@ -36,6 +39,10 @@ class Falco(CharmBaseWithState):
         super().__init__(*args)
 
         self._state = None
+
+        self.http_endpoint_requirer = HttpEndpointRequirer(
+            self, relation_name=HTTP_ENDPOINT_RELATION_NAME
+        )
 
         self.falco_layout = FalcoLayout(base_dir=self.charm_dir / "falco")
         self.falco_service_file = FalcoServiceFile(self.falco_layout, self)
@@ -52,11 +59,19 @@ class Falco(CharmBaseWithState):
         self.framework.observe(self.on.config_changed, self.reconcile)
         self.framework.observe(self.on.secret_changed, self.reconcile)
 
+        # Observe http-endpoint relation evnents to trigger reconciliation
+        self.framework.observe(
+            self.on[HTTP_ENDPOINT_RELATION_NAME].relation_broken, self.reconcile
+        )
+        self.framework.observe(
+            self.on[HTTP_ENDPOINT_RELATION_NAME].relation_changed, self.reconcile
+        )
+
     @property
     def state(self) -> CharmState:
         """The charm state."""
         if self._state is None:
-            self._state = CharmState.from_charm(self)
+            self._state = CharmState.from_charm(self, self.http_endpoint_requirer)
         return self._state
 
     def _on_remove(self, _: ops.RemoveEvent) -> None:
