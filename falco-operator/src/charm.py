@@ -11,6 +11,7 @@ import typing
 import ops
 
 from config import InvalidCharmConfigError
+from relations import HttpOutputRequirer
 from service import (
     FalcoConfigFile,
     FalcoConfigurationError,
@@ -22,6 +23,8 @@ from service import (
 from state import CharmBaseWithState, CharmState
 
 logger = logging.getLogger(__name__)
+
+HTTP_OUTPUT_RELATION_NAME = "http-output"
 
 
 class Falco(CharmBaseWithState):
@@ -36,6 +39,10 @@ class Falco(CharmBaseWithState):
         super().__init__(*args)
 
         self._state = None
+
+        self.http_output_requirer = HttpOutputRequirer(
+            self, relation_name=HTTP_OUTPUT_RELATION_NAME
+        )
 
         self.falco_layout = FalcoLayout(base_dir=self.charm_dir / "falco")
         self.falco_service_file = FalcoServiceFile(self.falco_layout, self)
@@ -52,11 +59,14 @@ class Falco(CharmBaseWithState):
         self.framework.observe(self.on.config_changed, self.reconcile)
         self.framework.observe(self.on.secret_changed, self.reconcile)
 
+        self.framework.observe(self.on.http_output_relation_broken, self.reconcile)
+        self.framework.observe(self.on.http_output_relation_changed, self.reconcile)
+
     @property
     def state(self) -> CharmState:
         """The charm state."""
         if self._state is None:
-            self._state = CharmState.from_charm(self)
+            self._state = CharmState.from_charm(self, self.http_output_requirer)
         return self._state
 
     def _on_remove(self, _: ops.RemoveEvent) -> None:

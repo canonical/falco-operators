@@ -12,6 +12,7 @@ import ops
 from pydantic import AnyUrl, BaseModel, ValidationError
 
 from config import CharmConfig, InvalidCharmConfigError
+from relations import HttpOutputDataBag, HttpOutputRequirer
 
 logger = logging.getLogger(__name__)
 
@@ -20,23 +21,33 @@ class CharmState(BaseModel):
     """The pydantic model for charm state.
 
     Attributes:
-        custom_config_repo (Optional[AnyUrl]): Optional URL to a custom configuration repository.
-        custom_config_repo_ref (Optional[str]): Optional branch or tag to a custom configuration repository.
-        custom_config_repo_ssh_key (Optional[str]): Optional SSH key for custom configuration repository.
+        custom_config_repo: Optional URL to a custom configuration repository.
+        custom_config_repo_ref: Optional branch or tag to a custom configuration repository.
+        custom_config_repo_ssh_key: Optional SSH key for custom configuration repository.
+        http_output: Optional HTTP output data from http-output relation.
     """
 
     custom_config_repo: Optional[AnyUrl] = None
     custom_config_repo_ref: Optional[str] = None
     custom_config_repo_ssh_key: Optional[str] = None
+    http_output: Optional[HttpOutputDataBag] = None
 
     @classmethod
-    def from_charm(cls, charm: ops.CharmBase) -> "CharmState":
+    def from_charm(
+        cls, charm: ops.CharmBase, http_output_requirer: HttpOutputRequirer
+    ) -> "CharmState":
         """Create a CharmState from a charm instance.
 
         Args:
             charm: The charm instance.
+            http_output_requirer: The HttpOutputRequirer instance to get http output URL.
 
-        Returns: A CharmState instance.
+        Returns:
+            A CharmState instance.
+
+        Raises:
+            InvalidCharmConfigError: If configuration validation fails.
+            InvalidHttpOutputRelationError: If the HTTP output relation data is invalid.
         """
         try:
             charm_config = charm.load_config(CharmConfig)
@@ -61,6 +72,7 @@ class CharmState(BaseModel):
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
+            http_output=http_output_requirer.get_http_output_info(),
         )
 
 

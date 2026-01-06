@@ -57,3 +57,7 @@ requires:
   send-loki-logs:
     limit: 1
     interface: loki_push_api
+
+provides:
+  http-output:
+    interface: http_output

@@ -177,18 +177,29 @@ class FalcoServiceFile(Template):
     service_file: Path = SYSTEMD_SERVICE_DIR / f"{FALCO_SERVICE_NAME}.service"
 
     def __init__(self, falco_layout: FalcoLayout, charm: CharmBase) -> None:
-        """Initialize the Falco service file manager."""
-        super().__init__(
-            self.template,
-            self.service_file,
-            context={
-                "command": str(falco_layout.cmd),
-                "rules_dir": str(falco_layout.rules_dir),
-                "config_file": str(falco_layout.config_file),
-                "falco_home": str(falco_layout.home),
-                "juju_topology": JujuTopology.from_charm(charm).as_dict(),
-            },
-        )
+        """Initialize the Falco service file manager.
+
+        Args:
+            falco_layout: The Falco file layout.
+            charm: The charm instance.
+        """
+        context = {
+            "command": str(falco_layout.cmd),
+            "rules_dir": str(falco_layout.rules_dir),
+            "config_file": str(falco_layout.config_file),
+            "falco_home": str(falco_layout.home),
+            "juju_topology": JujuTopology.from_charm(charm).as_dict(),
+        }
+        super().__init__(self.template, self.service_file, context=context)
+
+    def update(self, context: dict) -> None:
+        """Update the Falco service file with new context.
+
+        Args:
+            context: A dictionary containing new context values.
+        """
+        self.context.update(context)
+        self.install()
 
 
 class FalcoConfigFile(Template):
@@ -328,6 +339,7 @@ class FalcoService:
 
         try:
             self.custom_setting.configure(charm_state)
+            self.service_file.update(context={"http_output": charm_state.http_output})
         except (GitCloneError, SshKeyScanError, RsyncError) as e:
             logger.error("Failed to configure Falco custom settings: %s", e)
             raise FalcoConfigurationError("Failed to configure Falco service") from e
@@ -361,7 +373,7 @@ def _pull_falco_rule_files(destination: str) -> None:
         destination,
     ]
     try:
-        logger.error("Rsync command: %s", rsync_cmd)
+        logger.debug("Rsync command: %s", rsync_cmd)
         subprocess.run(rsync_cmd, check=True)
     except subprocess.CalledProcessError as e:
         logging.error("Rsync failed from %s to %s", source, destination)

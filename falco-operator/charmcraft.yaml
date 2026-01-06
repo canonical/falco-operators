@@ -96,3 +96,6 @@ requires:
   general-info:
     interface: juju-info
     scope: container
+  http-output:
+    limit: 1
+    interface: http_output

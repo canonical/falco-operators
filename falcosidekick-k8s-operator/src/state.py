@@ -36,7 +36,11 @@ class CharmState(BaseModel):
     falcosidekick_loki_hostport: str
 
     @classmethod
-    def from_charm(cls, charm: ops.CharmBase, loki_relation: LokiRelationManager) -> "CharmState":
+    def from_charm(
+        cls,
+        charm: ops.CharmBase,
+        loki_relation: LokiRelationManager,
+    ) -> "CharmState":
         """Create a CharmState from a charm instance.
 
         Loads and validates the charm configuration, then constructs a CharmState
@@ -51,6 +55,7 @@ class CharmState(BaseModel):
 
         Raises:
             InvalidCharmConfigError: If configuration validation fails.
+            InvalidStateError: If relation data is invalid.
         """
         try:
             charm_config = charm.load_config(CharmConfig)

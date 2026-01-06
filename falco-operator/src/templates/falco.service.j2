@@ -9,6 +9,10 @@ Documentation=https://falco.org/docs/
 [Service]
 Type=simple
 ExecStart={{ command }} -c {{ config_file }} -r {{ rules_dir }} \
+  {%- if http_output %}
+  -o http_output.enabled=true \
+  -o http_output.url={{ http_output.url }} \
+  {%- endif %}
   -o engine.kind=modern_ebpf \
   -o watch_config_files=true \
   -o json_output=true \

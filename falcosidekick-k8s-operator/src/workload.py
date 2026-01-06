@@ -10,7 +10,7 @@ import ops
 from jinja2 import Environment, FileSystemLoader
 
 import state
-from relations import MissingLokiRelationError
+from relations import HttpOutputProvider, MissingLokiRelationError
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +172,9 @@ class Falcosidekick:
             logger.error("Not able to add Healthcheck layer")
             logger.exception(connect_error)
 
-    def configure(self, charm_state: state.CharmState) -> None:
+    def configure(
+        self, charm_state: state.CharmState, http_output_provider: HttpOutputProvider
+    ) -> None:
         """Configure the Falcosidekick workload idempotently.
 
         Installs the configuration file, sets up health checks, and restarts
@@ -180,6 +182,11 @@ class Falcosidekick:
 
         Args:
             charm_state: The current charm state containing configuration parameters.
+            http_output_provider: The HttpOutputProvider instance to set http output data.
+
+        Raises:
+            MissingLokiRelationError: If the Loki relation is missing.
+            InvalidHttpOutputRelationError: If the HTTP output relation data is invalid.
         """
         if not self.ready:
             logger.warning("Cannot configure; container is not ready")
@@ -189,6 +196,9 @@ class Falcosidekick:
             raise MissingLokiRelationError(
                 "Loki relation is missing; Falcosidekick requires at least one output"
             )
+
+        # Set http output information idempotently
+        http_output_provider.set_http_output_info(charm_state.falcosidekick_listenport)
 
         changed = self.config_file.install(context={"charm_state": charm_state})
         if not changed:

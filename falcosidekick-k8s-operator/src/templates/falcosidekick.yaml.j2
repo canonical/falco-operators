@@ -13,6 +13,8 @@ listenaddress: "" # ip address to bind falcosidekick to (default: "" meaning all
 
 {% if charm_state.falcosidekick_loki_hostport -%}
 loki:
+  format: json
+  extralabels: "juju_unit,juju_charm,juju_model,juju_model_uuid,juju_application"
   endpoint: "{{ charm_state.falcosidekick_loki_endpoint }}"
   hostport: "{{ charm_state.falcosidekick_loki_hostport }}"
 {% endif %}
