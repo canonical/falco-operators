@@ -132,7 +132,7 @@ html_context = {
     # Docs branch in the repo; used in links for viewing the source files
     #
     # To customise the branch, uncomment and update as needed.
-    'repo_default_branch': 'main',
+    "repo_default_branch": "main",
     # Docs location in the repo; used in links for viewing the source files
     #
     # To customise the directory, uncomment and update as needed.
@@ -146,7 +146,7 @@ html_context = {
     "display_contributors": True,
     #
     # Required for feedback button
-    'github_issues': 'enabled',
+    "github_issues": "enabled",
 }
 
 html_extra_path = []
@@ -183,7 +183,7 @@ html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
 
 # sphinx-sitemap uses html_baseurl to generate the full URL for each page:
 
-sitemap_url_scheme = '{link}'
+sitemap_url_scheme = "{link}"
 
 # Include `lastmod` dates in the sitemap:
 
@@ -192,9 +192,9 @@ sitemap_show_lastmod = True
 # Exclude generated pages from the sitemap:
 
 sitemap_excludes = [
-    '404/',
-    'genindex/',
-    'search/',
+    "404/",
+    "genindex/",
+    "search/",
 ]
 
 # Add more pages to sitemap_excludes if needed. Wildcards are supported.
@@ -221,12 +221,12 @@ templates_path = ["_templates"]
 # NOTE: If undefined, set to None, or empty,
 #       the sphinx_reredirects extension will be disabled.
 
-# redirects = {
-#     'reference/doc-cheat-sheet-myst/': '../myst-syntax-reference',
-#     'reference/doc-cheat-sheet/': '../rst-syntax-reference',
-#     'reference/style-guide-myst/': '../myst-syntax-reference',
-#     'reference/style-guide/': '../rst-syntax-reference',
-# }
+redirects = {
+    "reference/doc-cheat-sheet-myst/": "../myst-syntax-reference",
+    "reference/doc-cheat-sheet/": "../rst-syntax-reference",
+    "reference/style-guide-myst/": "../myst-syntax-reference",
+    "reference/style-guide/": "../rst-syntax-reference",
+}
 
 
 ###########################
@@ -240,8 +240,8 @@ templates_path = ["_templates"]
 linkcheck_ignore = [
     "http://127.0.0.1:8000",
     "https://github.com/canonical/ACME/*",
-    "https://matrix.to/#/#charmhub-charmdev:ubuntu.com"
-    ]
+    "https://matrix.to/#/#charmhub-charmdev:ubuntu.com",
+]
 
 
 # A regex list of URLs where anchors are ignored by 'make linkcheck'
@@ -301,12 +301,12 @@ exclude_patterns = [
 
 # Adds custom CSS files, located under 'html_static_path'
 
-html_css_files = ['cookie-banner.css']
+html_css_files = ["cookie-banner.css"]
 
 
 # Adds custom JavaScript files, located under 'html_static_path'
 
-html_js_files = ['js/bundle.js']
+html_js_files = ["js/bundle.js"]
 
 
 # Specifies a reST snippet to be appended to each .rst file
@@ -358,14 +358,20 @@ if "discourse_prefix" not in html_context and "discourse" in html_context:
 
 # Workaround for substitutions.yaml
 
-if os.path.exists('./reuse/substitutions.yaml'):
-    with open('./reuse/substitutions.yaml', 'r') as fd:
+if os.path.exists("./reuse/substitutions.yaml"):
+    with open("./reuse/substitutions.yaml", "r") as fd:
         myst_substitutions = yaml.safe_load(fd.read())
 
 # Add configuration for intersphinx mapping
 
 intersphinx_mapping = {
-    'juju': ("https://documentation.ubuntu.com/juju/3.6/", None),
-    'starter-pack': ('https://canonical-example-product-documentation.readthedocs-hosted.com/en/latest', None),
-    'sphinxcontrib-mermaid': ('https://sphinxcontrib-mermaid-demo.readthedocs.io/en/latest', None)
+    "juju": ("https://documentation.ubuntu.com/juju/3.6/", None),
+    "starter-pack": (
+        "https://canonical-example-product-documentation.readthedocs-hosted.com/en/latest",
+        None,
+    ),
+    "sphinxcontrib-mermaid": (
+        "https://sphinxcontrib-mermaid-demo.readthedocs.io/en/latest",
+        None,
+    ),
 }
