@@ -8,7 +8,7 @@ myst:
 
 # Tutorial
 
-The Falaco charm tutorial aims to help you learn how to deploy the charm on machines and become familiar with its available operations.
+The Falco charm tutorial aims to help you learn how to deploy the charm on machines and become familiar with its available operations.
 
 ```{toctree}
 :maxdepth: 1
