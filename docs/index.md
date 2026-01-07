@@ -19,14 +19,14 @@ Like any Juju charm, this charm supports one-line deployment, configuration, int
 
 This charm will make operating Falco simple and straightforward for DevOps or SRE teams through
 Juju's clean interface. For information about how to deploy, integrate, and manage this charm, see
-the Official [Falco Operator Documentation](https://charmhub.io/falco/docs).
+the Official [Falco Operator Documentation](https://documentation.ubuntu.com/falco-operators).
 
 ## In this documentation
 
-|                                                                                                         |                                                                                                  |
-| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| [Tutorial](/tutorial/index)</br> Get started - a hands-on introduction to using the charm for new users | [How-to guides](/how-to/index)</br> Step-by-step guides covering key operations and common tasks |
-| [Reference](/reference/index)</br> Technical information - specifications, APIs, architecture           | [Explanation](/explanation/index)</br> Concepts - discussion and clarification of key topics     |
+|                                                                                                        |                                                                                                 |
+| ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| {ref}`Tutorial <tutorial>`</br> Get started - a hands-on introduction to using the charm for new users | {ref}`How-to guides <how_to>`</br> Step-by-step guides covering key operations and common tasks |
+| {ref}`Reference <reference>`</br> Technical information - specifications, APIs, architecture           | {ref}`Explanation <explanation>`</br> Concepts - discussion and clarification of key topics     |
 
 ## Contributing to this documentation
 

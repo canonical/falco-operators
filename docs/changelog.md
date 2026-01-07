@@ -10,16 +10,12 @@ Each revision is versioned by the date of the revision.
 
 ## 2026-01-07
 
-Customize RTD configuration and remove unnecessary files.
+Customize RTD configuration.
 
 ### Changed
 
 - Update `docs/conf.py` to customize RTD configuration
 - Update `workflows/docs.yaml` to check for markdown files other than `docs`
-
-### Deleted
-
-- Remove `Makefile` and `Makefile.docs` as they are not needed for RTD builds
 
 ## 2026-01-06
 
