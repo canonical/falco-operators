@@ -60,7 +60,7 @@ integration = [
 package = false
 
 [tool.uv.sources]
-charmlibs-interfaces-http-endpoint = { git = "https://github.com/chanchiwai-ray/charmlibs", subdirectory = "interfaces/http_endpoint", rev = "65b201cfd796da7112f767ea5faf936e8142809a" }
+charmlibs-interfaces-http-endpoint = { git = "https://github.com/chanchiwai-ray/charmlibs", subdirectory = "interfaces/http_endpoint", rev = "a03bb6a21d526d19b1939e7b47a0d2ad3afbcf8f" }
 
 [tool.ruff]
 target-version = "py310"

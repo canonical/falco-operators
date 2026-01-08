@@ -63,6 +63,10 @@ class Falco(CharmBaseWithState):
             self.http_endpoint_relation._endpoint_requirer.on.http_endpoint_available,
             self.reconcile,
         )
+        self.framework.observe(
+            self.http_endpoint_relation._endpoint_requirer.on.http_endpoint_unavailable,
+            self.reconcile,
+        )
 
     @property
     def state(self) -> CharmState:
