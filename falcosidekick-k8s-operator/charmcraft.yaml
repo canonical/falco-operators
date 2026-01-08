@@ -32,6 +32,8 @@ parts:
   charm:
     source: .
     plugin: uv
+    build-packages:
+      - git
     build-snaps:
       - astral-uv
 
@@ -59,5 +61,5 @@ requires:
     interface: loki_push_api
 
 provides:
-  http-output:
-    interface: http_output
+  http-endpoint:
+    interface: http_endpoint

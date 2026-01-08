@@ -6,8 +6,9 @@
 import logging
 
 import ops
+from charmlibs.interfaces.http_endpoint import HttpEndpointProvider
 from charms.loki_k8s.v1.loki_push_api import LokiPushApiConsumer
-from pydantic import BaseModel, HttpUrl, ValidationError
+from pydantic import HttpUrl, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +19,6 @@ class MissingLokiRelationError(Exception):
 
 class InvalidLokiRelationError(Exception):
     """Exception raised for invalid Loki relation data."""
-
-
-class HttpOutputDataBag(BaseModel):
-    """Data bag model for HTTP output relation."""
-
-    url: str
 
 
 class LokiRelationManager:
@@ -65,57 +60,34 @@ class LokiRelationManager:
         return None
 
 
-class HttpOutputProvider:
-    """Http output relation provider.
+class HttpEndpointManager:
+    """Manager for HTTP output relation.
 
-    This class manages the http_output relation as a provider, publishing
-    the leader's address and listening port for other charms to consume.
+    This class manages the provider side of http_endpoint interface, publishing the leader's
+    address and listening port for other charms to consume.
     """
 
     def __init__(self, charm: ops.CharmBase, relation_name: str) -> None:
-        """Initialize http output relation provider.
+        """Initialize http endpoint relation provider.
 
         Args:
             charm: charm instance.
-            relation_name: http_output relation name.
+            relation_name: http_endpoint relation name.
         """
         self._charm = charm
         self._relation_name = relation_name
+        self._endpoint_provider = HttpEndpointProvider(
+            charm,
+            relation_name=relation_name,
+            scheme="http",  # default scheme
+            listen_port=2801,  # default port
+        )
 
-    def set_http_output_info(self, port: int) -> None:
-        """Set http output information to relations' application data bags.
+    def set_scheme_and_listen_port(self, scheme: str, listen_port: int) -> None:
+        """Set the scheme and listening port for the http endpoint.
 
         Args:
-            port: The port on which Falcosidekick is listening.
+            scheme: The scheme to use (e.g., "http" or "https").
+            listen_port: The port on which the service is listening.
         """
-        if not self._charm.unit.is_leader():
-            logger.debug("Only leader unit can set http output information")
-            return
-
-        relations = self._charm.model.relations[self._relation_name]
-        if not relations:
-            logger.debug(f"No {self._relation_name} relations found")
-            return
-
-        # Get the leader's address
-        binding = self._charm.model.get_binding(self._relation_name)
-        if not binding:
-            logger.warning("Could not determine ingress address for http output relation")
-            return
-
-        ingress_address = binding.network.ingress_address
-        if not ingress_address:
-            logger.warning("Relation data (http-output) is not ready: missing ingress address")
-            return
-
-        scheme = "http"
-        url = f"{scheme}://{ingress_address}:{port}"
-        http_output = HttpOutputDataBag(url=url)
-
-        # Publish the HTTP output to all relations' application data bags
-        for relation in relations:
-            relation_data = relation.data[self._charm.app]
-            relation_data.update(http_output.model_dump())
-            logger.info("Published HTTP output URL to relation %s: %s", relation.id, url)
-
-        self._charm.unit.set_ports(port)
+        self._endpoint_provider.set_scheme_and_listen_port(scheme, listen_port)

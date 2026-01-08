@@ -12,7 +12,7 @@ import ops
 from pydantic import AnyUrl, BaseModel, ValidationError
 
 from config import CharmConfig, InvalidCharmConfigError
-from relations import HttpOutputDataBag, HttpOutputRequirer
+from relations import HttpEndpointManager
 
 logger = logging.getLogger(__name__)
 
@@ -30,24 +30,23 @@ class CharmState(BaseModel):
     custom_config_repo: Optional[AnyUrl] = None
     custom_config_repo_ref: Optional[str] = None
     custom_config_repo_ssh_key: Optional[str] = None
-    http_output: Optional[HttpOutputDataBag] = None
+    http_output: Optional[dict[str, str]] = None
 
     @classmethod
     def from_charm(
-        cls, charm: ops.CharmBase, http_output_requirer: HttpOutputRequirer
+        cls, charm: ops.CharmBase, http_endpoint_relation: HttpEndpointManager
     ) -> "CharmState":
         """Create a CharmState from a charm instance.
 
         Args:
             charm: The charm instance.
-            http_output_requirer: The HttpOutputRequirer instance to get http output URL.
+            http_endpoint_relation: The HttpEndpointManager instance to get http output URL.
 
         Returns:
             A CharmState instance.
 
         Raises:
             InvalidCharmConfigError: If configuration validation fails.
-            InvalidHttpOutputRelationError: If the HTTP output relation data is invalid.
         """
         try:
             charm_config = charm.load_config(CharmConfig)
@@ -68,11 +67,16 @@ class CharmState(BaseModel):
 
         custom_config_repo_ssh_key = _fetch_custom_ssh_key(charm.model, charm_config)
 
+        http_output = {}
+        http_endpoint = http_endpoint_relation.get_http_endpoint()
+        if http_endpoint is not None:
+            http_output.update({"url": http_endpoint.url})
+
         return cls(
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
-            http_output=http_output_requirer.get_http_output_info(),
+            http_output=http_output,
         )
 
 

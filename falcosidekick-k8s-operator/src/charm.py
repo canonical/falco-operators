@@ -12,7 +12,7 @@ import ops
 
 from config import InvalidCharmConfigError
 from relations import (
-    HttpOutputProvider,
+    HttpEndpointManager,
     LokiRelationManager,
     MissingLokiRelationError,
 )
@@ -22,7 +22,7 @@ from workload import Falcosidekick
 logger = logging.getLogger(__name__)
 
 LOKI_RELATION_NAME = "send-loki-logs"
-HTTP_OUTPUT_RELATION_NAME = "http-output"
+HTTP_ENDPOINT_RELATION_NAME = "http-endpoint"
 
 
 class FalcosidekickCharm(CharmBaseWithState):
@@ -46,8 +46,9 @@ class FalcosidekickCharm(CharmBaseWithState):
 
         self.falcosidekick = Falcosidekick(self)
         self.loki_relation = LokiRelationManager(self, relation_name=LOKI_RELATION_NAME)
-        self.http_output_provider = HttpOutputProvider(
-            self, relation_name=HTTP_OUTPUT_RELATION_NAME
+        self.http_endpoint_relation = HttpEndpointManager(
+            self,
+            relation_name=HTTP_ENDPOINT_RELATION_NAME,
         )
 
         self.framework.observe(self.on.install, self._install)
@@ -60,9 +61,6 @@ class FalcosidekickCharm(CharmBaseWithState):
         self.framework.observe(
             self.loki_relation._loki_consumer.on.loki_push_api_endpoint_departed, self.reconcile
         )
-
-        self.framework.observe(self.on.http_output_relation_broken, self.reconcile)
-        self.framework.observe(self.on.http_output_relation_changed, self.reconcile)
 
     @property
     def state(self) -> CharmState:
@@ -106,7 +104,7 @@ class FalcosidekickCharm(CharmBaseWithState):
 
         try:
             logger.info("Configuring '%s' workload", self.falcosidekick.container_name)
-            self.falcosidekick.configure(self.state, self.http_output_provider)
+            self.falcosidekick.configure(self.state, self.http_endpoint_relation)
         except InvalidCharmConfigError as e:
             logger.error("%s", e)
             self.unit.status = ops.BlockedStatus(str(e))
