@@ -21,6 +21,10 @@ GRAFANA_AGENT_K8S = "grafana-agent-k8s"
 GRAFANA_AGENT_K8S_CHANNEL = "2/stable"
 GRAFANA_AGENT_K8S_REVISION = 181
 
+SELF_SIGNED_CERTIFICATE = "self-signed-certificates"
+SELF_SIGNED_CERTIFICATE_CHANNEL = "1/stable"
+SELF_SIGNED_CERTIFICATE_REVISION = 317
+
 LOKI = "loki"
 PROMETHEUS = "prometheus"
 
@@ -53,6 +57,12 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Con
         GRAFANA_AGENT_K8S,
         channel=GRAFANA_AGENT_K8S_CHANNEL,
         revision=GRAFANA_AGENT_K8S_REVISION,
+    )
+    logger.info("Deploying %s", SELF_SIGNED_CERTIFICATE)
+    juju.deploy(
+        SELF_SIGNED_CERTIFICATE,
+        channel=SELF_SIGNED_CERTIFICATE_CHANNEL,
+        revision=SELF_SIGNED_CERTIFICATE_REVISION,
     )
 
     logger.info("Relating %s and %s", FALCOSIDEKICK_K8S, GRAFANA_AGENT_K8S)
@@ -195,3 +205,66 @@ def test_send_dummy_logs(juju: jubilant.Juju):
     result = resp.json()
     assert len(result["data"]["result"]) > 0
     assert result["data"]["result"][0]["stream"].get("rule", "") == "Write below binary dir"
+
+
+def test_tls_certificates_relation(juju: jubilant.Juju):
+    """
+    Arrange: Relate falcosidekick charm to self-signed-certificates charm.
+    Act: Send dummy log to falcosidekick via http
+    Assert: Sending log via http is not working as TLS is enforced.
+    """
+    logger.info("Relating %s and %s", FALCOSIDEKICK_K8S, SELF_SIGNED_CERTIFICATE)
+    juju.integrate(f"{FALCOSIDEKICK_K8S}:certificates", f"{SELF_SIGNED_CERTIFICATE}:certificates")
+
+    logger.info("Sending dummy log to falcosidekick via http")
+    status = juju.status()
+    juju.wait(jubilant.all_agents_idle)
+    assert status.apps[FALCOSIDEKICK_K8S].app_status.current == "active"
+    assert status.apps[SELF_SIGNED_CERTIFICATE].app_status.current == "active"
+
+    # Get falcosidekick address
+    falcosidekick_units = status.get_units(FALCOSIDEKICK_K8S)
+    assert len(falcosidekick_units.keys()) == 1, "Only test with single falcosidekick unit"
+    falcosidekick_unit = falcosidekick_units[f"{FALCOSIDEKICK_K8S}/0"]
+    falcosidekick_address = falcosidekick_unit.address
+    assert falcosidekick_address, "Falcosidekick unit has no public address"
+
+    # Post to default falcosidekick endpoint (port 2801 via http should fail as TLS is enforced)
+    try:
+        requests.post(
+            f"http://{falcosidekick_address}:2801",
+            json={
+                "output": "16:31:56.746609046: Error File below a known binary directory opened for writing (user=root command=touch /bin/hack file=/bin/hack)",
+                "hostname": "localhost",
+                "priority": "Error",
+                "rule": "Write below binary dir",
+                "time": "2019-05-17T15:31:56.746609046Z",
+                "output_fields": {
+                    "evt.time": 1507591916746609046,
+                    "fd.name": "/bin/hack",
+                    "proc.cmdline": "touch /bin/hack",
+                    "user.name": "root",
+                    "container": "falcosidekick",
+                },
+            },
+            timeout=10,
+        )
+    except requests.exceptions.RequestException as e:
+        logger.info("Expected connection error when sending log via http: %s", e)
+
+    resp = requests.get(
+        f"http://{falcosidekick_address}:2810/ping",
+        timeout=10,
+    )
+
+    # /ping should be serving at 2810 when TLS is enforced
+    assert resp.ok, "/ping is not reachable via http on port 2810 when TLS is enforced"
+
+    juju.remove_relation(
+        f"{FALCOSIDEKICK_K8S}:certificates", f"{SELF_SIGNED_CERTIFICATE}:certificates"
+    )
+
+    status = juju.status()
+    juju.wait(jubilant.all_agents_idle)
+    assert status.apps[FALCOSIDEKICK_K8S].app_status.current == "active"
+    assert status.apps[SELF_SIGNED_CERTIFICATE].app_status.current == "active"
