@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 import ops
+from charmlibs.interfaces.http_endpoint import HttpEndpointDataModel, HttpEndpointRequirer
 from pydantic import AnyUrl, BaseModel, ValidationError
 
 from config import CharmConfig, InvalidCharmConfigError
@@ -20,23 +21,32 @@ class CharmState(BaseModel):
     """The pydantic model for charm state.
 
     Attributes:
-        custom_config_repo (Optional[AnyUrl]): Optional URL to a custom configuration repository.
-        custom_config_repo_ref (Optional[str]): Optional branch or tag to a custom configuration repository.
-        custom_config_repo_ssh_key (Optional[str]): Optional SSH key for custom configuration repository.
+        custom_config_repo: Optional URL to a custom configuration repository.
+        custom_config_repo_ref: Optional branch or tag to a custom configuration repository.
+        custom_config_repo_ssh_key: Optional SSH key for custom configuration repository.
+        http_output: Optional HTTP output data from http-output relation.
     """
 
     custom_config_repo: Optional[AnyUrl] = None
     custom_config_repo_ref: Optional[str] = None
     custom_config_repo_ssh_key: Optional[str] = None
+    http_output: Optional[dict[str, str]] = None
 
     @classmethod
-    def from_charm(cls, charm: ops.CharmBase) -> "CharmState":
+    def from_charm(
+        cls, charm: ops.CharmBase, http_endpoint_requirer: HttpEndpointRequirer
+    ) -> "CharmState":
         """Create a CharmState from a charm instance.
 
         Args:
             charm: The charm instance.
+            http_endpoint_requirer: The HttpEndpointRequirer instance to get http output URL.
 
-        Returns: A CharmState instance.
+        Returns:
+            A CharmState instance.
+
+        Raises:
+            InvalidCharmConfigError: If configuration validation fails.
         """
         try:
             charm_config = charm.load_config(CharmConfig)
@@ -57,10 +67,16 @@ class CharmState(BaseModel):
 
         custom_config_repo_ssh_key = _fetch_custom_ssh_key(charm.model, charm_config)
 
+        http_output = {}
+        http_endpoint = _get_http_endpoint(http_endpoint_requirer)
+        if http_endpoint is not None:
+            url = f"{http_endpoint.scheme}://{http_endpoint.hostname}:{http_endpoint.port}"
+            http_output.update({"url": url})
         return cls(
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
+            http_output=http_output,
         )
 
 
@@ -106,3 +122,27 @@ def _fetch_custom_ssh_key(model: ops.Model, config: CharmConfig) -> Optional[str
             "Repository secret is empty or does not contain the expected key 'value'."
         )
     return ssh_key_content
+
+
+def _get_http_endpoint(endpoint_requirer: HttpEndpointRequirer) -> Optional[HttpEndpointDataModel]:
+    """Get http endpoints info from relation.
+
+    Args:
+        endpoint_requirer: The HttpEndpointRequirer instance.
+
+    Returns:
+        The endpoint info as a HttpEndpointDataModel, or None if not available.
+    """
+    endpoints = endpoint_requirer.http_endpoints
+    if not endpoints:
+        logger.warning("HTTP endpoint data not ready")
+        return None
+
+    # Limit to only 1 relation, see charmcraft.yaml
+    endpoint = endpoints[0]
+    if not endpoint.scheme and not endpoint.port:
+        logger.error("HTTP endpoint data is incomplete")
+        return None
+
+    logger.info("Retrieved HTTP endpoint info from relation: %s", endpoint.model_dump())
+    return endpoint

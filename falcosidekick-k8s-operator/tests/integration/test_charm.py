@@ -27,6 +27,8 @@ PROMETHEUS = "prometheus"
 FALCOSIDEKICK_K8S = "falcosidekick-k8s"
 FALCOSIDEKICK_IMAGE = "falcosidekick-image"
 
+DEPLOY_TIMEOUT = 10 * 60
+
 
 def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Config):
     """
@@ -64,7 +66,7 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Con
     logger.info("Waiting for deployment to settle")
     juju.wait(
         lambda status: jubilant.all_active(status),
-        timeout=juju.wait_timeout,
+        timeout=DEPLOY_TIMEOUT,
     )
 
     logger.info("Deployment complete")

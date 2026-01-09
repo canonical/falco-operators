@@ -29,6 +29,8 @@ parts:
   charm:
     source: .
     plugin: uv
+    build-packages:
+      - git
     build-snaps:
       - astral-uv
   falco:
@@ -96,3 +98,6 @@ requires:
   general-info:
     interface: juju-info
     scope: container
+  http-endpoint:
+    limit: 1
+    interface: http_endpoint

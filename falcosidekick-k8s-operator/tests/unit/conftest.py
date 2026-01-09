@@ -19,3 +19,16 @@ def loki_relation():
         interface="loki_push_api",
         remote_units_data={0: {"endpoint": '{"url": "http://loki:3100/loki/api/v1/push"}'}},
     )
+
+
+@pytest.fixture
+def http_endpoint_relation():
+    """Fixture for HTTP endpoint relation.
+
+    Returns:
+        A testing.Relation configured for http_endpoint interface.
+    """
+    return testing.Relation(
+        endpoint="http-endpoint",
+        interface="http_endpoint",
+    )

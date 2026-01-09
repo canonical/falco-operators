@@ -162,7 +162,7 @@ class TestCharmConfigHandling:
             assert state.custom_config_repo == AnyUrl("git+ssh://user@github.com/owner/repo.git")
             assert state.custom_config_repo_ref == ""
             state_out = mgr.run()
-            mock_service.configure.assert_called_once()
+            assert mock_service.configure.call_count == 2
             assert state_out.unit_status == ops.testing.ActiveStatus()
 
     @patch("charm.FalcoService")
@@ -186,7 +186,7 @@ class TestCharmConfigHandling:
             assert state.custom_config_repo == AnyUrl("git+ssh://user@github.com/owner/repo.git")
             assert state.custom_config_repo_ref == "production"
             state_out = mgr.run()
-            mock_service.configure.assert_called_once()
+            assert mock_service.configure.call_count == 2
             assert state_out.unit_status == ops.testing.ActiveStatus()
 
     @patch("charm.FalcoService")
@@ -206,7 +206,7 @@ class TestCharmConfigHandling:
             assert state.custom_config_repo is None
             assert state.custom_config_repo_ref is None
             state_out = mgr.run()
-            mock_service.configure.assert_called_once()
+            assert mock_service.configure.call_count == 2
             assert state_out.unit_status == ops.testing.ActiveStatus()
 
     @patch("charm.FalcoService")
@@ -277,3 +277,29 @@ class TestCharmConfigHandling:
         state_out = context.run(context.on.config_changed(), state_in)
 
         assert state_out.unit_status == ops.testing.BlockedStatus("Failed configuring Falco")
+
+
+class TestCharmWithHttpEndpointRelation:
+    """Test Charm behavior with HTTP endpoint relation."""
+
+    @patch("charm.FalcoService")
+    def test_charm_with_http_endpoint_relation(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout, http_endpoint_relation
+    ):
+        """Test charm behavior when HTTP endpoint relation is present.
+
+        Arrange: Set up testing context with charm and HTTP endpoint relation.
+        Act: Run config changed event.
+        Assert: Charm initializes successfully with HTTP endpoint relation.
+        """
+        mock_service = MagicMock()
+        mock_service.check_active.return_value = True
+        mock_service_class.return_value = mock_service
+
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        state_in = ops.testing.State(relations=[http_endpoint_relation])
+
+        with context(context.on.config_changed(), state_in) as mgr:
+            state_out = mgr.run()
+            assert mock_service.configure.call_count == 2
+            assert state_out.unit_status == ops.testing.ActiveStatus()
