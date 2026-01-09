@@ -26,6 +26,9 @@ class TestCharmState:
             falcosidekick_listenport=8080,
             falcosidekick_loki_endpoint="/loki/api/v1/push",
             falcosidekick_loki_hostport="http://loki:3100",
+            falcosidekick_tlsserver_key_file="",
+            falcosidekick_tlsserver_cert_file="",
+            falcosidekick_tlsserver_notlsport=8080,
         )
         assert state.falcosidekick_listenport == 8080
 
@@ -50,10 +53,13 @@ class TestCharmState:
         mock_charm.load_config.return_value = CharmConfig(port=port)
 
         mock_loki_relation = MagicMock()
-        mock_loki_relation.get_loki_http_url.return_value = None
+        mock_loki_relation.loki_endpoints = []
+
+        mock_tls_requirer = MagicMock()
+        mock_tls_requirer.is_ready.return_value = False
 
         # Act
-        state = CharmState.from_charm(mock_charm, mock_loki_relation)
+        state = CharmState.from_charm(mock_charm, mock_loki_relation, mock_tls_requirer)
 
         # Assert
         assert state.falcosidekick_listenport == port
@@ -84,11 +90,14 @@ class TestCharmState:
         mock_charm.load_config.side_effect = raise_validation_error
 
         mock_loki_relation = MagicMock()
-        mock_loki_relation.get_loki_http_url.return_value = None
+        mock_loki_relation.loki_endpoints = []
+
+        mock_tls_requirer = MagicMock()
+        mock_tls_requirer.is_ready.return_value = False
 
         # Act
         with pytest.raises(InvalidCharmConfigError) as exc_info:
-            CharmState.from_charm(mock_charm, mock_loki_relation)
+            CharmState.from_charm(mock_charm, mock_loki_relation, mock_tls_requirer)
 
         # Assert
         assert "Invalid charm configuration: port" in str(exc_info.value)
@@ -110,14 +119,46 @@ class TestCharmState:
             mock_charm.load_config.side_effect = e
 
         mock_loki_relation = MagicMock()
-        mock_loki_relation.get_loki_http_url.return_value = None
+        mock_loki_relation.loki_endpoints = []
+
+        mock_tls_requirer = MagicMock()
+        mock_tls_requirer.is_ready.return_value = False
 
         # Act
         with pytest.raises(InvalidCharmConfigError) as exc_info:
-            CharmState.from_charm(mock_charm, mock_loki_relation)
+            CharmState.from_charm(mock_charm, mock_loki_relation, mock_tls_requirer)
 
         # Assert
         # Error message should contain the invalid configuration message
         error_msg = str(exc_info.value)
         assert "Invalid charm configuration:" in error_msg
         assert "port" in error_msg
+
+    def test_from_charm_with_tls_ready(self):
+        """Test CharmState.from_charm when TLS certificate is ready.
+
+        Arrange: Set up mock charm with TLS certificate ready.
+        Act: Create CharmState from charm.
+        Assert: TLS server attributes are populated correctly.
+        """
+        # Arrange
+        mock_charm = MagicMock()
+        mock_charm.load_config.return_value = CharmConfig(port=2801)
+
+        mock_loki_relation = MagicMock()
+        mock_loki_relation.loki_endpoints = []
+
+        mock_tls_requirer = MagicMock()
+        mock_tls_requirer.is_ready.return_value = True
+        mock_tls_requirer.private_key_name = "/path/to/private.key"
+        mock_tls_requirer.certificate_name = "/path/to/certificate.crt"
+
+        # Act
+        state = CharmState.from_charm(mock_charm, mock_loki_relation, mock_tls_requirer)
+
+        # Assert
+        assert state.falcosidekick_tlsserver_key_file == "/path/to/private.key"
+        assert state.falcosidekick_tlsserver_cert_file == "/path/to/certificate.crt"
+        assert state.falcosidekick_tlsserver_notlsport == 2810  # TlsHealthcheckPort
+        assert state.falcosidekick_listenport == 2801
+        mock_tls_requirer.is_ready.assert_called_once()

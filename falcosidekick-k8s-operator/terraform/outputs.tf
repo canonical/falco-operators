@@ -9,6 +9,7 @@ output "app_name" {
 output "requires" {
   value = {
     send_loki_logs = "send-loki-logs"
+    certificates   = "certificates"
   }
 }
 

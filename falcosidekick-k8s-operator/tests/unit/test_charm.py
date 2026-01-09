@@ -223,3 +223,39 @@ class TestCharm:
             path="/", scheme="http", listen_port=2801, set_ports=True
         )
         assert state_out.unit_status == ops.ActiveStatus()
+
+    @patch("certificates.TlsCertificateRequirer.is_ready")
+    @patch("charm.Falcosidekick.health", new_callable=PropertyMock)
+    @patch("workload.HttpEndpointProvider.update_config")
+    def test_charm_with_http_endpoint_and_tls_relations(
+        self,
+        mock_update_config,
+        mock_falcosidekick_health,
+        mock_tls_is_ready,
+        loki_relation,
+        http_endpoint_relation,
+        certificates_relation,
+    ):
+        """Test charm behavior with http-endpoint and TLS certificate relations.
+
+        Arrange: Set up testing context with loki, http-endpoint, and certificates relations.
+        Act: Run config changed event.
+        Assert: Http endpoint provider is configured with HTTPS scheme.
+        """
+        ctx = testing.Context(FalcosidekickCharm)
+        # mypy thinks this can_connect argument does not exist.
+        container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
+        mock_falcosidekick_health.return_value = True
+        mock_tls_is_ready.return_value = True
+        state_in = testing.State(
+            containers=[container],
+            relations=[loki_relation, http_endpoint_relation, certificates_relation],
+        )
+
+        state_out = ctx.run(ctx.on.config_changed(), state_in)
+
+        # Verify http endpoint provider was called with HTTPS scheme
+        mock_update_config.assert_called_with(
+            path="/", scheme="https", listen_port=2801, set_ports=True
+        )
+        assert state_out.unit_status == ops.ActiveStatus()
