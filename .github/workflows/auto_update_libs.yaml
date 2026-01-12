@@ -8,3 +8,10 @@ jobs:
   auto-update-libs:
     uses: canonical/operator-workflows/.github/workflows/auto_update_charm_libs.yaml@main
     secrets: inherit
+    strategy:
+      matrix:
+        include:
+          - charm: "falco"
+          - charm: "falcosidekick-k8s"
+    with:
+      working-directory: "${{ matrix.charm }}-operator"
