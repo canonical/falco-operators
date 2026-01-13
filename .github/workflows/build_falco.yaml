@@ -74,7 +74,7 @@ jobs:
           echo "Plugins source cloned at $FALCO_PLUGINS_SOURCE/k8saudit with tag: plugins/k8saudit/v${{ steps.version.outputs.k8saudit_plugin_version }}"
 
       - name: Setup Go
-        uses: actions/setup-go@v6.1.0
+        uses: actions/setup-go@v6.2.0
         with:
           cache: false
           go-version: "1.25"
