@@ -25,10 +25,17 @@ platforms:
 
 subordinate: true
 
+charm-libs:
+  - lib: certificate_transfer_interface.certificate_transfer
+    version: "1"
+
+
 parts:
   charm:
     source: .
     plugin: uv
+    build-packages:
+      - git
     build-snaps:
       - astral-uv
   falco:
@@ -96,3 +103,9 @@ requires:
   general-info:
     interface: juju-info
     scope: container
+  http-endpoint:
+    limit: 1
+    interface: http_endpoint
+  receive-ca-cert:
+    limit: 1
+    interface: certificate_transfer

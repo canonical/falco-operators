@@ -27,11 +27,15 @@ assumes:
 charm-libs:
   - lib: loki_k8s.loki_push_api
     version: "1"
+  - lib: certificate_transfer_interface.certificate_transfer
+    version: "1"
 
 parts:
   charm:
     source: .
     plugin: uv
+    build-packages:
+      - git
     build-snaps:
       - astral-uv
 
@@ -57,3 +61,12 @@ requires:
   send-loki-logs:
     limit: 1
     interface: loki_push_api
+  certificates:
+    limit: 1
+    interface: tls-certificates
+
+provides:
+  http-endpoint:
+    interface: http_endpoint
+  send-ca-cert:
+    interface: certificate_transfer

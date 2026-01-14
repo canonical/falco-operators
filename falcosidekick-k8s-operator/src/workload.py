@@ -7,14 +7,19 @@ import logging
 from pathlib import Path
 
 import ops
+from charmlibs.interfaces.http_endpoint import HttpEndpointProvider
 from jinja2 import Environment, FileSystemLoader
 
 import state
-from relations import MissingLokiRelationError
+from certificates import CertificateTransferProvider, TlsCertificateRequirer
 
 logger = logging.getLogger(__name__)
 
 TEMPLATE_DIR = "src/templates"
+
+
+class MissingLokiRelationError(Exception):
+    """Exception raised when the Loki relation is missing."""
 
 
 class Template:
@@ -172,7 +177,13 @@ class Falcosidekick:
             logger.error("Not able to add Healthcheck layer")
             logger.exception(connect_error)
 
-    def configure(self, charm_state: state.CharmState) -> None:
+    def configure(
+        self,
+        charm_state: state.CharmState,
+        http_endpoint_provider: HttpEndpointProvider,
+        tls_certificate_requirer: TlsCertificateRequirer,
+        certificate_transfer_provider: CertificateTransferProvider,
+    ) -> None:
         """Configure the Falcosidekick workload idempotently.
 
         Installs the configuration file, sets up health checks, and restarts
@@ -180,6 +191,12 @@ class Falcosidekick:
 
         Args:
             charm_state: The current charm state containing configuration parameters.
+            http_endpoint_provider: The HttpEndpointManager instance to set http output data.
+            tls_certificate_requirer: The TlsCertificateRequirer instance to manage TLS certificates.
+            certificate_transfer_provider: The CertificateTransferProvider instance to manage certificate transfers.
+
+        Raises:
+            MissingLokiRelationError: If the Loki relation is missing.
         """
         if not self.ready:
             logger.warning("Cannot configure; container is not ready")
@@ -187,15 +204,29 @@ class Falcosidekick:
 
         if not charm_state.falcosidekick_loki_hostport:
             raise MissingLokiRelationError(
-                "Loki relation is missing; Falcosidekick requires at least one output"
+                "send-loki-logs relation is missing; Falcosidekick requires at least one output"
             )
 
+        # Set http output information idempotently
+        http_endpoint_provider.update_config(
+            path="/",
+            scheme="https" if charm_state.falcosidekick_tlsserver_cert_file else "http",
+            listen_port=charm_state.falcosidekick_listenport,
+            set_ports=True,
+        )
+
+        # Configure tls certificate idempotently
+        cert_changed = tls_certificate_requirer.configure(container=self.container)
+
+        # Configure certificate transfer idempotently
+        certificate_transfer_provider.configure(ca_cert=charm_state.ca_cert)
+
         changed = self.config_file.install(context={"charm_state": charm_state})
-        if not changed:
-            logger.warning("Configuration not changed; skipping reconfiguration")
+        if not changed and not cert_changed:
+            logger.warning("Configuration or certificate not changed; skipping reconfiguration")
             return
 
-        self._configure_healthchecks(charm_state.falcosidekick_listenport)
+        self._configure_healthchecks(charm_state.falcosidekick_tlsserver_notlsport)
         self.container.replan()
 
         for service_name in self.container.get_services():

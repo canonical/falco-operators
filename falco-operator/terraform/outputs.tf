@@ -8,6 +8,7 @@ output "app_name" {
 
 output "requires" {
   value = {
-    general_info = "general-info"
+    general_info  = "general-info"
+    http_endpoint = "http-endpoint"
   }
 }

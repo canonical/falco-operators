@@ -9,7 +9,9 @@ import logging
 import typing
 
 import ops
+from charmlibs.interfaces.http_endpoint import HttpEndpointRequirer
 
+from certificate import CertificateTransferRequirer
 from config import InvalidCharmConfigError
 from service import (
     FalcoConfigFile,
@@ -19,9 +21,12 @@ from service import (
     FalcoService,
     FalcoServiceFile,
 )
-from state import CharmBaseWithState, CharmState
+from state import CaCertificateRequiredError, CharmBaseWithState, CharmState
 
 logger = logging.getLogger(__name__)
+
+HTTP_ENDPOINT_RELATION_NAME = "http-endpoint"
+CERTIFICATE_TRANSFER_RELATION_NAME = "receive-ca-cert"
 
 
 class Falco(CharmBaseWithState):
@@ -36,6 +41,13 @@ class Falco(CharmBaseWithState):
         super().__init__(*args)
 
         self._state = None
+
+        self.http_endpoint_requirer = HttpEndpointRequirer(
+            self, relation_name=HTTP_ENDPOINT_RELATION_NAME
+        )
+        self.cert_transfer_requirer = CertificateTransferRequirer(
+            self, relation_name=CERTIFICATE_TRANSFER_RELATION_NAME
+        )
 
         self.falco_layout = FalcoLayout(base_dir=self.charm_dir / "falco")
         self.falco_service_file = FalcoServiceFile(self.falco_layout, self)
@@ -52,11 +64,33 @@ class Falco(CharmBaseWithState):
         self.framework.observe(self.on.config_changed, self.reconcile)
         self.framework.observe(self.on.secret_changed, self.reconcile)
 
+        # Observe http-endpoint relation evnents to trigger reconciliation
+        self.framework.observe(
+            self.on[HTTP_ENDPOINT_RELATION_NAME].relation_broken, self.reconcile
+        )
+        self.framework.observe(
+            self.on[HTTP_ENDPOINT_RELATION_NAME].relation_changed, self.reconcile
+        )
+
+        # Observe certificate-transfer relation events to trigger reconciliation
+        self.framework.observe(
+            self.cert_transfer_requirer._certificate_transfer_requirer.on.certificates_removed,
+            self.reconcile,
+        )
+        self.framework.observe(
+            self.cert_transfer_requirer._certificate_transfer_requirer.on.certificate_set_updated,
+            self.reconcile,
+        )
+
     @property
     def state(self) -> CharmState:
         """The charm state."""
         if self._state is None:
-            self._state = CharmState.from_charm(self)
+            self._state = CharmState.from_charm(
+                self,
+                self.http_endpoint_requirer,
+                self.cert_transfer_requirer,
+            )
         return self._state
 
     def _on_remove(self, _: ops.RemoveEvent) -> None:
@@ -72,9 +106,14 @@ class Falco(CharmBaseWithState):
     def reconcile(self, _: ops.EventBase) -> None:
         """Reconcile the charm state."""
         try:
-            self.falco_service.configure(self.state)
+            self.falco_service.configure(self.state, self.cert_transfer_requirer)
         except InvalidCharmConfigError:
             self.unit.status = ops.BlockedStatus("Invalid charm config")
+            return
+        except CaCertificateRequiredError:
+            self.unit.status = ops.BlockedStatus(
+                f"Required relations: [{CERTIFICATE_TRANSFER_RELATION_NAME}]"
+            )
             return
         except FalcoConfigurationError:
             self.unit.status = ops.BlockedStatus("Failed configuring Falco")

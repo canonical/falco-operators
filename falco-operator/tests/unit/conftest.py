@@ -3,6 +3,7 @@
 
 
 import pytest
+from ops import testing
 
 from service import FalcoLayout
 
@@ -29,3 +30,19 @@ def mock_falco_layout(mock_falco_base_dir):
     (mock_falco_base_dir / "usr/share/falco/plugins").mkdir(parents=True)
     (mock_falco_base_dir / "etc/falco/default_rules").mkdir(parents=True)
     yield FalcoLayout(base_dir=mock_falco_base_dir)
+
+
+@pytest.fixture
+def http_endpoint_relation():
+    """Fixture for http-endpoint relation.
+
+    Returns:
+        A testing.Relation configured for http-endpoint interface with mock URL data.
+    """
+    return testing.Relation(
+        endpoint="http-endpoint",
+        interface="http_endpoint",
+        remote_app_data={
+            "url": '"http://127.0.0.1:8080/"',
+        },
+    )

@@ -48,10 +48,10 @@ This folder contains a base [Terraform][Terraform] module for the `falco` charm.
 
 ### Outputs
 
-| Name                                                                    | Description                                        |
-| ----------------------------------------------------------------------- | -------------------------------------------------- |
-| <a name="output_app_name"></a> [app_name](#output_app_name)             | Name of the deployed application.                  |
-| <a name="output_general-info"></a> [general-info](#output_general-info) | Endpoint for integrating with any principal charm. |
+| Name                                                        | Description                       |
+| ----------------------------------------------------------- | --------------------------------- |
+| <a name="output_app_name"></a> [app_name](#output_app_name) | Name of the deployed application. |
+| <a name="output_requires"></a> [requires](#output_requires) | n/a                               |
 
 <!-- END_TF_DOCS -->
 <!-- vale on -->

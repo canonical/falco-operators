@@ -80,6 +80,15 @@ wheels = [
 ]
 
 [[package]]
+name = "charmlibs-interfaces-http-endpoint"
+version = "1.0.0"
+source = { git = "https://github.com/chanchiwai-ray/charmlibs?subdirectory=interfaces%2Fhttp_endpoint&rev=e1f9411e9e1a74e55288bf28d86576f08456b1fb#e1f9411e9e1a74e55288bf28d86576f08456b1fb" }
+dependencies = [
+    { name = "ops" },
+    { name = "pydantic" },
+]
+
+[[package]]
 name = "charmlibs-systemd"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -258,6 +267,7 @@ name = "falco"
 version = "0.42.1"
 source = { virtual = "." }
 dependencies = [
+    { name = "charmlibs-interfaces-http-endpoint" },
     { name = "charmlibs-systemd" },
     { name = "cosl" },
     { name = "jinja2" },
@@ -301,6 +311,7 @@ unit = [
 
 [package.metadata]
 requires-dist = [
+    { name = "charmlibs-interfaces-http-endpoint", git = "https://github.com/chanchiwai-ray/charmlibs?subdirectory=interfaces%2Fhttp_endpoint&rev=e1f9411e9e1a74e55288bf28d86576f08456b1fb" },
     { name = "charmlibs-systemd", specifier = "~=1.0" },
     { name = "cosl", specifier = ">=1.4.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
