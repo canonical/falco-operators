@@ -50,7 +50,7 @@ class TestCharmState:
         mock_charm.load_config.return_value = CharmConfig(port=port)
 
         mock_loki_relation = MagicMock()
-        mock_loki_relation.get_loki_http_url.return_value = None
+        mock_loki_relation.loki_endpoints = []
 
         # Act
         state = CharmState.from_charm(mock_charm, mock_loki_relation)
@@ -84,7 +84,7 @@ class TestCharmState:
         mock_charm.load_config.side_effect = raise_validation_error
 
         mock_loki_relation = MagicMock()
-        mock_loki_relation.get_loki_http_url.return_value = None
+        mock_loki_relation.loki_endpoints = []
 
         # Act
         with pytest.raises(InvalidCharmConfigError) as exc_info:
@@ -110,7 +110,7 @@ class TestCharmState:
             mock_charm.load_config.side_effect = e
 
         mock_loki_relation = MagicMock()
-        mock_loki_relation.get_loki_http_url.return_value = None
+        mock_loki_relation.loki_endpoints = []
 
         # Act
         with pytest.raises(InvalidCharmConfigError) as exc_info:
@@ -121,3 +121,25 @@ class TestCharmState:
         error_msg = str(exc_info.value)
         assert "Invalid charm configuration:" in error_msg
         assert "port" in error_msg
+
+    def test_from_charm_without_loki_endpoints(self):
+        """Test CharmState.from_charm when loki endpoints are empty.
+
+        Arrange: Set up mock charm without loki endpoints.
+        Act: Create CharmState from charm.
+        Assert: Loki endpoint fields have default values.
+        """
+        # Arrange
+        mock_charm = MagicMock()
+        mock_charm.load_config.return_value = CharmConfig(port=2801)
+
+        mock_loki_relation = MagicMock()
+        mock_loki_relation.loki_endpoints = []
+
+        # Act
+        state = CharmState.from_charm(mock_charm, mock_loki_relation)
+
+        # Assert
+        assert state.falcosidekick_loki_endpoint == "/loki/api/v1/push"
+        assert state.falcosidekick_loki_hostport == ""
+        assert state.falcosidekick_listenport == 2801

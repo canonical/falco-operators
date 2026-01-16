@@ -25,6 +25,16 @@ run "test_integration_send_loki_logs" {
   }
 }
 
+run "test_integration_certificates" {
+
+  command = plan
+
+  assert {
+    condition     = module.falcosidekick_k8s.requires.certificates == "certificates"
+    error_message = "Expect falcosidekick-k8s module to provide 'requires.certificates' output"
+  }
+}
+
 run "test_integration_http_endpoint" {
 
   command = plan

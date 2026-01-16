@@ -12,12 +12,14 @@ import ops
 from charmlibs.interfaces.http_endpoint import HttpEndpointProvider
 from charms.loki_k8s.v1.loki_push_api import LokiPushApiConsumer
 
+from certificates import TlsCertificateRequirer
 from config import InvalidCharmConfigError
 from state import CharmBaseWithState, CharmState
-from workload import Falcosidekick, MissingLokiRelationError
+from workload import Falcosidekick, MissingCertificateRelationError, MissingLokiRelationError
 
 logger = logging.getLogger(__name__)
 
+CERTIFICATE_RELATION_NAME = "certificates"
 SEND_LOKI_LOG_RELATION_NAME = "send-loki-logs"
 HTTP_ENDPOINT_RELATION_NAME = "http-endpoint"
 
@@ -49,6 +51,9 @@ class FalcosidekickCharm(CharmBaseWithState):
         self.http_endpoint_provider = HttpEndpointProvider(
             self, relation_name=HTTP_ENDPOINT_RELATION_NAME, set_ports=True
         )
+        self.tls_certificate_requirer = TlsCertificateRequirer(
+            self, relation_name=CERTIFICATE_RELATION_NAME
+        )
 
         self.framework.observe(self.on.install, self._install)
         self.framework.observe(self.on.config_changed, self.reconcile)
@@ -65,6 +70,9 @@ class FalcosidekickCharm(CharmBaseWithState):
             self.on[HTTP_ENDPOINT_RELATION_NAME].relation_changed, self.reconcile
         )
 
+        self.framework.observe(self.on[CERTIFICATE_RELATION_NAME].relation_broken, self.reconcile)
+        self.framework.observe(self.on[CERTIFICATE_RELATION_NAME].relation_changed, self.reconcile)
+
     @property
     def state(self) -> CharmState:
         """Get the charm state.
@@ -75,7 +83,10 @@ class FalcosidekickCharm(CharmBaseWithState):
             CharmState: The current state of the charm.
         """
         if self._state is None:
-            self._state = CharmState.from_charm(self, self.loki_push_api_consumer)
+            self._state = CharmState.from_charm(
+                self,
+                self.loki_push_api_consumer,
+            )
         return self._state
 
     def _install(self, _: ops.EventBase) -> None:
@@ -107,7 +118,11 @@ class FalcosidekickCharm(CharmBaseWithState):
 
         try:
             logger.info("Configuring '%s' workload", self.falcosidekick.container_name)
-            self.falcosidekick.configure(self.state, self.http_endpoint_provider)
+            self.falcosidekick.configure(
+                self.state,
+                self.http_endpoint_provider,
+                self.tls_certificate_requirer,
+            )
         except InvalidCharmConfigError as e:
             logger.error("%s", e)
             self.unit.status = ops.BlockedStatus(str(e))
@@ -116,10 +131,10 @@ class FalcosidekickCharm(CharmBaseWithState):
             logger.error("%s", e)
             self.unit.status = ops.BlockedStatus("Required relations: [send-loki-logs]")
             return
-
-        if not self.falcosidekick.health:
-            logger.error("'%s' workload is not healthy", self.falcosidekick.container_name)
-            raise RuntimeError("Workload not healthy")
+        except MissingCertificateRelationError as e:
+            logger.error("%s", e)
+            self.unit.status = ops.BlockedStatus("Required relations: [certificates]")
+            return
 
         self.unit.status = ops.ActiveStatus()
 

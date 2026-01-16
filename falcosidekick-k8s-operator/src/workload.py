@@ -11,14 +11,20 @@ from charmlibs.interfaces.http_endpoint import HttpEndpointProvider
 from jinja2 import Environment, FileSystemLoader
 
 import state
+from certificates import TlsCertificateRequirer
 
 logger = logging.getLogger(__name__)
 
 TEMPLATE_DIR = "src/templates"
+TLS_HEALTH_CHECK_PORT = 2810  # Falcosidekick TLS healthcheck port (hardcoded)
 
 
 class MissingLokiRelationError(Exception):
     """Exception raised when the Loki relation is missing."""
+
+
+class MissingCertificateRelationError(Exception):
+    """Exception raised when the certificate relation is missing."""
 
 
 class Template:
@@ -120,21 +126,6 @@ class Falcosidekick:
         return self.container.can_connect()
 
     @property
-    def health(self) -> bool:
-        """Determine if the Falcosidekick workload is healthy.
-
-        Checks all alive-level health checks for the workload.
-
-        Returns:
-            True if all health checks are UP, False otherwise.
-        """
-        if not self.ready:
-            logger.warning("Cannot determine health; container is not ready")
-            return False
-        checks = self.container.get_checks(level=ops.pebble.CheckLevel.ALIVE)
-        return all(check.status == ops.pebble.CheckStatus.UP for check in checks.values())
-
-    @property
     def container(self) -> ops.Container:
         """Get the Falcosidekick container.
 
@@ -176,8 +167,22 @@ class Falcosidekick:
             logger.error("Not able to add Healthcheck layer")
             logger.exception(connect_error)
 
+    def _stop_all(self) -> None:
+        """Stop all services and health checks in the container."""
+        for name, check in self.container.get_checks().items():
+            if check.status != ops.pebble.CheckStatus.INACTIVE:
+                self.container.stop_checks(name)
+            logger.debug("Stopped check: %s in %s", name, self.container_name)
+        for name, svc in self.container.get_services().items():
+            if svc.is_running():
+                self.container.stop(name)
+            logger.debug("Stopped service: %s in %s", name, self.container_name)
+
     def configure(
-        self, charm_state: state.CharmState, http_endpoint_provider: HttpEndpointProvider
+        self,
+        charm_state: state.CharmState,
+        http_endpoint_provider: HttpEndpointProvider,
+        tls_certificate_requirer: TlsCertificateRequirer,
     ) -> None:
         """Configure the Falcosidekick workload idempotently.
 
@@ -187,33 +192,46 @@ class Falcosidekick:
         Args:
             charm_state: The current charm state containing configuration parameters.
             http_endpoint_provider: The HttpEndpointManager instance to set http output data.
+            tls_certificate_requirer: The TlsCertificateRequirer instance to manage TLS certificates.
 
         Raises:
             MissingLokiRelationError: If the Loki relation is missing.
+            MissingCertificateRelationError: If the certificate relation is missing.
         """
         if not self.ready:
             logger.warning("Cannot configure; container is not ready")
             return
 
         if not charm_state.falcosidekick_loki_hostport:
+            self._stop_all()
             raise MissingLokiRelationError(
                 "send-loki-logs relation is missing; Falcosidekick requires at least one output"
+            )
+
+        if not tls_certificate_requirer.is_created():
+            self._stop_all()
+            raise MissingCertificateRelationError(
+                "certificates relation is missing; Falcosidekick requires a TLS certificate"
             )
 
         # Set http output information idempotently
         http_endpoint_provider.update_config(
             path="/",
-            scheme="http",
+            scheme="https",
             listen_port=charm_state.falcosidekick_listenport,
             set_ports=True,
         )
 
+        # Configure tls certificate idempotently
+        cert_changed = tls_certificate_requirer.configure(container=self.container)
+
+        # Install configuration file
         changed = self.config_file.install(context={"charm_state": charm_state})
-        if not changed:
-            logger.warning("Configuration not changed; skipping reconfiguration")
+        if not changed and not cert_changed:
+            logger.warning("Configuration or certificate not changed; skipping reconfiguration")
             return
 
-        self._configure_healthchecks(charm_state.falcosidekick_listenport)
+        self._configure_healthchecks(TLS_HEALTH_CHECK_PORT)
         self.container.replan()
 
         for service_name in self.container.get_services():
