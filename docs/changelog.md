@@ -22,11 +22,6 @@ be serving for `/healthz` and `/ping` for internal health check.
   - Refresh the certificate state when the falcosidekick-k8s charm change config
   - Blocked the charm is certificates relation does not exist
 
-### Changed
-
-- Fix flaky integration in falcosidekick-k8s-operator
-  - Use tenacity for retry
-
 ### Removed
 
 - Health check for falcosidekick

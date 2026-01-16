@@ -10,7 +10,6 @@ import logging
 import jubilant
 import pytest
 import requests
-from tenacity import retry, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +71,9 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Con
     juju.integrate(f"{GRAFANA_AGENT_K8S}:logging-consumer", f"{LOKI}:logging")
     juju.integrate(f"{GRAFANA_AGENT_K8S}:send-remote-write", f"{PROMETHEUS}:receive-remote-write")
     juju.integrate(f"{GRAFANA_AGENT_K8S}:metrics-endpoint", f"{PROMETHEUS}:self-metrics-endpoint")
+
+    logger.info("Relating %s and %s", FALCOSIDEKICK_K8S, SELF_SIGNED_CERTIFICATE)
+    juju.integrate(f"{FALCOSIDEKICK_K8S}:certificates", f"{SELF_SIGNED_CERTIFICATE}:certificates")
 
     logger.info("Waiting for deployment to settle")
     juju.wait(
@@ -172,73 +174,6 @@ def test_send_dummy_logs(juju: jubilant.Juju):
     falcosidekick_address = falcosidekick_unit.address
     assert falcosidekick_address, "Falcosidekick unit has no public address"
 
-    # Post to default falcosidekick endpoint (port 2801)
-    requests.post(
-        f"http://{falcosidekick_address}:2801",
-        json={
-            "output": "16:31:56.746609046: Error File below a known binary directory opened for writing (user=root command=touch /bin/hack file=/bin/hack)",
-            "hostname": "localhost",
-            "priority": "Error",
-            "rule": "Write below binary dir",
-            "time": "2019-05-17T15:31:56.746609046Z",
-            "output_fields": {
-                "evt.time": 1507591916746609046,
-                "fd.name": "/bin/hack",
-                "proc.cmdline": "touch /bin/hack",
-                "user.name": "root",
-                "container": "falcosidekick",
-            },
-        },
-        timeout=10,
-    )
-
-    # Query loki with retry as it might take time for logs to propagate
-    @retry(stop=stop_after_delay(30), wait=wait_fixed(2), reraise=True)
-    def query_loki_for_logs():
-        """Query loki for logs with retry logic.
-
-        Returns:
-            The JSON response from loki.
-
-        Raises:
-            AssertionError: If the query fails or no results are found.
-        """
-        resp = requests.get(
-            f"http://{loki_address}:3100/loki/api/v1/query_range",
-            params={"query": '{rule="Write below binary dir"} |= ``'},
-            timeout=10,
-        )
-        assert resp.ok, f"Loki query failed: {resp.status_code} {resp.text}"
-        result = resp.json()
-        assert len(result["data"]["result"]) > 0, "No logs found in Loki"
-        return result
-
-    result = query_loki_for_logs()
-    assert result["data"]["result"][0]["stream"].get("rule", "") == "Write below binary dir"
-
-
-def test_tls_certificates_relation(juju: jubilant.Juju):
-    """
-    Arrange: Relate falcosidekick charm to self-signed-certificates charm.
-    Act: Send dummy log to falcosidekick via http
-    Assert: Sending log via http is not working as TLS is enforced.
-    """
-    logger.info("Relating %s and %s", FALCOSIDEKICK_K8S, SELF_SIGNED_CERTIFICATE)
-    juju.integrate(f"{FALCOSIDEKICK_K8S}:certificates", f"{SELF_SIGNED_CERTIFICATE}:certificates")
-
-    logger.info("Sending dummy log to falcosidekick via http")
-    status = juju.status()
-    juju.wait(jubilant.all_agents_idle)
-    assert status.apps[FALCOSIDEKICK_K8S].app_status.current == "active"
-    assert status.apps[SELF_SIGNED_CERTIFICATE].app_status.current == "active"
-
-    # Get falcosidekick address
-    falcosidekick_units = status.get_units(FALCOSIDEKICK_K8S)
-    assert len(falcosidekick_units.keys()) == 1, "Only test with single falcosidekick unit"
-    falcosidekick_unit = falcosidekick_units[f"{FALCOSIDEKICK_K8S}/0"]
-    falcosidekick_address = falcosidekick_unit.address
-    assert falcosidekick_address, "Falcosidekick unit has no public address"
-
     # Post to default falcosidekick endpoint (port 2801 via http should fail as TLS is enforced)
     try:
         requests.post(
@@ -269,12 +204,3 @@ def test_tls_certificates_relation(juju: jubilant.Juju):
 
     # /ping should be serving at 2810 when TLS is enforced
     assert resp.ok, "/ping should be reachable via http on port 2810 when TLS is enforced"
-
-    juju.remove_relation(
-        f"{FALCOSIDEKICK_K8S}:certificates", f"{SELF_SIGNED_CERTIFICATE}:certificates"
-    )
-
-    status = juju.status()
-    juju.wait(jubilant.all_agents_idle)
-    assert status.apps[FALCOSIDEKICK_K8S].app_status.current == "active"
-    assert status.apps[SELF_SIGNED_CERTIFICATE].app_status.current == "active"

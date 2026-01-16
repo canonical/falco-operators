@@ -407,7 +407,6 @@ integration = [
     { name = "jubilant" },
     { name = "pytest" },
     { name = "requests" },
-    { name = "tenacity" },
 ]
 lint = [
     { name = "codespell" },
@@ -451,7 +450,6 @@ integration = [
     { name = "jubilant", specifier = "==1.6.2" },
     { name = "pytest" },
     { name = "requests", specifier = ">=2.32.5" },
-    { name = "tenacity", specifier = ">=8.0.0" },
 ]
 lint = [
     { name = "codespell" },
