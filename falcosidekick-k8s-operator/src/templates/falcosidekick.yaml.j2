@@ -11,16 +11,14 @@
 listenport: {{ charm_state.falcosidekick_listenport }}
 listenaddress: "" # ip address to bind falcosidekick to (default: "" meaning all addresses)
 
-{% if charm_state.falcosidekick_tlsserver_key_file and charm_state.falcosidekick_tlsserver_cert_file -%}
 tlsserver:
   deploy: true
-  keyfile: "{{ charm_state.falcosidekick_tlsserver_key_file }}"
-  certfile: "{{ charm_state.falcosidekick_tlsserver_cert_file }}"
+  keyfile: "{{ falcosidekick_tlsserver_key_file }}"
+  certfile: "{{ falcosidekick_tlsserver_cert_file }}"
   notlsport: 2810
   notlspaths:
     - "/ping"
     - "/healthz"
-{%- endif %}
 
 {% if charm_state.falcosidekick_loki_hostport -%}
 loki:

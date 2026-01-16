@@ -4,7 +4,7 @@
 """Unit tests for workload module."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import ops
 
@@ -116,8 +116,7 @@ class TestTemplate:
 class TestFalcosidekick:
     """Test Falcosidekick workload class."""
 
-    @patch("workload.Falcosidekick.health", new_callable=MagicMock)
-    def test_configure_with_changes(self, mock_health):
+    def test_configure_with_changes(self):
         """Test Falcosidekick configuration when configuration changes.
 
         Arrange: Set up mock charm with healthy container and changed config.
@@ -130,7 +129,6 @@ class TestFalcosidekick:
         mock_container.can_connect.return_value = True
         mock_container.get_services.return_value = ["falcosidekick"]
         mock_charm.unit.get_container.return_value = mock_container
-        mock_health.return_value = True
 
         # Mock the config file install to return True (changed)
         with patch.object(FalcosidekickConfigFile, "install", return_value=True):
@@ -139,9 +137,6 @@ class TestFalcosidekick:
                 falcosidekick_listenport=2801,
                 falcosidekick_loki_endpoint="/loki/api/v1/push",
                 falcosidekick_loki_hostport="http://loki:3100",
-                falcosidekick_tlsserver_key_file="",
-                falcosidekick_tlsserver_cert_file="",
-                falcosidekick_tlsserver_notlsport=2801,
             )
             mock_http_output_provider = Mock()
             mock_tls_requirer = Mock()
@@ -155,11 +150,10 @@ class TestFalcosidekick:
             mock_container.replan.assert_called_once()
             mock_container.restart.assert_called_once_with("falcosidekick")
             mock_http_output_provider.update_config.assert_called_once_with(
-                path="/", scheme="http", listen_port=2801, set_ports=True
+                path="/", scheme="https", listen_port=2801, set_ports=True
             )
 
-    @patch("workload.Falcosidekick.health", new_callable=MagicMock)
-    def test_configure_without_changes(self, mock_health):
+    def test_configure_without_changes(self):
         """Test Falcosidekick configuration when configuration hasn't changed.
 
         Arrange: Set up mock charm with healthy container and unchanged config.
@@ -171,7 +165,6 @@ class TestFalcosidekick:
         mock_container = Mock(spec=ops.Container)
         mock_container.can_connect.return_value = True
         mock_charm.unit.get_container.return_value = mock_container
-        mock_health.return_value = True
 
         # Mock the config file install to return False (no change)
         with patch.object(FalcosidekickConfigFile, "install", return_value=False):
@@ -180,9 +173,6 @@ class TestFalcosidekick:
                 falcosidekick_listenport=2801,
                 falcosidekick_loki_endpoint="/loki/api/v1/push",
                 falcosidekick_loki_hostport="http://loki:3100",
-                falcosidekick_tlsserver_key_file="",
-                falcosidekick_tlsserver_cert_file="",
-                falcosidekick_tlsserver_notlsport=2801,
             )
             mock_http_output_provider = Mock()
             mock_tls_requirer = Mock()
@@ -197,7 +187,7 @@ class TestFalcosidekick:
             mock_container.restart.assert_not_called()
             # But http output info should still be set
             mock_http_output_provider.update_config.assert_called_once_with(
-                path="/", scheme="http", listen_port=2801, set_ports=True
+                path="/", scheme="https", listen_port=2801, set_ports=True
             )
 
     def test_configure_container_not_ready(self):
@@ -218,9 +208,6 @@ class TestFalcosidekick:
             falcosidekick_listenport=2801,
             falcosidekick_loki_endpoint="/loki/api/v1/push",
             falcosidekick_loki_hostport="http://loki:3100",
-            falcosidekick_tlsserver_key_file="",
-            falcosidekick_tlsserver_cert_file="",
-            falcosidekick_tlsserver_notlsport=2801,
         )
         mock_http_output_provider = Mock()
         mock_tls_requirer = Mock()
@@ -231,51 +218,3 @@ class TestFalcosidekick:
 
             # Assert: Verify install was not called
             mock_install.assert_not_called()
-
-    @patch("workload.Falcosidekick.health", new_callable=MagicMock)
-    def test_configure_with_tls_certificate(self, mock_health):
-        """Test Falcosidekick configuration when TLS certificate is ready.
-
-        Arrange: Set up mock charm with TLS certificate configured.
-        Act: Configure workload with TLS-enabled CharmState.
-        Assert: HTTP endpoint uses HTTPS scheme and healthcheck uses TLS port.
-        """
-        # Arrange: Set up mock charm and container
-        mock_charm = Mock(spec=ops.CharmBase)
-        mock_container = Mock(spec=ops.Container)
-        mock_container.can_connect.return_value = True
-        mock_container.get_services.return_value = ["falcosidekick"]
-        mock_charm.unit.get_container.return_value = mock_container
-        mock_health.return_value = True
-
-        # Mock the config file install to return True (changed)
-        with patch.object(FalcosidekickConfigFile, "install", return_value=True):
-            falcosidekick = Falcosidekick(mock_charm)
-            charm_state = CharmState(
-                falcosidekick_listenport=2801,
-                falcosidekick_loki_endpoint="/loki/api/v1/push",
-                falcosidekick_loki_hostport="http://loki:3100",
-                falcosidekick_tlsserver_key_file="/etc/falcosidekick/certs/server/server.key",
-                falcosidekick_tlsserver_cert_file="/etc/falcosidekick/certs/server/server.crt",
-                falcosidekick_tlsserver_notlsport=2810,
-            )
-            mock_http_output_provider = Mock()
-            mock_tls_requirer = Mock()
-            mock_tls_requirer.configure.return_value = False
-
-            # Act: Configure the workload
-            falcosidekick.configure(charm_state, mock_http_output_provider, mock_tls_requirer)
-
-            # Assert: Verify HTTPS scheme is used
-            mock_http_output_provider.update_config.assert_called_once_with(
-                path="/", scheme="https", listen_port=2801, set_ports=True
-            )
-            # Assert: Verify healthcheck is configured with TLS healthcheck port
-            mock_container.add_layer.assert_called_once()
-            healthcheck_layer = mock_container.add_layer.call_args[0][1]
-            assert (
-                healthcheck_layer["checks"]["health"]["http"]["url"]
-                == "http://localhost:2810/healthz"
-            )
-            mock_container.replan.assert_called_once()
-            mock_container.restart.assert_called_once_with("falcosidekick")

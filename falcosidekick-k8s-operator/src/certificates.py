@@ -14,10 +14,15 @@ from charmlibs.interfaces.tls_certificates import (
     CertificateRequestAttributes,
     Mode,
     PrivateKey,
+    ProviderCertificate,
     TLSCertificatesRequiresV4,
 )
 
 logger = logging.getLogger(__name__)
+
+
+PRIVATE_KEY = Path("/etc/falcosidekick/certs/server/server.key")
+CERTIFICATE = Path("/etc/falcosidekick/certs/server/server.crt")
 
 
 class TlsCertificateRequirer:
@@ -25,9 +30,6 @@ class TlsCertificateRequirer:
 
     This class manages the integration with a TLS certificate provider.
     """
-
-    private_key_name = "/etc/falcosidekick/certs/server/server.key"
-    certificate_name = "/etc/falcosidekick/certs/server/server.crt"
 
     def __init__(self, charm: ops.CharmBase, relation_name: str) -> None:
         """Initialize the TLS certificate requirer.
@@ -46,56 +48,62 @@ class TlsCertificateRequirer:
             refresh_events=[self._charm.on.config_changed],
         )
 
-    def is_ready(self) -> bool:
-        """Check if the TLS certificate is ready.
+    def is_created(self) -> bool:
+        """Check if the TLS certificate relation is created.
 
         Returns:
-            True if the TLS certificate and private key are available, False otherwise.
+            True if the TLS certificate relation is created, False otherwise.
         """
-        if not self._charm.model.relations.get(self._relation_name):
-            logger.warning("TLS certificate relation not created")
+        return bool(self._charm.model.relations.get(self._relation_name))
+
+    def configure(self, container: ops.Container) -> bool:
+        """Configure the TLS certificate in the workload container.
+
+        The method retrieves the assigned certificate and private key, checks if they need to be
+        updated, and stores them in the container if necessary.
+
+        Args:
+            container: The container where the certificates will be configured.
+
+        Returns:
+            True if the certificate and key were configured, False otherwise.
+        """
+        cert, key = self._get_assigned_cert_and_key()
+        if not cert or not key:
+            logger.warning("Cannot configure TLS: tls_certificate relation not ready")
             return False
+
+        if cert_updated := self._is_certificate_updated(container, cert.certificate):
+            self._store_file_to_container(
+                container, path=CERTIFICATE, source=str(cert.certificate)
+            )
+
+        if key_updated := self._is_private_key_updated(container, key):
+            self._store_file_to_container(container, path=PRIVATE_KEY, source=str(key))
+
+        return cert_updated or key_updated
+
+    def _get_assigned_cert_and_key(
+        self,
+    ) -> tuple[Optional[ProviderCertificate], Optional[PrivateKey]]:
+        """Get the currently assigned certificate and private key.
+
+        Returns:
+            A tuple containing the assigned certificate and private key, or (None, None) if not
+            available.
+        """
+        if not self.is_created():
+            logger.warning("TLS certificate relation not created")
+            return None, None
 
         cert, key = self._certificates.get_assigned_certificate(
             certificate_request=self._get_certificate_request_attributes()
         )
         if not cert or not key:
             logger.warning("Certificate or private key not available")
-            return False
+            return None, None
 
-        return True
-
-    def configure(self, container: ops.Container) -> bool:
-        """Configure the TLS certificate in the workload container.
-
-        This method retrieves the currently assigned certificate and private key associated with
-        the charm's TLS relation. It checks whether the certificate or private key has changed
-        or needs to be updated. If an update is necessary, the new certificate or private key is
-        stored.
-
-        Args:
-            container: The container where the certificates will be configured.
-
-        Returns:
-            True if the certificate or private key was updated, False otherwise.
-        """
-        if not self.is_ready():
-            logger.warning("Cannot configure TLS: tls_certificate relation not ready")
-            return False
-
-        cert, key = self._certificates.get_assigned_certificate(
-            certificate_request=self._get_certificate_request_attributes()
-        )
-        if not cert or not key:
-            return False
-
-        if cert_updated := self._is_certificate_updated(container, cert.certificate):
-            self._store_certificate(container, certificate=cert.certificate)
-
-        if key_updated := self._is_private_key_updated(container, key):
-            self._store_private_key(container, private_key=key)
-
-        return cert_updated or key_updated
+        return cert, key
 
     def _get_certificate_request_attributes(self) -> CertificateRequestAttributes:
         """Get the certificate request attributes.
@@ -135,7 +143,10 @@ class TlsCertificateRequirer:
         Returns:
             True if the certificate differs from the stored one, False otherwise.
         """
-        return self._get_existing_certificate(container) != certificate
+        existing_cert = self._get_file_from_container(container, path=CERTIFICATE)
+        if existing_cert is None:
+            return True
+        return Certificate.from_string(existing_cert) != certificate
 
     def _is_private_key_updated(
         self, container: ops.Container, private_key: Optional[PrivateKey]
@@ -149,88 +160,39 @@ class TlsCertificateRequirer:
         Returns:
             True if the private key differs from the stored one, False otherwise.
         """
-        return self._get_existing_private_key(container) != private_key
+        existing_key = self._get_file_from_container(container, path=PRIVATE_KEY)
+        if existing_key is None:
+            return True
+        return PrivateKey.from_string(existing_key) != private_key
 
-    def _get_existing_certificate(self, container: ops.Container) -> Optional[Certificate]:
-        """Get the existing certificate from storage.
-
-        Args:
-            container: The container where certificates are stored.
-
-        Returns:
-            The stored certificate if available, None otherwise.
-        """
-        if not container.exists(path=self.certificate_name):
-            return None
-        return self._get_stored_certificate(container)
-
-    def _get_existing_private_key(self, container: ops.Container) -> Optional[PrivateKey]:
-        """Get the existing private key from storage.
+    def _store_file_to_container(self, container: ops.Container, path: Path, source: str) -> None:
+        """Store the content to a file in the workload container.
 
         Args:
-            container: The container where private keys are stored.
-
-        Returns:
-            The stored private key if available, None otherwise.
+            container: The container where the file will be stored.
+            path: The path in the container where the file will be stored.
+            source: The content to store in the file.
         """
-        if not container.exists(path=self.private_key_name):
-            return None
-        return self._get_stored_private_key(container)
-
-    def _get_stored_certificate(self, container: ops.Container) -> Certificate:
-        """Retrieve the certificate stored in the container.
-
-        Args:
-            container: The container where certificates are stored.
-
-        Returns:
-            The certificate object loaded from the stored file.
-        """
-        cert_string = str(container.pull(path=self.certificate_name).read())
-        return Certificate.from_string(cert_string)
-
-    def _get_stored_private_key(self, container: ops.Container) -> PrivateKey:
-        """Retrieve the private key stored in the container.
-
-        Args:
-            container: The container where private keys are stored.
-
-        Returns:
-            The private key object loaded from the stored file.
-        """
-        key_string = str(container.pull(path=self.private_key_name).read())
-        return PrivateKey.from_string(key_string)
-
-    def _store_certificate(self, container: ops.Container, certificate: Certificate) -> None:
-        """Store certificate in the workload container.
-
-        Args:
-            container: The container where the certificate will be stored.
-            certificate: The certificate to store in the container.
-        """
-        parent_dir = Path(self.certificate_name).parent
+        parent_dir = path.parent
         if not container.isdir(parent_dir):
             container.make_dir(parent_dir, make_parents=True)
 
         container.push(
-            path=self.certificate_name,
-            source=str(certificate),
+            path=path,
+            source=source,
         )
-        logger.info("Pushed certificate to workload")
+        logger.info("Pushed file to workload at %s", path)
 
-    def _store_private_key(self, container: ops.Container, private_key: PrivateKey) -> None:
-        """Store private key in the workload container.
+    def _get_file_from_container(self, container: ops.Container, path: Path) -> Optional[str]:
+        """Retrieve the content of a file from the workload container.
 
         Args:
-            container: The container where the private key will be stored.
-            private_key: The private key to store in the container.
-        """
-        parent_dir = Path(self.private_key_name).parent
-        if not container.isdir(parent_dir):
-            container.make_dir(parent_dir, make_parents=True)
+            container: The container from which the file will be retrieved.
+            path: The path in the container of the file to retrieve.
 
-        container.push(
-            path=self.private_key_name,
-            source=str(private_key),
-        )
-        logger.info("Pushed private key to workload")
+        Returns:
+            The content of the file if it exists, None otherwise.
+        """
+        if not container.exists(path=path):
+            return None
+        return str(container.pull(path=path).read())

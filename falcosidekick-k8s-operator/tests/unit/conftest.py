@@ -6,8 +6,9 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from charmlibs.interfaces.tls_certificates import Certificate, PrivateKey
 from ops import testing
+
+from certificates import PrivateKey, ProviderCertificate
 
 
 @pytest.fixture
@@ -21,7 +22,7 @@ def mock_get_assigned_certificate():
         A patch context manager for get_assigned_certificate with default valid cert/key.
     """
     with patch("certificates.TLSCertificatesRequiresV4.get_assigned_certificate") as mock:
-        mock_cert = MagicMock(spec=Certificate)
+        mock_cert = MagicMock(spec=ProviderCertificate)
         mock_cert.certificate = "mock certificate"
         mock_key = MagicMock(spec=PrivateKey)
         mock.return_value = (mock_cert, mock_key)
