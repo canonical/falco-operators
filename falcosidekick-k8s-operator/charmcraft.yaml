@@ -27,6 +27,8 @@ assumes:
 charm-libs:
   - lib: loki_k8s.loki_push_api
     version: "1"
+  - lib: traefik_k8s.ingress
+    version: "2"
 
 parts:
   charm:
@@ -62,6 +64,9 @@ requires:
   certificates:
     limit: 1
     interface: tls-certificates
+  ingress:
+    limit: 1
+    interface: ingress
 
 provides:
   http-endpoint:

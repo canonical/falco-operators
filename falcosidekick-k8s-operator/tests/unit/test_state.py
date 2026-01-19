@@ -23,6 +23,8 @@ class TestCharmState:
         Assert: CharmState has correct port value.
         """
         state = CharmState(
+            enable_tls=True,
+            http_endpoint_config={"path": "/", "scheme": "https"},
             falcosidekick_listenport=8080,
             falcosidekick_loki_endpoint="/loki/api/v1/push",
             falcosidekick_loki_hostport="http://loki:3100",
@@ -52,11 +54,15 @@ class TestCharmState:
         mock_loki_relation = MagicMock()
         mock_loki_relation.loki_endpoints = []
 
+        mock_ingress_requirer = MagicMock()
+        mock_ingress_requirer.is_ready.return_value = False
+
         # Act
-        state = CharmState.from_charm(mock_charm, mock_loki_relation)
+        state = CharmState.from_charm(mock_charm, mock_loki_relation, mock_ingress_requirer)
 
         # Assert
         assert state.falcosidekick_listenport == port
+        assert state.enable_tls is True
         mock_charm.load_config.assert_called_once_with(CharmConfig)
 
     @pytest.mark.parametrize(
@@ -86,9 +92,12 @@ class TestCharmState:
         mock_loki_relation = MagicMock()
         mock_loki_relation.loki_endpoints = []
 
+        mock_ingress_requirer = MagicMock()
+        mock_ingress_requirer.is_ready.return_value = False
+
         # Act
         with pytest.raises(InvalidCharmConfigError) as exc_info:
-            CharmState.from_charm(mock_charm, mock_loki_relation)
+            CharmState.from_charm(mock_charm, mock_loki_relation, mock_ingress_requirer)
 
         # Assert
         assert "Invalid charm configuration: port" in str(exc_info.value)
@@ -112,9 +121,12 @@ class TestCharmState:
         mock_loki_relation = MagicMock()
         mock_loki_relation.loki_endpoints = []
 
+        mock_ingress_requirer = MagicMock()
+        mock_ingress_requirer.is_ready.return_value = False
+
         # Act
         with pytest.raises(InvalidCharmConfigError) as exc_info:
-            CharmState.from_charm(mock_charm, mock_loki_relation)
+            CharmState.from_charm(mock_charm, mock_loki_relation, mock_ingress_requirer)
 
         # Assert
         # Error message should contain the invalid configuration message
@@ -136,10 +148,14 @@ class TestCharmState:
         mock_loki_relation = MagicMock()
         mock_loki_relation.loki_endpoints = []
 
+        mock_ingress_requirer = MagicMock()
+        mock_ingress_requirer.is_ready.return_value = False
+
         # Act
-        state = CharmState.from_charm(mock_charm, mock_loki_relation)
+        state = CharmState.from_charm(mock_charm, mock_loki_relation, mock_ingress_requirer)
 
         # Assert
         assert state.falcosidekick_loki_endpoint == "/loki/api/v1/push"
         assert state.falcosidekick_loki_hostport == ""
         assert state.falcosidekick_listenport == 2801
+        assert state.enable_tls is True

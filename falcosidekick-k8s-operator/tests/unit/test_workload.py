@@ -134,6 +134,8 @@ class TestFalcosidekick:
         with patch.object(FalcosidekickConfigFile, "install", return_value=True):
             falcosidekick = Falcosidekick(mock_charm)
             charm_state = CharmState(
+                enable_tls=True,
+                http_endpoint_config={"path": "/", "scheme": "https"},
                 falcosidekick_listenport=2801,
                 falcosidekick_loki_endpoint="/loki/api/v1/push",
                 falcosidekick_loki_hostport="http://loki:3100",
@@ -141,16 +143,21 @@ class TestFalcosidekick:
             mock_http_output_provider = Mock()
             mock_tls_requirer = Mock()
             mock_tls_requirer.configure.return_value = False
+            mock_tls_requirer.is_created.return_value = True
+            mock_ingress_requirer = Mock()
+            mock_ingress_requirer.is_ready.return_value = False
 
             # Act: Configure the workload
-            falcosidekick.configure(charm_state, mock_http_output_provider, mock_tls_requirer)
+            falcosidekick.configure(
+                charm_state, mock_http_output_provider, mock_tls_requirer, mock_ingress_requirer
+            )
 
             # Assert: Verify replan and restart were called
             mock_container.add_layer.assert_called_once()
             mock_container.replan.assert_called_once()
             mock_container.restart.assert_called_once_with("falcosidekick")
             mock_http_output_provider.update_config.assert_called_once_with(
-                path="/", scheme="https", listen_port=2801, set_ports=True
+                path="/", scheme="https"
             )
 
     def test_configure_without_changes(self):
@@ -170,6 +177,8 @@ class TestFalcosidekick:
         with patch.object(FalcosidekickConfigFile, "install", return_value=False):
             falcosidekick = Falcosidekick(mock_charm)
             charm_state = CharmState(
+                enable_tls=True,
+                http_endpoint_config={"path": "/", "scheme": "https"},
                 falcosidekick_listenport=2801,
                 falcosidekick_loki_endpoint="/loki/api/v1/push",
                 falcosidekick_loki_hostport="http://loki:3100",
@@ -177,9 +186,14 @@ class TestFalcosidekick:
             mock_http_output_provider = Mock()
             mock_tls_requirer = Mock()
             mock_tls_requirer.configure.return_value = False
+            mock_tls_requirer.is_created.return_value = True
+            mock_ingress_requirer = Mock()
+            mock_ingress_requirer.is_ready.return_value = False
 
             # Act: Configure the workload
-            falcosidekick.configure(charm_state, mock_http_output_provider, mock_tls_requirer)
+            falcosidekick.configure(
+                charm_state, mock_http_output_provider, mock_tls_requirer, mock_ingress_requirer
+            )
 
             # Assert: Verify replan and restart were NOT called
             mock_container.add_layer.assert_not_called()
@@ -187,7 +201,7 @@ class TestFalcosidekick:
             mock_container.restart.assert_not_called()
             # But http output info should still be set
             mock_http_output_provider.update_config.assert_called_once_with(
-                path="/", scheme="https", listen_port=2801, set_ports=True
+                path="/", scheme="https"
             )
 
     def test_configure_container_not_ready(self):
@@ -205,16 +219,21 @@ class TestFalcosidekick:
 
         falcosidekick = Falcosidekick(mock_charm)
         charm_state = CharmState(
+            enable_tls=True,
+            http_endpoint_config={"path": "/", "scheme": "https"},
             falcosidekick_listenport=2801,
             falcosidekick_loki_endpoint="/loki/api/v1/push",
             falcosidekick_loki_hostport="http://loki:3100",
         )
         mock_http_output_provider = Mock()
         mock_tls_requirer = Mock()
+        mock_ingress_requirer = Mock()
 
         # Act: Attempt to configure the workload
         with patch.object(FalcosidekickConfigFile, "install") as mock_install:
-            falcosidekick.configure(charm_state, mock_http_output_provider, mock_tls_requirer)
+            falcosidekick.configure(
+                charm_state, mock_http_output_provider, mock_tls_requirer, mock_ingress_requirer
+            )
 
             # Assert: Verify install was not called
             mock_install.assert_not_called()

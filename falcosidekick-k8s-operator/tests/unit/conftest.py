@@ -66,3 +66,16 @@ def certificates_relation():
         endpoint="certificates",
         interface="tls_certificates",
     )
+
+
+@pytest.fixture
+def ingress_relation():
+    """Fixture for Ingress relation.
+
+    Returns:
+        A testing.Relation configured for ingress interface.
+    """
+    return testing.Relation(
+        endpoint="ingress",
+        interface="ingress",
+    )

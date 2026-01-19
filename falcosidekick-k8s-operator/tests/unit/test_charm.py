@@ -3,8 +3,6 @@
 
 """Unit tests for Falco charm."""
 
-from unittest.mock import patch
-
 import ops
 import pytest
 from ops import testing
@@ -15,27 +13,6 @@ from workload import Falcosidekick
 
 class TestCharm:
     """Test Charm class."""
-
-    def test_on_falcosidekick_pebble_ready_can_connect(self, loki_relation, certificates_relation):
-        """Test on falcosidekick pebble ready event when container can connect.
-
-        Arrange: Set up mock container that can connect.
-        Act: Trigger pebble ready event.
-        Assert: Charm status is active.
-        """
-        # Arrange: Set up the mock container to simulate a successful connection
-        ctx = testing.Context(FalcosidekickCharm)
-        # mypy thinks this can_connect argument does not exist.
-        container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
-        state_in = testing.State(
-            containers=[container], relations=[loki_relation, certificates_relation]
-        )
-
-        # Act: Create a testing context and run the event
-        state_out = ctx.run(ctx.on.pebble_ready(container=container), state_in)
-
-        # Assert: Verify that the unit status is set to ActiveStatus
-        assert state_out.unit_status == ops.ActiveStatus()
 
     def test_on_falcosidekick_pebble_ready_cannot_connect(self, loki_relation):
         """Test on falcosidekick pebble ready event when container cannot connect.
@@ -118,120 +95,49 @@ class TestCharm:
         # Assert: Verify that the unit status is set to BlockedStatus due to invalid config
         assert state_out.unit_status == ops.BlockedStatus("Invalid charm configuration: port")
 
-    def test_charm_with_loki_relation(self, loki_relation, certificates_relation):
-        """Test charm behavior when loki relation is present.
-
-        Arrange: Set up testing context with charm and loki relation.
-        Act: Run config changed event.
-        Assert: Charm initializes successfully with loki relation.
-        """
-        ctx = testing.Context(FalcosidekickCharm)
-        # mypy thinks this can_connect argument does not exist.
-        container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
-        state_in = testing.State(
-            containers=[container], relations=[loki_relation, certificates_relation]
-        )
-
-        state_out = ctx.run(ctx.on.config_changed(), state_in)
-
-        assert state_out.unit_status == ops.ActiveStatus()
-
-    def test_charm_without_loki_relation(self):
-        """Test charm behavior when loki relation is absent.
-
-        Arrange: Set up testing context with charm but no loki relation.
-        Act: Run config changed event.
-        Assert: Charm initializes successfully without loki relation.
-        """
-        ctx = testing.Context(FalcosidekickCharm)
-        # mypy thinks this can_connect argument does not exist.
-        container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
-        state_in = testing.State(containers=[container], relations=[])
-
-        state_out = ctx.run(ctx.on.config_changed(), state_in)
-
-        assert state_out.unit_status == ops.BlockedStatus("Required relations: [send-loki-logs]")
-
-    @patch("workload.HttpEndpointProvider.update_config")
-    def test_charm_with_http_endpoint_relation(
+    @pytest.mark.parametrize(
+        "has_loki, has_cert, has_ingress, expected_status",
+        [
+            (True, True, False, ops.ActiveStatus()),
+            (True, False, True, ops.BlockedStatus("Required one of: [certificates|ingress]")),
+            (True, True, True, ops.ActiveStatus()),
+            (True, False, False, ops.BlockedStatus("Required one of: [certificates|ingress]")),
+            (False, True, False, ops.BlockedStatus("Required relations: [send-loki-logs]")),
+            (False, False, True, ops.BlockedStatus("Required relations: [send-loki-logs]")),
+            (False, True, True, ops.BlockedStatus("Required relations: [send-loki-logs]")),
+            (False, False, False, ops.BlockedStatus("Required relations: [send-loki-logs]")),
+        ],
+    )
+    def test_charm_with_different_required_relations(
         self,
-        mock_update_config,
+        has_loki,
+        has_cert,
+        has_ingress,
+        expected_status,
         loki_relation,
-        http_endpoint_relation,
         certificates_relation,
+        ingress_relation,
     ):
-        """Test charm behavior with http-endpoint relation.
+        """Test charm behavior in various combination of required relation scenarios.
 
-        Arrange: Set up testing context with loki and http-endpoint relations.
+        Arrange: Set up testing context with various relation combinations.
         Act: Run config changed event.
-        Assert: Http endpoint provider is configured with correct parameters.
+        Assert: Charm status matches expected status based on relation presence.
         """
         ctx = testing.Context(FalcosidekickCharm)
         # mypy thinks this can_connect argument does not exist.
         container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
+        relations = []
+        if has_loki:
+            relations.append(loki_relation)
+        if has_cert:
+            relations.append(certificates_relation)
+        if has_ingress:
+            relations.append(ingress_relation)
         state_in = testing.State(
             containers=[container],
-            relations=[loki_relation, http_endpoint_relation, certificates_relation],
+            relations=relations,
         )
 
         state_out = ctx.run(ctx.on.config_changed(), state_in)
-
-        # Verify http endpoint provider was called with correct parameters
-        mock_update_config.assert_called_with(
-            path="/", scheme="https", listen_port=2801, set_ports=True
-        )
-        assert state_out.unit_status == ops.ActiveStatus()
-
-    @patch("workload.HttpEndpointProvider.update_config")
-    def test_charm_with_http_endpoint_and_tls_relations(
-        self,
-        mock_update_config,
-        loki_relation,
-        http_endpoint_relation,
-        certificates_relation,
-    ):
-        """Test charm behavior with http-endpoint and TLS certificate relations.
-
-        Arrange: Set up testing context with loki, http-endpoint, and certificates relations.
-        Act: Run config changed event.
-        Assert: Http endpoint provider is configured with HTTPS scheme.
-        """
-        ctx = testing.Context(FalcosidekickCharm)
-        # mypy thinks this can_connect argument does not exist.
-        container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
-        state_in = testing.State(
-            containers=[container],
-            relations=[loki_relation, http_endpoint_relation, certificates_relation],
-        )
-
-        state_out = ctx.run(ctx.on.config_changed(), state_in)
-
-        # Verify http endpoint provider was called with HTTPS scheme
-        mock_update_config.assert_called_with(
-            path="/", scheme="https", listen_port=2801, set_ports=True
-        )
-        assert state_out.unit_status == ops.ActiveStatus()
-
-    @patch("workload.HttpEndpointProvider.update_config")
-    def test_charm_without_tls_certificate_relation(
-        self,
-        mock_update_config,
-        loki_relation,
-        http_endpoint_relation,
-    ):
-        """Test charm behavior with http-endpoint and without TLS certificate relation.
-
-        Arrange: Set up testing context with loki and http-endpoint relations.
-        Act: Run config changed event.
-        Assert: Http endpoint provider is configured with HTTPS scheme.
-        """
-        ctx = testing.Context(FalcosidekickCharm)
-        # mypy thinks this can_connect argument does not exist.
-        container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
-        state_in = testing.State(
-            containers=[container],
-            relations=[loki_relation, http_endpoint_relation],
-        )
-
-        state_out = ctx.run(ctx.on.config_changed(), state_in)
-        assert state_out.unit_status == ops.BlockedStatus("Required relations: [certificates]")
+        assert state_out.unit_status == expected_status
