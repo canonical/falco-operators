@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 import ops
-from charmlibs.interfaces.http_endpoint import HttpEndpointRequirer
+from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
 from pydantic import AnyUrl, BaseModel, ValidationError
 
 from config import CharmConfig, InvalidCharmConfigError

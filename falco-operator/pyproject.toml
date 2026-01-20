@@ -14,11 +14,11 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-  "charmlibs-interfaces-http-endpoint",
   "charmlibs-systemd~=1.0",
   "cosl>=1.4.0",
   "jinja2>=3.1.6",
   "ops==3.5.0",
+  "pfe-interfaces-falcosidekick-http-endpoint",
   "pydantic>=2.12.5",
 ]
 
@@ -60,7 +60,7 @@ integration = [
 package = false
 
 [tool.uv.sources]
-charmlibs-interfaces-http-endpoint = { git = "https://github.com/chanchiwai-ray/charmlibs", subdirectory = "interfaces/http_endpoint", rev = "e1f9411e9e1a74e55288bf28d86576f08456b1fb" }
+pfe-interfaces-falcosidekick-http-endpoint = { git = "https://github.com/canonical/falco-operators", subdirectory = "interfaces/falcosidekick_http_endpoint", rev = "10cb2c505962843fecc9f8d0b9eb9c0a30a2acbe" }
 
 [tool.ruff]
 target-version = "py310"

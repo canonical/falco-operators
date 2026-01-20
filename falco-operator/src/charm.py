@@ -9,7 +9,7 @@ import logging
 import typing
 
 import ops
-from charmlibs.interfaces.http_endpoint import HttpEndpointRequirer
+from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
 
 from config import InvalidCharmConfigError
 from service import (

@@ -100,4 +100,4 @@ requires:
     scope: container
   http-endpoint:
     limit: 1
-    interface: http_endpoint
+    interface: falcosidekick_http_endpoint

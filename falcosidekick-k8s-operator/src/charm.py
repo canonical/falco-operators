@@ -9,8 +9,8 @@ import logging
 import typing
 
 import ops
-from charmlibs.interfaces.http_endpoint import HttpEndpointProvider
 from charms.loki_k8s.v1.loki_push_api import LokiPushApiConsumer
+from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointProvider
 
 from certificates import TlsCertificateRequirer
 from config import InvalidCharmConfigError

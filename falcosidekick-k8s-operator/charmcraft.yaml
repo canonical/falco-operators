@@ -65,4 +65,4 @@ requires:
 
 provides:
   http-endpoint:
-    interface: http_endpoint
+    interface: falcosidekick_http_endpoint

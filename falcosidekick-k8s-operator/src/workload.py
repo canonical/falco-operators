@@ -7,8 +7,8 @@ import logging
 from pathlib import Path
 
 import ops
-from charmlibs.interfaces.http_endpoint import HttpEndpointProvider
 from jinja2 import Environment, FileSystemLoader
+from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointProvider
 
 import state
 from certificates import TlsCertificateRequirer
