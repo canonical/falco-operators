@@ -8,6 +8,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-01-16
+
+Add certificate interface to support falcosidekick-k8s to obtain a certificate from a provider. If falcosidekick-k8s
+obtains a certificate, it will start the server with TLS enabled. In additional to that, a HTTP server on port 2810 will
+be serving for `/healthz` and `/ping` for internal health check.
+
+### Added
+
+- Add certificate lib and interface to falcosidekick-k8s-operator
+- Add logic to handle certificate relation related events to falcosidekick-k8s-operator
+  - Observed certificate relation changed and broken event to reconcile the state and update falcosidekick service
+  - Refresh the certificate state when the falcosidekick-k8s charm change config
+  - Blocked the charm is certificates relation does not exist
+
+### Removed
+
+- Health check for falcosidekick
+  - This has been proven to be very flaky
+
 ## 2026-01-10
 
 Add integration between falco-operator and falcosidekick-k8s-operator via http_endpoint interface.

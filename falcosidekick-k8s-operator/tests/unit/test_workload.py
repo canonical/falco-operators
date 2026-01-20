@@ -4,7 +4,7 @@
 """Unit tests for workload module."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import ops
 
@@ -116,8 +116,7 @@ class TestTemplate:
 class TestFalcosidekick:
     """Test Falcosidekick workload class."""
 
-    @patch("workload.Falcosidekick.health", new_callable=MagicMock)
-    def test_configure_with_changes(self, mock_health):
+    def test_configure_with_changes(self):
         """Test Falcosidekick configuration when configuration changes.
 
         Arrange: Set up mock charm with healthy container and changed config.
@@ -130,7 +129,6 @@ class TestFalcosidekick:
         mock_container.can_connect.return_value = True
         mock_container.get_services.return_value = ["falcosidekick"]
         mock_charm.unit.get_container.return_value = mock_container
-        mock_health.return_value = True
 
         # Mock the config file install to return True (changed)
         with patch.object(FalcosidekickConfigFile, "install", return_value=True):
@@ -141,20 +139,21 @@ class TestFalcosidekick:
                 falcosidekick_loki_hostport="http://loki:3100",
             )
             mock_http_output_provider = Mock()
+            mock_tls_requirer = Mock()
+            mock_tls_requirer.configure.return_value = False
 
             # Act: Configure the workload
-            falcosidekick.configure(charm_state, mock_http_output_provider)
+            falcosidekick.configure(charm_state, mock_http_output_provider, mock_tls_requirer)
 
             # Assert: Verify replan and restart were called
             mock_container.add_layer.assert_called_once()
             mock_container.replan.assert_called_once()
             mock_container.restart.assert_called_once_with("falcosidekick")
             mock_http_output_provider.update_config.assert_called_once_with(
-                path="/", scheme="http", listen_port=2801, set_ports=True
+                path="/", scheme="https", listen_port=2801, set_ports=True
             )
 
-    @patch("workload.Falcosidekick.health", new_callable=MagicMock)
-    def test_configure_without_changes(self, mock_health):
+    def test_configure_without_changes(self):
         """Test Falcosidekick configuration when configuration hasn't changed.
 
         Arrange: Set up mock charm with healthy container and unchanged config.
@@ -166,7 +165,6 @@ class TestFalcosidekick:
         mock_container = Mock(spec=ops.Container)
         mock_container.can_connect.return_value = True
         mock_charm.unit.get_container.return_value = mock_container
-        mock_health.return_value = True
 
         # Mock the config file install to return False (no change)
         with patch.object(FalcosidekickConfigFile, "install", return_value=False):
@@ -177,9 +175,11 @@ class TestFalcosidekick:
                 falcosidekick_loki_hostport="http://loki:3100",
             )
             mock_http_output_provider = Mock()
+            mock_tls_requirer = Mock()
+            mock_tls_requirer.configure.return_value = False
 
             # Act: Configure the workload
-            falcosidekick.configure(charm_state, mock_http_output_provider)
+            falcosidekick.configure(charm_state, mock_http_output_provider, mock_tls_requirer)
 
             # Assert: Verify replan and restart were NOT called
             mock_container.add_layer.assert_not_called()
@@ -187,7 +187,7 @@ class TestFalcosidekick:
             mock_container.restart.assert_not_called()
             # But http output info should still be set
             mock_http_output_provider.update_config.assert_called_once_with(
-                path="/", scheme="http", listen_port=2801, set_ports=True
+                path="/", scheme="https", listen_port=2801, set_ports=True
             )
 
     def test_configure_container_not_ready(self):
@@ -210,10 +210,11 @@ class TestFalcosidekick:
             falcosidekick_loki_hostport="http://loki:3100",
         )
         mock_http_output_provider = Mock()
+        mock_tls_requirer = Mock()
 
         # Act: Attempt to configure the workload
         with patch.object(FalcosidekickConfigFile, "install") as mock_install:
-            falcosidekick.configure(charm_state, mock_http_output_provider)
+            falcosidekick.configure(charm_state, mock_http_output_provider, mock_tls_requirer)
 
             # Assert: Verify install was not called
             mock_install.assert_not_called()

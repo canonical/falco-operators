@@ -11,6 +11,15 @@
 listenport: {{ charm_state.falcosidekick_listenport }}
 listenaddress: "" # ip address to bind falcosidekick to (default: "" meaning all addresses)
 
+tlsserver:
+  deploy: true
+  keyfile: "/etc/falcosidekick/certs/server/server.key"
+  certfile: "/etc/falcosidekick/certs/server/server.crt"
+  notlsport: 2810
+  notlspaths:
+    - "/ping"
+    - "/healthz"
+
 {% if charm_state.falcosidekick_loki_hostport -%}
 loki:
   format: json

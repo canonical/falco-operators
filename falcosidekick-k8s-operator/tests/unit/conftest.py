@@ -3,8 +3,29 @@
 
 """Fixtures for unit tests."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from ops import testing
+
+from certificates import PrivateKey, ProviderCertificate
+
+
+@pytest.fixture
+def mock_get_assigned_certificate():
+    """Provide a patcher for TLSCertificatesRequiresV4.get_assigned_certificate.
+
+    This fixture returns a context manager that can be configured with different
+    return values for each test. By default, it returns valid certificate and key mocks.
+
+    Yields:
+        A patch context manager for get_assigned_certificate with default valid cert/key.
+    """
+    with patch("certificates.TLSCertificatesRequiresV4.get_assigned_certificate") as mock:
+        mock_cert = MagicMock(spec=ProviderCertificate, certificate="mock cert")
+        mock_key = MagicMock(spec=PrivateKey)
+        mock.return_value = (mock_cert, mock_key)
+        yield mock
 
 
 @pytest.fixture
@@ -31,4 +52,17 @@ def http_endpoint_relation():
     return testing.Relation(
         endpoint="http-endpoint",
         interface="http_endpoint",
+    )
+
+
+@pytest.fixture
+def certificates_relation():
+    """Fixture for TLS certificates relation.
+
+    Returns:
+        A testing.Relation configured for certificates interface.
+    """
+    return testing.Relation(
+        endpoint="certificates",
+        interface="tls_certificates",
     )

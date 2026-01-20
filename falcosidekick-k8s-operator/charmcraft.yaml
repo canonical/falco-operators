@@ -59,6 +59,9 @@ requires:
   send-loki-logs:
     limit: 1
     interface: loki_push_api
+  certificates:
+    limit: 1
+    interface: tls-certificates
 
 provides:
   http-endpoint:
