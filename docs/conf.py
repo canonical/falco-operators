@@ -222,10 +222,12 @@ templates_path = ["_templates"]
 #       the sphinx_reredirects extension will be disabled.
 
 redirects = {
-    "reference/doc-cheat-sheet-myst/": "../myst-syntax-reference",
-    "reference/doc-cheat-sheet/": "../rst-syntax-reference",
-    "reference/style-guide-myst/": "../myst-syntax-reference",
-    "reference/style-guide/": "../rst-syntax-reference",
+    "reference/doc-cheat-sheet-myst/": "/",
+    "reference/doc-cheat-sheet/": "/",
+    "reference/style-guide-myst/": "/",
+    "reference/style-guide/": "/",
+    "explanation/architecture/": "/reference/architecture",
+    "how-to/back-up-restore/": "/reference/back-up-restore",
 }
 
 
