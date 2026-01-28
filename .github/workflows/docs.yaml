@@ -10,5 +10,5 @@ jobs:
     uses: canonical/operator-workflows/.github/workflows/docs.yaml@main
     secrets: inherit
     with:
-      vale-files: '["README.md", "SECURITY.md", "CONTRIBUTING.md", "falco-operator", "falcosidekick-k8s-operator"]'
+      vale-files: '["README.md", "SECURITY.md", "CONTRIBUTING.md", "falco-operator", "falcosidekick-k8s-operator", "interfaces"]'
       linkcheck-fail-on-error: false
