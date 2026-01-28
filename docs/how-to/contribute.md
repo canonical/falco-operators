@@ -1,15 +1,15 @@
-(how_to_contribute)=
+(contribute)=
 
-# How to contribute
+# Contribute
 
-Our documentation is hosted on the [Charmhub forum](link to charmhub overview page) to enable collaboration.
-Please use the "Help us improve this documentation" links on each documentation page to either
-directly change something you see that's wrong, ask a question, or make a suggestion about a potential
-change in the comments section.
+We welcome contributions to the Falco operators project!
 
-Our documentation is also available alongside the [source code on GitHub](https://github.com/canonical/falco-operators).
-You may open a pull request with your documentation changes, or you can [file a bug](https://github.com/canonical/falco-operators/issues)
-to provide constructive feedback or suggestions.
+For detailed information on contributing to the source code, testing, and development workflow,
+see [CONTRIBUTING.md](https://github.com/canonical/falco-operators/blob/main/CONTRIBUTING.md)
+in the repository.
 
-See [CONTRIBUTING.md](https://github.com/canonical/falco-operators/blob/main/CONTRIBUTING.md)
-for information on contributing to the source code.
+## Quick links
+
+- [Source code on GitHub](https://github.com/canonical/falco-operators)
+- [File a bug or feature request](https://github.com/canonical/falco-operators/issues)
+- [Contributing guidelines](https://github.com/canonical/falco-operators/blob/main/CONTRIBUTING.md)

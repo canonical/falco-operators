@@ -44,7 +44,7 @@ be serving for `/healthz` and `/ping` for internal health check.
 
 ## 2026-01-10
 
-Add integration between falco-operator and falcosidekick-k8s-operator via http_endpoint interface.
+Add integration between falco-operator and falcosidekick-k8s-operator using http_endpoint interface.
 
 ### Added
 

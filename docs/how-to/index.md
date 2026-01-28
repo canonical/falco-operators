@@ -12,8 +12,8 @@ The following guides cover key processes and common tasks for managing and using
 
 ```{toctree}
 :maxdepth: 1
-back-up-restore.md
+configure-custom-repository.md
+configure-tls-ingress.md
 contribute.md
 integrate-with-cos.md
-upgrade.md
 ```

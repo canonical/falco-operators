@@ -10,10 +10,11 @@ myst:
 
 The pages in this section contain technical information for topics relevant to the Falco charms.
 
+## Falco operator
+
 ```{toctree}
 :maxdepth: 1
 actions.md
 configurations.md
 integrations.md
-metrics.md
 ```
