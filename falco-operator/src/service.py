@@ -370,6 +370,7 @@ def _pull_falco_rule_files(destination: str) -> None:
         "-av",
         "--delete",
         "--include=*.yaml",
+        "--",
         source,
         destination,
     ]
@@ -396,6 +397,7 @@ def _pull_falco_config_files(destination: str) -> None:
         "-av",
         "--delete",
         "--include=*.yaml",
+        "--",
         source,
         destination,
     ]
