@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-01-28
+
+Add ingress relation for falcosidekick-k8s-operator. With ingress, the certificates relation is not mandatory, the TLS
+terminates at the gateway.
+
+### Added
+
+- Observe and handle ingress relation changed and broken
+- Make certificate relation and ingress relation mutually exclusive
+
+### Changed
+
+- Certificate relation changes to optional
+- Update terraform module to include ingress relation
+
 ## 2026-01-16
 
 Add certificate interface to support falcosidekick-k8s to obtain a certificate from a provider. If falcosidekick-k8s
