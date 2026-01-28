@@ -10,18 +10,24 @@ import typing
 
 import ops
 from charms.loki_k8s.v1.loki_push_api import LokiPushApiConsumer
+from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointProvider
 
 from certificates import TlsCertificateRequirer
 from config import InvalidCharmConfigError
 from state import CharmBaseWithState, CharmState
-from workload import Falcosidekick, MissingCertificateRelationError, MissingLokiRelationError
+from workload import (
+    Falcosidekick,
+    MissingLokiRelationError,
+    RequireOneOfIngressOrCertificateRelationError,
+)
 
 logger = logging.getLogger(__name__)
 
 CERTIFICATE_RELATION_NAME = "certificates"
 SEND_LOKI_LOG_RELATION_NAME = "send-loki-logs"
 HTTP_ENDPOINT_RELATION_NAME = "http-endpoint"
+INGRESS_RELATION_NAME = "ingress"
 
 
 class FalcosidekickCharm(CharmBaseWithState):
@@ -54,6 +60,9 @@ class FalcosidekickCharm(CharmBaseWithState):
         self.tls_certificate_requirer = TlsCertificateRequirer(
             self, relation_name=CERTIFICATE_RELATION_NAME
         )
+        self.ingress_requirer = IngressPerAppRequirer(
+            self, relation_name=INGRESS_RELATION_NAME, strip_prefix=True, redirect_https=True
+        )
 
         self.framework.observe(self.on.install, self._install)
         self.framework.observe(self.on.config_changed, self.reconcile)
@@ -73,6 +82,9 @@ class FalcosidekickCharm(CharmBaseWithState):
         self.framework.observe(self.on[CERTIFICATE_RELATION_NAME].relation_broken, self.reconcile)
         self.framework.observe(self.on[CERTIFICATE_RELATION_NAME].relation_changed, self.reconcile)
 
+        self.framework.observe(self.on[INGRESS_RELATION_NAME].relation_broken, self.reconcile)
+        self.framework.observe(self.on[INGRESS_RELATION_NAME].relation_changed, self.reconcile)
+
     @property
     def state(self) -> CharmState:
         """Get the charm state.
@@ -86,6 +98,7 @@ class FalcosidekickCharm(CharmBaseWithState):
             self._state = CharmState.from_charm(
                 self,
                 self.loki_push_api_consumer,
+                self.ingress_requirer,
             )
         return self._state
 
@@ -122,6 +135,7 @@ class FalcosidekickCharm(CharmBaseWithState):
                 self.state,
                 self.http_endpoint_provider,
                 self.tls_certificate_requirer,
+                self.ingress_requirer,
             )
         except InvalidCharmConfigError as e:
             logger.error("%s", e)
@@ -131,9 +145,9 @@ class FalcosidekickCharm(CharmBaseWithState):
             logger.error("%s", e)
             self.unit.status = ops.BlockedStatus("Required relations: [send-loki-logs]")
             return
-        except MissingCertificateRelationError as e:
+        except RequireOneOfIngressOrCertificateRelationError as e:
             logger.error("%s", e)
-            self.unit.status = ops.BlockedStatus("Required relations: [certificates]")
+            self.unit.status = ops.BlockedStatus("Required one of: [certificates|ingress]")
             return
 
         self.unit.status = ops.ActiveStatus()

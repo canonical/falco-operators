@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 
 import ops
+from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from jinja2 import Environment, FileSystemLoader
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointProvider
 
@@ -23,8 +24,8 @@ class MissingLokiRelationError(Exception):
     """Exception raised when the Loki relation is missing."""
 
 
-class MissingCertificateRelationError(Exception):
-    """Exception raised when the certificate relation is missing."""
+class RequireOneOfIngressOrCertificateRelationError(Exception):
+    """Exception raised when the not one of ingress or certificate relation exists."""
 
 
 class Template:
@@ -183,6 +184,7 @@ class Falcosidekick:
         charm_state: state.CharmState,
         http_endpoint_provider: HttpEndpointProvider,
         tls_certificate_requirer: TlsCertificateRequirer,
+        ingress_requirer: IngressPerAppRequirer,
     ) -> None:
         """Configure the Falcosidekick workload idempotently.
 
@@ -193,10 +195,11 @@ class Falcosidekick:
             charm_state: The current charm state containing configuration parameters.
             http_endpoint_provider: The HttpEndpointManager instance to set http output data.
             tls_certificate_requirer: The TlsCertificateRequirer instance to manage TLS certificates.
+            ingress_requirer: The IngressPerAppRequirer instance to manage ingress relation.
 
         Raises:
             MissingLokiRelationError: If the Loki relation is missing.
-            MissingCertificateRelationError: If the certificate relation is missing.
+            RequireOneOfIngressOrCertificateRelationError: If not one of ingress or certificate relation exists.
         """
         if not self.ready:
             logger.warning("Cannot configure; container is not ready")
@@ -208,18 +211,20 @@ class Falcosidekick:
                 "send-loki-logs relation is missing; Falcosidekick requires at least one output"
             )
 
-        if not tls_certificate_requirer.is_created():
+        if not (tls_certificate_requirer.is_created() ^ ingress_requirer.is_ready()):
             self._stop_all()
-            raise MissingCertificateRelationError(
-                "certificates relation is missing; Falcosidekick requires a TLS certificate"
+            raise RequireOneOfIngressOrCertificateRelationError(
+                "only one of [certificates|ingress] relation is required but not both or none"
             )
 
         # Set http output information idempotently
-        http_endpoint_provider.update_config(
-            path="/",
+        http_endpoint_provider.update_config(**charm_state.http_endpoint_config)
+
+        # Configure ingress idempotently
+        ingress_requirer.provide_ingress_requirements(
             scheme="https",
-            listen_port=charm_state.falcosidekick_listenport,
-            set_ports=True,
+            host=self.charm.model.app.name,
+            port=charm_state.falcosidekick_listenport,
         )
 
         # Configure tls certificate idempotently
@@ -231,7 +236,11 @@ class Falcosidekick:
             logger.warning("Configuration or certificate not changed; skipping reconfiguration")
             return
 
-        self._configure_healthchecks(TLS_HEALTH_CHECK_PORT)
+        self._configure_healthchecks(
+            TLS_HEALTH_CHECK_PORT
+            if charm_state.enable_tls
+            else charm_state.falcosidekick_listenport
+        )
         self.container.replan()
 
         for service_name in self.container.get_services():

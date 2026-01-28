@@ -35,6 +35,16 @@ run "test_integration_certificates" {
   }
 }
 
+run "test_integration_ingress" {
+
+  command = plan
+
+  assert {
+    condition     = module.falcosidekick_k8s.requires.ingress == "ingress"
+    error_message = "Expect falcosidekick-k8s module to provide 'requires.ingress' output"
+  }
+}
+
 run "test_integration_http_endpoint" {
 
   command = plan
