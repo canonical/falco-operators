@@ -14,7 +14,7 @@ A collection of [Juju](https://juju.is/) [charms](https://documentation.ubuntu.c
 for deploying and managing [Falco](https://falco.org/) runtime security monitoring. This repository contains:
 
 - **Falco operator**: A subordinate charm that deploys Falco on physical or virtual machines
-- **Falcosidekick-k8s operator**: A Kubernetes charm that receives and forwards Falco alerts to various outputs
+- **Falcosidekick k8s operator**: A Kubernetes charm that receives and forwards Falco alerts to various outputs
 
 Falco is an open-source cloud native security tool that provides runtime security across hosts, containers,
 Kubernetes, and cloud environments. Falcosidekick connects Falco to your ecosystem by forwarding alerts
