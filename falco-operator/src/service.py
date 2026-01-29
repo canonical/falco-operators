@@ -451,7 +451,7 @@ def _setup_ssh_key(ssh_private_key: str) -> None:
     """
     try:
         fd = os.open(SSH_KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, 'w', encoding="utf-8") as key_file:
+        with os.fdopen(fd, "w", encoding="utf-8") as key_file:
             key_file.write(ssh_private_key)
     except OSError as e:
         logging.error("Error writing SSH private key to %s", SSH_KEY_FILE)
