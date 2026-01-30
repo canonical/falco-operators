@@ -4,6 +4,7 @@
 """Falco workload management module."""
 
 import logging
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -369,6 +370,7 @@ def _pull_falco_rule_files(destination: str) -> None:
         "-av",
         "--delete",
         "--include=*.yaml",
+        "--",
         source,
         destination,
     ]
@@ -395,6 +397,7 @@ def _pull_falco_config_files(destination: str) -> None:
         "-av",
         "--delete",
         "--include=*.yaml",
+        "--",
         source,
         destination,
     ]
@@ -447,9 +450,9 @@ def _setup_ssh_key(ssh_private_key: str) -> None:
         SshKeyWriteError: If writing the Ssh key fails
     """
     try:
-        with SSH_KEY_FILE.open("w", encoding="utf-8") as key_file:
+        fd = os.open(SSH_KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as key_file:
             key_file.write(ssh_private_key)
-        SSH_KEY_FILE.chmod(0o600)
     except OSError as e:
         logging.error("Error writing SSH private key to %s", SSH_KEY_FILE)
         raise SshKeyWriteError(f"Error writing SSH key to {SSH_KEY_FILE}") from e
