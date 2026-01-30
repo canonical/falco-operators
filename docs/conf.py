@@ -227,6 +227,7 @@ redirects = {
     "reference/style-guide-myst/": "/",
     "reference/style-guide/": "/",
     "reference/metrics/": "/",
+    "explanation/architecture/": "/reference/architecture",
     "how-to/back-up-restore/": "/",
     "how-to/upgrade/": "/",
 }
