@@ -2,7 +2,7 @@
 
 # Charm design overview
 
-This page explains the design patterns and architecture used in both the Falco operator and Falcosidekick-k8s operator charms.
+This page explains the design patterns and architecture used in both the Falco operator and Falcosidekick K8s operator charms.
 
 ## Design philosophy
 
@@ -34,7 +34,7 @@ graph LR
 
 The flow of data through the charm follows this pattern:
 
-1. **Events trigger handlers**: Juju events (config-changed, relation-changed) are observed in `charm.py`
+1. **Events trigger handlers**: Juju events (`config-changed`, `relation-changed`) are observed in `charm.py`
 2. **Data collection**: Handlers gather data from configuration options and relation libraries
 3. **State aggregation**: All data is combined into a single `CharmState` object in the `state.py` module
 4. **Workload configuration**: The workload module (`service.py` or `workload.py`) receives the state and configures the service accordingly
@@ -45,12 +45,14 @@ The flow of data through the charm follows this pattern:
 
 The main charm module coordinates the overall charm behavior:
 
-- Observes Juju lifecycle events (install, config-changed, upgrade)
-- Observes relation events (relation-joined, relation-changed, relation-broken)
+- Observes Juju lifecycle events (install, `config-changed`, upgrade)
+- Observes relation events (`relation-joined`, `relation-changed`, `relation-broken`)
 - Initializes relation libraries and helper objects
 - Delegates workload configuration to the service/workload module
 
-For example, the Falco operator observes the `http-endpoint` relation and triggers reconciliation when it changes, while the Falcosidekick k8s operator observes multiple relations including `send-loki-logs`, `certificates`, and `ingress`.
+For example, the Falco operator observes the `http-endpoint` relation and triggers reconciliation
+when it changes, while the Falcosidekick K8s operator observes multiple relations including
+`send-loki-logs`, `certificates`, and `ingress`.
 
 ### `state.py`
 
@@ -61,7 +63,7 @@ The state module provides a single source of truth for all charm data:
 - Validates and transforms data into a consistent format using Pydantic models
 - Provides a `CharmState` object that represents the complete desired state
 
-For example, in the Falcosidekick k8s operator, the state module combines:
+For example, in the Falcosidekick K8s operator, the state module combines:
 
 - Configuration options (port)
 - Loki endpoint from the `send-loki-logs` relation
@@ -77,7 +79,7 @@ The workload module configures the service based on the charm state:
 - Receives the `CharmState` object from the charm
 - Renders configuration templates with state data
 - Manages the lifecycle of the workload (install, configure, restart)
-- Interacts with the workload (systemd service for Falco, Pebble container for Falcosidekick k8s)
+- Interacts with the workload (systemd service for Falco, Pebble container for Falcosidekick K8s)
 
 For the Falco operator, `service.py` manages:
 
@@ -85,7 +87,7 @@ For the Falco operator, `service.py` manages:
 - Custom configuration from Git repositories
 - Systemd service lifecycle
 
-For the Falcosidekick-k8s operator, `workload.py` manages:
+For the Falcosidekick K8s operator, `workload.py` manages:
 
 - Pebble layer configuration
 - Container configuration files
@@ -97,7 +99,7 @@ For the Falcosidekick-k8s operator, `workload.py` manages:
 Both charms use relation libraries to handle integrations:
 
 - **Falco operator**: Uses `HttpEndpointRequirer` to connect to Falcosidekick
-- **Falcosidekick k8s operator**: Uses `HttpEndpointProvider`, `LokiPushApiConsumer`, `TlsCertificateRequirer`, and `IngressPerAppRequirer`
+- **Falcosidekick K8s operator**: Uses `HttpEndpointProvider`, `LokiPushApiConsumer`, `TlsCertificateRequirer`, and `IngressPerAppRequirer`
 
 These libraries abstract the complexity of relation data exchange and provide clean interfaces for the charm to use.
 
@@ -147,7 +149,7 @@ For example, the Falco operator uses templates for:
 - Falco configuration files
 - Systemd service files
 
-The Falcosidekick-k8s operator uses templates for:
+The Falcosidekick K8s operator uses templates for:
 
 - Falcosidekick configuration files
 - Pebble layer definitions

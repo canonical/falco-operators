@@ -50,7 +50,7 @@ juju integrate falco:http-endpoint falcosidekick-k8s:http-endpoint
 
 ## Falcosidekick K8s operator
 
-Falcosidekick k8s supports the following integrations with other charms.
+Falcosidekick K8s supports the following integrations with other charms.
 
 ### Provides
 
@@ -86,7 +86,9 @@ Example integrate command:
 juju integrate falcosidekick-k8s:send-loki-logs loki-k8s:logging
 ```
 
-> See also: [How to integrate with COS](integrate-with-cos)
+```{seealso}
+{ref}`How to integrate with COS <integrate-with-cos>`
+```
 
 #### `certificates`
 

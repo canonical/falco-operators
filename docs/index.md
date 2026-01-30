@@ -14,7 +14,7 @@ A collection of [Juju](https://juju.is/) [charms](https://documentation.ubuntu.c
 for deploying and managing [Falco](https://falco.org/) runtime security monitoring. This repository contains:
 
 - **Falco operator**: A subordinate charm that deploys Falco on physical or virtual machines
-- **Falcosidekick k8s operator**: A Kubernetes charm that receives and forwards Falco alerts to various outputs
+- **Falcosidekick K8s operator**: A Kubernetes charm that receives and forwards Falco alerts to various outputs
 
 Falco is an open-source cloud native security tool that provides runtime security across hosts, containers,
 Kubernetes, and cloud environments. Falcosidekick connects Falco to your ecosystem by forwarding alerts
@@ -37,7 +37,7 @@ the Official [Falco Operator Documentation](https://documentation.ubuntu.com/fal
 
 Documentation is an important part of this project, and we take the same open-source approach to
 the documentation as the code. As such, we welcome community contributions, suggestions, and
-constructive feedback on our documentation. See [How to contribute](how-to/contribute) for more
+constructive feedback on our documentation. See {ref}`How to contribute <contribute>` for more
 information.
 
 If there's a particular area of documentation that you'd like to see that's missing, please
@@ -51,7 +51,7 @@ projects, contributions, suggestions, fixes, and constructive feedback.
 - [Code of conduct](https://ubuntu.com/community/code-of-conduct)
 - [Get support](https://discourse.charmhub.io/)
 - [Join our online chat](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
-- [Contribute](how-to/contribute)
+- [Contribute](https://github.com/canonical/falco-operators/blob/main/CONTRIBUTING.md)
 
 Thinking about using the Falco Operators for your next project?
 [Get in touch](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)!

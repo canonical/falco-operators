@@ -192,7 +192,7 @@ exit
 ## Next steps
 
 Well done! You've successfully completed the Falco tutorial. You can now deploy Falcosidekick to
-receive and process Falco alerts (see [Deploy Falcosidekick k8s operator](deploy-falcosidekick)).
+receive and process Falco alerts (see {ref}`Deploy Falcosidekick K8s operator <tutorial_deploy_falcosidekick>`).
 
 ## Clean up the environment
 
@@ -203,4 +203,6 @@ during this tutorial by using the following command.
 juju destroy-model falco-tutorial
 ```
 
-> Note: If you plan to continue with the next tutorial, keep this model deployed.
+```{note}
+If you plan to continue with the next tutorial, keep this model deployed.
+```

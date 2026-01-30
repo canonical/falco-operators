@@ -4,7 +4,7 @@
 
 ## What you'll do
 
-- Configure both Falco and Falcosidekick k8s charms.
+- Configure both Falco and Falcosidekick K8s charms.
 - Integrate them using the `http-endpoint` relation.
 - Verify that Falco alerts are forwarded to Falcosidekick.
 - Trigger a security alert and observe the integration.
@@ -14,8 +14,8 @@
 This is a continuation of the previous tutorials. If you haven't completed the previous tutorials,
 review:
 
-- [Deploy Falco operator](getting-started)
-- [Deploy Falcosidekick k8s operator](deploy-falcosidekick)
+- {ref}`Deploy Falco operator <tutorial_getting_started>`
+- {ref}`Deploy Falcosidekick K8s operator <tutorial_deploy_falcosidekick>`
 
 ## Current status
 
@@ -136,5 +136,7 @@ juju destroy-controller concierge-lxd --destroy-all-models --destroy-storage
 concierge restore
 ```
 
-> Note: This removes all deployed charms and Juju controllers on the machine, and restore the machine to
-> its previous state before the tutorial.
+```{note}
+This removes all deployed charms and Juju controllers on the machine, and restore the machine to
+its previous state before the tutorial.
+```

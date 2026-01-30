@@ -9,7 +9,7 @@ This page explains the architecture of the Falco operators and how the component
 The Falco operators consist of two charms that work together to provide comprehensive runtime security monitoring:
 
 - **Falco operator**: A subordinate charm that deploys Falco on machines or Kubernetes nodes
-- **Falcosidekick k8s operator**: A Kubernetes charm that receives alerts from Falco and forwards them to various outputs
+- **Falcosidekick K8s operator**: A Kubernetes charm that receives alerts from Falco and forwards them to various outputs
 
 ## Machine charm deployment architecture
 
@@ -55,7 +55,7 @@ graph LR
     end
 
     subgraph "Falcosidekick Model"
-        FS[Falcosidekick-k8s]
+        FS[Falcosidekick K8s]
         OT[OpenTelemetry<br/>Collector]
 
         subgraph "TLS Options"

@@ -8,6 +8,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-01-30
+
+Comprehensive documentation overhaul following Diátaxis framework.
+
+### Added
+
+- Tutorial documentation for end-to-end Falco and Falcosidekick deployment
+  - Deploy Falco operator tutorial
+  - Deploy Falcosidekick K8s operator tutorial
+  - End-to-end deployment tutorial connecting Falco with Falcosidekick
+- How-to guides for operational tasks
+  - Integrate with Canonical Observability Stack (COS)
+  - Configure custom Git repository for Falco rules and configurations
+  - Configure TLS termination with ingress using gateway-api-integrator and Lego
+  - Troubleshoot common issues across both charms
+- Explanation documentation
+  - Charm design patterns and module organization
+  - Architecture diagrams showing component relationships and data flow
+- Reference documentation for Falcosidekick-k8s operator
+  - Configurations, actions, and integrations reference pages
+
+### Changed
+
+- Updated repository documentation (e.g. README.md, CONTRIBUTING.md) to reflect new structure
+
+### Removed
+
+- Metrics reference page
+- Obsolete back-up-restore and upgrade how-to guides
+
 ## 2026-01-28
 
 Add ingress relation for falcosidekick-k8s-operator. With ingress, the certificates relation is not mandatory, the TLS

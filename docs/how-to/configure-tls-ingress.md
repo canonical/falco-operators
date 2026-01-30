@@ -2,11 +2,11 @@
 
 # Configure TLS termination with ingress
 
-This guide shows you how to configure TLS termination for Falcosidekick using `ingress` interface
+This guide shows you how to configure TLS termination for Falcosidekick using the `ingress` interface.
 
 ## Prerequisites
 
-- A deployed Falcosidekick k8s operator from [deploy Falcosidekick tutorial](../tutorial/deploy-falcosidekick)
+- A deployed Falcosidekick K8s operator from {ref}`deploy Falcosidekick K8s tutorial <tutorial_deploy_falcosidekick>`
 
 ## Configure ingress
 
@@ -41,7 +41,7 @@ This guide shows you how to configure TLS termination for Falcosidekick using `i
    juju integrate falcosidekick-k8s:ingress gateway-api-integrator:gateway
    ```
 
-## Alternative to `self-signed certificates` for production
+## Alternative to `self-signed-certificates` charm for production
 
 For production deployments, consider using the [`lego`](https://charmhub.io/lego) charm to
 automatically obtain and renew TLS certificates from Let's Encrypt using the ACME protocol.

@@ -6,7 +6,7 @@ This guide shows how to configure the Falco charm with a custom Git repository c
 
 ## Prerequisites
 
-- A deployed Falco operator from [getting started tutorial](../tutorial/getting-started)
+- A deployed Falco operator from {ref}`getting started tutorial <tutorial_getting_started>`
 - A Git repository (e.g., GitHub, GitLab) to host your custom Falco configuration files
 
 ## Repository structure
@@ -23,8 +23,8 @@ my-falco-config/
 
 ### Sample rule file
 
-Create a file in `rules.d/` directory, for example `custom-rules.yaml`. You can use the official
-rules from Falco: https://github.com/falcosecurity/rules/blob/main/rules/falco_rules.yaml
+Create a file in `rules.d/` directory, for example `custom-rules.yaml`. You can use the [official
+rules from Falco](https://github.com/falcosecurity/rules/blob/main/rules/falco_rules.yaml).
 
 ### Sample configuration file
 
@@ -103,18 +103,4 @@ Falco will automatically sync the changes from the repository.
 
 ## Troubleshooting
 
-### SSH authentication failures
-
-If Falco cannot access the repository:
-
-1. Verify the SSH key is correctly added to the Git repository
-2. Check the repository URL format is correct (must start with `git+ssh://`)
-3. Ensure the username in the URL matches your Git provider (usually `git`)
-
-### Custom rules not loading
-
-If custom rules are not being applied:
-
-1. Verify the repository structure has `rules.d/` and `config.override.d/` directories
-2. Check that YAML files in these directories are valid Falco configuration
-3. Review Falco logs for syntax errors: `sudo journalctl -u falco -n 100`
+For troubleshooting common issues with custom repositories, see {ref}`how to troubleshoot <troubleshoot>`.

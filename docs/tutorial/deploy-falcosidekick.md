@@ -2,20 +2,20 @@
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
 
-# Deploy Falcosidekick k8s operator
+# Deploy Falcosidekick K8s operator
 
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 ## What you'll do
 
-- Deploy the Falcosidekick k8s operator.
+- Deploy the Falcosidekick K8s operator.
 - Verify the deployment is ready.
 - Understand how Falcosidekick receives and processes Falco alerts.
 
 ## Requirements
 
 This is a continuation of the previous tutorial. If you haven't set up the Kubernetes cloud with
-Juju, see the [Deploy Falco operator](getting-started) tutorial for setup instructions.
+Juju, see the {ref}`Deploy Falco operator <tutorial_getting_started>` tutorial for setup instructions.
 
 ## Preparing the K8s cluster
 
@@ -72,7 +72,7 @@ juju add-model falcosidekick-tutorial
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
 
-## Deploy Falcosidekick k8s operator
+## Deploy Falcosidekick K8s operator
 
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
@@ -135,6 +135,11 @@ opentelemetry-collector-k8s/0*  blocked   idle   10.1.0.57          ['cloud-conf
 self-signed-certificates/0*     active    idle   10.1.0.182
 ```
 
+```{note}
+The `opentelemetry-collector-k8s` charm shows `blocked` status because it requires additional
+relations to function properly. This is expected at this stage.
+```
+
 ## Verify the deployment
 
 ### Verify the configuration
@@ -169,22 +174,25 @@ loki:
 
 ## Understand the deployment
 
-> Note: In this tutorial, we used the self-signed-certificates charm for TLS certificates. In a production
-> environment, consider using a trusted certificate authority or a more robust TLS management solution.
->
-> You may also need to extract the CA certificate from the self-signed-certificates charm, and
-> put it under the k8s nodes' trusted CA store to ensure secure communication between Falco and
-> Falcosidekick. To extract the CA certificate and save the CA to the k8s node, you can use the
-> following command:
->
-> ```bash
-> juju show-unit -m k8s-controller:admin/falcosidekick-tutorial falcosidekick-k8s/0 --endpoint certificates | yq '."falcosidekick-k8s/0".relation-info[0].application-data.certificates' | yq '.[0].ca' > ca.crt
-> juju scp -m concierge-lxd:admin/falco-tutorial ca.crt k8s/0:~/ca.crt
-> juju ssh -m concierge-lxd:admin/falco-tutorial k8s/0 -- sudo mv ~/ca.crt /usr/local/share/ca-certificates/ca.crt
-> juju ssh -m concierge-lxd:admin/falco-tutorial k8s/0 -- sudo update-ca-certificates
-> ```
+````{note}
+In this tutorial, we used the self-signed-certificates charm for TLS certificates. In a production
+environment, consider using a trusted certificate authority or a more robust TLS management solution.
 
-Falcosidekick k8s operator provides an HTTPS endpoint that Falco can send alerts to. The charm:
+You may also need to extract the CA certificate from the self-signed-certificates charm, and
+put it under the k8s nodes' trusted CA store to ensure secure communication between Falco and
+Falcosidekick. To extract the CA certificate and save the CA to the k8s node, you can use the
+following command:
+
+```bash
+juju show-unit -m k8s-controller:admin/falcosidekick-tutorial falcosidekick-k8s/0 --endpoint certificates | yq '."falcosidekick-k8s/0".relation-info[0].application-data.certificates' | yq '.[0].ca' > ca.crt
+juju scp -m concierge-lxd:admin/falco-tutorial ca.crt k8s/0:~/ca.crt
+juju ssh -m concierge-lxd:admin/falco-tutorial k8s/0 -- sudo mv ~/ca.crt /usr/local/share/ca-certificates/ca.crt
+juju ssh -m concierge-lxd:admin/falco-tutorial k8s/0 -- sudo update-ca-certificates
+````
+
+````
+
+Falcosidekick K8s operator provides an HTTPS endpoint that Falco can send alerts to. The charm:
 
 - Listens on a configurable port (default: 2801)
 - Serving HTTPS requests using TLS certificates obtained from the self-signed-certificates charm
@@ -194,7 +202,7 @@ Falcosidekick k8s operator provides an HTTPS endpoint that Falco can send alerts
 ## Next steps
 
 Well done! You've successfully completed the Falcosidekick tutorial. You can now integrate it with
-Falco to receive security alerts (see [Connect Falco to Falcosidekick](end-to-end-deployment))
+Falco to receive security alerts (see {ref}`Connect Falco to Falcosidekick <tutorial_end_to_end_deployment>`)
 
 ## Clean up the environment
 
@@ -203,6 +211,8 @@ during this tutorial by using the following command.
 
 ```bash
 juju destroy-model falcosidekick-tutorial
-```
+````
 
-> Note: If you plan to continue with the next tutorial, keep this model deployed.
+```{note}
+If you plan to continue with the next tutorial, keep this model deployed.
+```
