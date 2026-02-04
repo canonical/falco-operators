@@ -3,7 +3,7 @@
 
 # Falco version to build from source
 # renovate: depName=falcosecurity/falco
-FALCO_VERSION=0.42.1
+FALCO_VERSION=0.43.0
 
 # Falco plugins version to build from source
 # renovate: depName=falcosecurity/plugins
