@@ -1,6 +1,6 @@
 # Contributing
 
-This document explains the processes and practices recommended for contributing enhancements to the Falco charms.
+This document explains the processes and practices recommended for contributing enhancements to the Falco operators.
 
 ## Overview
 
@@ -72,7 +72,6 @@ your pull request must provide the following details:
   or "None" is the library is not affected.
 
 - **Checklist**: Complete the following items:
-
   - The [charm style guide](https://documentation.ubuntu.com/juju/3.6/reference/charm/charm-development-best-practices/) was applied
   - The [contributing guide](https://github.com/canonical/is-charms-contributing-guide) was applied
   - The changes are compliant with [ISD054 - Managing Charm Complexity](https://discourse.charmhub.io/t/specification-isd014-managing-charm-complexity/11619)
@@ -88,7 +87,7 @@ we use the [Canonical contributor license agreement](https://assets.ubuntu.com/v
 
 #### Canonical contributor agreement
 
-Canonical welcomes contributions to the falco charm. Please check out our
+Canonical welcomes contributions to the falco operators. Please check out our
 [contributor agreement](https://ubuntu.com/legal/contributors) if you're interested in contributing to the solution.
 
 The CLA sign-off is simple line at the
@@ -103,6 +102,34 @@ To add signatures on your commits, follow the
 
 ## Development
 
-Please follow the contribution guideline for each charm to learn more about how to do development:
+### Contributing code
 
-- [falco-operator](./falco-operator/CONTRIBUTION.md)
+Please follow the contribution guideline for each charm or interface to learn more about how to do development:
+
+- [`falco-operator`](./falco-operator/CONTRIBUTING.md)
+- [`falcosidekick-k8s-operator`](./falcosidekick-k8s-operator/CONTRIBUTING.md)
+- [`interfaces/falcosidekick_http_endpoint`](./interfaces/falcosidekick_http_endpoint/CONTRIBUTING.md)
+
+### Contributing documentation
+
+If you make changes to any markdown file, please also run the following command in the repository
+**root directory** to validate the documentation changes:
+
+```bash
+make docs-check
+```
+
+The repository also hosted the documentation for Falco operators in the `./docs` directory. It is
+based on the Canonical starter pack and hosted on [Read the Docs](https://about.readthedocs.com/).
+
+If you are contributing to documentation, you should validate the documentation locally before
+submitting your changes:
+
+```bash
+cd docs
+make spelling
+make linkcheck
+make vale
+make lint-md
+make run
+```

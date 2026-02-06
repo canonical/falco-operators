@@ -8,12 +8,13 @@ myst:
 
 # How to
 
-The following guides cover key processes and common tasks for managing and using the Falco charms.
+The following guides cover key processes and common tasks for managing and using the Falco operators.
 
 ```{toctree}
 :maxdepth: 1
-back-up-restore.md
+configure-custom-repository.md
+configure-tls-ingress.md
 contribute.md
 integrate-with-cos.md
-upgrade.md
+troubleshoot.md
 ```

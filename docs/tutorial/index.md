@@ -8,9 +8,11 @@ myst:
 
 # Tutorial
 
-The Falco charm tutorial aims to help you learn how to deploy the charm on machines and become familiar with its available operations.
+The Falco charm tutorials help you learn how to deploy Falco and Falcosidekick charms, integrate them together, and monitor Kubernetes clusters for security threats.
 
 ```{toctree}
 :maxdepth: 1
 getting-started.md
+deploy-falcosidekick.md
+end-to-end-deployment.md
 ```
