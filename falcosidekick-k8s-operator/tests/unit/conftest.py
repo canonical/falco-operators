@@ -79,3 +79,16 @@ def ingress_relation():
         endpoint="ingress",
         interface="ingress",
     )
+
+
+@pytest.fixture
+def metrics_endpoint_relation():
+    """Fixture for metrics endpoint relation.
+
+    Returns:
+        A testing.Relation configured for prometheus_scrape interface.
+    """
+    return testing.Relation(
+        endpoint="metrics-endpoint",
+        interface="prometheus_scrape",
+    )
