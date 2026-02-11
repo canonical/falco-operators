@@ -6,9 +6,9 @@
 
 - Deploy the K8s charm as the principal charm.
 - Deploy the Falco charm to monitor Kubernetes nodes.
-- Deploy the Open Telemetry Collector charm to collect and forward Falco metrics.
+- Deploy the OpenTelemetry Collector charm to collect and forward Falco metrics.
 - Integrate Falco with K8s to enable security monitoring.
-- Integrate Falco with Open Telemetry Collector to forward metrics.
+- Integrate Falco with OpenTelemetry Collector to forward metrics.
 - Verify that Falco is detecting security events on Kubernetes nodes.
 
 ## Requirements

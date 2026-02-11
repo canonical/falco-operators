@@ -179,6 +179,7 @@ tlsserver:
   notlspaths:
     - "/ping"
     - "/healthz"
+    - "/metrics"
 
 loki:
   format: json

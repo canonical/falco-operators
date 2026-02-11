@@ -57,6 +57,14 @@ offers.
    juju integrate opentelemetry-collector-k8s:send-remote-write cos.prometheus-receive-remote-write
    ```
 
+3. Integrate the `opentelemetry-collector-k8s` charm with the `falcosidekick-k8s` charm:
+
+   ```bash
+   juju integrate falcosidekick-k8s:send-loki-logs opentelemetry-collector-k8s:receive-loki-logs
+   juju integrate falcosidekick-k8s:metrics-endpoint opentelemetry-collector-k8s:metrics-endpoint
+   juju integrate falcosidekick-k8s:grafana-dashboard opentelemetry-collector-k8s:grafana-dashboards-consumer
+   ```
+
 Integrate the `opentelemetry-collector` charm with the COS Lite charms across models using the
 offers.
 
@@ -81,7 +89,7 @@ Verify the integrations are established:
 
 ```bash
 juju status --relations -m k8s-controller:admin/cos
-juju status --relations -m tutorial-controller:ad min/falco-tutorial
+juju status --relations -m tutorial-controller:admin/falco-tutorial
 juju status --relations -m k8s-controller:admin/falcosidekick-tutorial
 ```
 
