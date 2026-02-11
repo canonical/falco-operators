@@ -119,7 +119,8 @@ The charm needs to be integrated with some supporting charms function properly.
 juju deploy self-signed-certificates --channel=1/stable
 juju deploy opentelemetry-collector-k8s --channel=2/stable --trust
 juju integrate falcosidekick-k8s self-signed-certificates
-juju integrate falcosidekick-k8s opentelemetry-collector-k8s
+juju integrate falcosidekick-k8s:logging opentelemetry-collector-k8s
+juju integrate falcosidekick-k8s:send-loki-logs opentelemetry-collector-k8s
 ```
 
 Wait for the deployment to complete. Monitor the status with:
@@ -225,7 +226,7 @@ during this tutorial by using the following command.
 
 ```bash
 juju destroy-model falcosidekick-tutorial
-````
+```
 
 ```{note}
 If you plan to continue with the next tutorial, keep this model deployed.

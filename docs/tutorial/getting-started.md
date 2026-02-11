@@ -6,7 +6,9 @@
 
 - Deploy the K8s charm as the principal charm.
 - Deploy the Falco charm to monitor Kubernetes nodes.
+- Deploy the Open Telemetry Collector charm to collect and forward Falco metrics.
 - Integrate Falco with K8s to enable security monitoring.
+- Integrate Falco with Open Telemetry Collector to forward metrics.
 - Verify that Falco is detecting security events on Kubernetes nodes.
 
 ## Requirements
@@ -73,25 +75,29 @@ It needs to be integrated with a [principal](https://documentation.ubuntu.com/ju
 charm to work properly. In this tutorial, we'll use the K8s charm, which allows Falco to monitor
 Kubernetes worker nodes for security events.
 
-### Deploy the K8s and Falco charms
+### Deploy charms
 
 ```bash
 juju deploy falco --base ubuntu@24.04 --channel 0.42/edge
+juju deploy opentelemetry-collector --base ubuntu@24.04 --channel 2/stable
 juju deploy k8s --channel=1.35/stable --base="ubuntu@24.04" --constraints='cores=4 mem=12G root-disk=100G virt-type=virtual-machine'
 ```
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
 
-### Integrate Falco with K8s
+### Integrate charms
 
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 ```bash
 juju integrate falco k8s
+juju integrate falco opentelemetry-collector
+juju integrate opentelemetry-collector k8s
 ```
 
-This integration deploys Falco as a subordinate on each `k8s` unit, enabling it to monitor
-the Kubernetes nodes for runtime security events.
+This integration deploys Falco as a subordinate on each `k8s` unit, enabling it to monitor the
+Kubernetes nodes for runtime security events. It also integrates Falco with the OpenTelemetry
+Collector to forward metrics for observability.
 
 ## Verify the deployment
 
@@ -109,13 +115,15 @@ Once all units show `active/idle`, you should see output similar to:
 Model           Controller          Cloud/Region        Version  SLA          Timestamp
 falco-tutorial  tutorial-controller k8s/default         3.6.0    unsupported  13:45:23Z
 
-App    Version  Status  Scale  Charm  Channel  Rev  Exposed  Message
-falco           active      1  falco  stable    10  no
-k8s             active      1  k8s    stable   156  no
+App                      Version  Status  Scale  Charm                    Channel       Rev  Exposed  Message
+falco                             active      1  falco                                   84  no
+k8s                               active      1  k8s                      1.35/stable   156  no       Ready
+opentelemetry-collector           active      1  opentelemetry-collector  2/stable      148  no
 
-Unit      Workload  Agent  Machine  Public address  Ports  Message
-k8s/0*    active    idle   0        10.0.0.10
-  falco/0*  active  idle            10.0.0.10              Falco is running
+Unit                          Workload  Agent  Machine  Public address  Ports     Message
+k8s/0*                        active    idle   0        10.0.0.10       6443/tcp  Ready
+  falco/0*                    active    idle            10.0.0.10                 Falco is running
+  opentelemetry-collector/0*  active    idle            10.0.0.10
 ```
 
 ### Verify Falco is running

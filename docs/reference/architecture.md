@@ -90,11 +90,15 @@ The charms support the following integration:
 ### Falco operator
 
 - **`general-info` (requires)**: Attaches to a principal charm to monitor the same host
+- **`cos-agent` (provides)**: Exposes metrics and logs for collection by Grafana Agent or OpenTelemetry Collector
 - **`http-endpoint` (requires)**: Connects to Falcosidekick to send security alerts
 
 ### Falcosidekick K8s operator
 
 - **`certificates` (requires)**: Obtains TLS certificates for HTTPS
+- **`grafana-dashboard` (provides)**: Provides pre-configured Grafana dashboards
 - **`http-endpoint` (provides)**: Receives alerts from Falco instances
 - **`ingress` (requires)**: Exposes the service through an ingress controller
+- **`logging` (requires)**: Forwards internal application logs to Loki
+- **`metrics-endpoint` (provides)**: Exposes Prometheus metrics for scraping
 - **`send-loki-logs` (requires)**: Forwards alerts to OpenTelemetry Collector
