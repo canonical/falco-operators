@@ -1,52 +1,60 @@
 (tutorial_getting_started)=
 
-# Deploy the Falco charm for the first time
+# Deploy Falco operator
 
-## What you’ll do
+## What you'll do
 
-- Deploy the Falco charm.
-- Deploy any principal charm (e.g. a Ubuntu charm).
-- Integrate Falco charm with the principal charm.
+- Deploy the K8s charm as the principal charm.
+- Deploy the Falco charm to monitor Kubernetes nodes.
+- Integrate Falco with K8s to enable security monitoring.
+- Verify that Falco is detecting security events on Kubernetes nodes.
 
 ## Requirements
 
-You will need a working station, e.g., a laptop, with AMD64 architecture. Your working station
-should have at least 4 CPU cores, 8 GB of RAM, and 50 GB of disk space.
+You will need a working Canonical Kubernetes cluster. For this tutorial, you can use:
 
-> Tip: You can use Multipass to create an isolated environment by running:
->
-> ```
-> multipass launch 24.04 --name charm-tutorial-vm --cpus 4 --memory 8G --disk 50G
-> ```
->
-> When using a Multipass VM, make sure to replace IP addresses with the
-> VM IP in steps that assume you're running locally. To get the IP address of the
-> Multipass instance run `multipass info charm-tutorial-vm`.
+- A production Kubernetes cluster
+- A development single node Kubernetes cluster
+- Minimum resources: 8 CPU cores, 16 GB RAM, and 150G disk space for each node
 
-This tutorial requires the following software to be installed on your working station
-(either locally or in the Multipass VM):
+````{tip}
+You can use Multipass to create an isolated environment by running:
+
+```
+multipass launch 24.04 --name charm-tutorial-vm --cpus 8 --memory 16G --disk 150G
+```
+
+When using a Multipass VM, make sure to replace IP addresses with the
+VM IP in steps that assume you're running locally. To get the IP address of the
+Multipass instance run `multipass info charm-tutorial-vm`.
+````
+
+This tutorial requires the following software:
 
 - Juju 3
-- LXD 5.21.4
 
-Use [Concierge](https://github.com/canonical/concierge) to set up Juju and LXD:
+Use [Concierge](https://github.com/canonical/concierge) to set up Juju:
 
 ```bash
 sudo snap install --classic concierge
 sudo concierge prepare -p machine
 ```
 
-This first command installs Concierge, and the second command uses Concierge to install
-and configure Juju and LXD.
+This installs Concierge and uses it to install and configure Juju with a local LXD cloud.
 
 For this tutorial, Juju must be bootstrapped to a LXD controller. Concierge should
-complete this step for you, and you can verify by checking for `msg="Bootstrapped Juju" provider=lxd`
-in the terminal output and by running `juju controllers`.
-
-If Concierge did not perform the bootstrap, run:
+complete this step for you. You can verify by running:
 
 ```bash
-juju bootstrap lxd tutorial-controller
+juju controllers
+```
+
+You should see output similar to:
+
+```{terminal}
+:output-only:
+Controller      Model    User   Access     Cloud/Region         Models  Nodes    HA  Version
+concierge-lxd*  testing  admin  superuser  localhost/localhost       2      1  none  3.6.13
 ```
 
 ## Set up a tutorial model
@@ -58,34 +66,145 @@ your usual work, create a new model using the following command.
 juju add-model falco-tutorial
 ```
 
-## Deploy the Falco charm and Ubuntu charm
+## Deploy Falco to monitor Kubernetes nodes
 
 Falco is a [subordinate](https://documentation.ubuntu.com/juju/3.6/reference/charm/#subordinate-charm) charm.
 It needs to be integrated with a [principal](https://documentation.ubuntu.com/juju/3.6/reference/charm/#principal-charm)
-charm to work properly.
+charm to work properly. In this tutorial, we'll use the K8s charm, which allows Falco to monitor
+Kubernetes worker nodes for security events.
 
-### Deploy Falco charm and Ubuntu charm
-
-```bash
-juju deploy falco --base ubuntu@24.04
-juju deploy ubuntu --base ubuntu@24.04
-```
-
-### Integrate Falco charm and Ubuntu charm
+### Deploy the K8s and Falco charms
 
 ```bash
-juju integrate falco ubuntu
+juju deploy falco --base ubuntu@24.04 --channel 0.42/edge
+juju deploy k8s --channel=1.35/stable --base="ubuntu@24.04" --constraints='cores=4 mem=12G root-disk=100G virt-type=virtual-machine'
 ```
 
-<!--
-TODO: fill in the actual content, e.g. juju status
--->
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
+
+### Integrate Falco with K8s
+
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
+
+```bash
+juju integrate falco k8s
+```
+
+This integration deploys Falco as a subordinate on each `k8s` unit, enabling it to monitor
+the Kubernetes nodes for runtime security events.
+
+## Verify the deployment
+
+Wait for the deployment to complete. You can monitor the status with:
+
+```bash
+juju status --watch 1s
+```
+
+Once all units show `active/idle`, you should see output similar to:
+
+```{terminal}
+:output-only:
+
+Model           Controller          Cloud/Region        Version  SLA          Timestamp
+falco-tutorial  tutorial-controller k8s/default         3.6.0    unsupported  13:45:23Z
+
+App    Version  Status  Scale  Charm  Channel  Rev  Exposed  Message
+falco           active      1  falco  stable    10  no
+k8s             active      1  k8s    stable   156  no
+
+Unit      Workload  Agent  Machine  Public address  Ports  Message
+k8s/0*    active    idle   0        10.0.0.10
+  falco/0*  active  idle            10.0.0.10              Falco is running
+```
+
+### Verify Falco is running
+
+Verify the Falco service is running:
+
+```bash
+juju ssh k8s/0 -- sudo systemctl status falco
+```
+
+You should see output indicating that Falco is active and running.
+
+### View Falco logs
+
+Falco continuously monitors for security events. View recent security alerts:
+
+```bash
+juju ssh k8s/0 -- sudo journalctl -u falco
+```
+
+You should see Falco initialization messages and security event detections. Falco monitors
+for various security-relevant events such as:
+
+- Processes spawning shells
+- Unexpected network connections
+- File modifications in sensitive directories
+- Privilege escalations
+- Container escapes
+
+## Prepare Falco rules (optional)
+
+By default, Falco operator does not come with any rules. You can customize rules by creating a
+custom Git repository for your Falco rules and configuring the Falco charm to use it. To set a
+custom rules repository, use the following command:
+
+```bash
+juju config falco custom-config-repository=<your-git-repo-url>
+juju add-secret custom-config-repo-ssh-key value=<ssh-key>
+juju grant-secret custom-config-repo-ssh-key falco
+juju config falco custom-config-repo-ssh-key=<juju-secret-id>
+```
+
+Replace `<your-git-repo-url>` with the URL of your git repository containing Falco rules and
+`<ssh-key>` with the SSH private key that has access to the repository. After configuring, Falco
+will pull the rules from the specified repository and apply them.
+
+```{tip}
+You can use the official [Falco rules
+repository](https://github.com/falcosecurity/rules/blob/main/rules/falco_rules.yaml) as a starting point.
+```
+
+## Test Falco detection (optional)
+
+If you use the official Falco rules, you generate a security event that Falco will detect.
+
+```bash
+juju exec k8s/0 -- sudo cat /etc/shadow
+```
+
+Now check the Falco logs again:
+
+```bash
+juju exec k8s/0 -- sudo journalctl -u falco
+```
+
+You should see a Falco alert similar to:
+
+```{terminal}
+:output-only:
+
+Warning Sensitive file opened for reading by non-trusted program (user=root command=cat /etc/shadow file=/etc/shadow)
+```
+
+This demonstrates that Falco is actively monitoring the system and detecting security-relevant events.
+
+## Next steps
+
+Well done! You've successfully completed the Falco tutorial. You can now deploy Falcosidekick to
+receive and process Falco alerts (see {ref}`Deploy Falcosidekick K8s operator <tutorial_deploy_falcosidekick>`).
 
 ## Clean up the environment
 
-Well done! You've successfully completed the Falco tutorial. To remove the
-model environment you created during this tutorial, use the following command.
+If you do not plan to continue the next tutorial, you can remove the model environment you created
+during this tutorial by using the following command.
 
 ```bash
 juju destroy-model falco-tutorial
+```
+
+```{note}
+If you plan to continue with the next tutorial, keep this model deployed.
 ```
