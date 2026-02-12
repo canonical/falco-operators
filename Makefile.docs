@@ -7,7 +7,7 @@
 # Vale settings
 VALE_DIR ?= .vale
 PRAECEPTA_CONFIG 	?= .vale.ini
-DOCS_FILES 	?= ./*.md ./falco-operator/**/*.md ./falcosidekick-k8s-operator/**/*.md ./interfaces/**/*.md
+DOCS_FILES 	?= README.md SECURITY.md CONTRIBUTING.md falco-operator falcosidekick-k8s-operator interfaces
 
 HAS_VALE			:= $(shell command -v vale;)
 HAS_LYCHEE			:= $(shell command -v lychee;)
@@ -53,7 +53,7 @@ vale-sync: ## Download and install external Vale configuration sources
 .PHONY: vale
 vale: .check-vale vale-sync ## Run Vale checks on docs
 	$(call msg,--- Running Vale checks on "$(DOCS_FILES)"... ---)
-	@vale --config=$(PRAECEPTA_CONFIG) $(DOCS_FILES)
+	@vale --config=$(PRAECEPTA_CONFIG) $(DOCS_FILES) --glob=*.md
 
 # ==============================================================================
 # Main Lychee Targets
