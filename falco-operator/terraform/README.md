@@ -81,8 +81,6 @@ module "falco" {
 
   model_uuid = juju_model.my_model.uuid
   channel    = "0.42/edge"
-
-  # (Customize configuration variables here if needed)
 }
 ```
 
