@@ -6,9 +6,10 @@
 
 - Deploy the K8s charm as the principal charm.
 - Deploy the Falco charm to monitor Kubernetes nodes.
-- Deploy the OpenTelemetry Collector charm to collect and forward Falco metrics.
+- Deploy the Opentelemetry Collector charm to collect and forward Falco metrics.
 - Integrate Falco with K8s to enable security monitoring.
-- Integrate Falco with OpenTelemetry Collector to forward metrics.
+- Integrate Falco with Opentelemetry Collector to forward metrics.
+- Integrate Opentelemetry Collector with K8s for enhanced observability.
 - Verify that Falco is detecting security events on Kubernetes nodes.
 
 ## Requirements
@@ -59,6 +60,12 @@ Controller      Model    User   Access     Cloud/Region         Models  Nodes   
 concierge-lxd*  testing  admin  superuser  localhost/localhost       2      1  none  3.6.13
 ```
 
+Delete the default `testing` model that Juju creates, we will create a new model for this tutorial in the next step.
+
+```bash
+juju destroy-model testing
+```
+
 ## Set up a tutorial model
 
 To manage resources effectively and to separate this tutorial's workload from
@@ -68,14 +75,14 @@ your usual work, create a new model using the following command.
 juju add-model falco-tutorial
 ```
 
-## Deploy Falco to monitor Kubernetes nodes
+## Deploy the charms to monitor Kubernetes nodes
 
-Falco is a [subordinate](https://documentation.ubuntu.com/juju/3.6/reference/charm/#subordinate-charm) charm.
-It needs to be integrated with a [principal](https://documentation.ubuntu.com/juju/3.6/reference/charm/#principal-charm)
+Falco and Opentelemetry Collector are [subordinate](https://documentation.ubuntu.com/juju/3.6/reference/charm/#subordinate-charm)
+charms. They need to be integrated with a [principal](https://documentation.ubuntu.com/juju/3.6/reference/charm/#principal-charm)
 charm to work properly. In this tutorial, we'll use the K8s charm, which allows Falco to monitor
 Kubernetes worker nodes for security events.
 
-### Deploy charms
+### Deploy the charms
 
 ```bash
 juju deploy falco --base ubuntu@24.04 --channel 0.42/edge
@@ -83,11 +90,7 @@ juju deploy opentelemetry-collector --base ubuntu@24.04 --channel 2/stable
 juju deploy k8s --channel=1.35/stable --base="ubuntu@24.04" --constraints='cores=4 mem=12G root-disk=100G virt-type=virtual-machine'
 ```
 
-<!-- vale Canonical.007-Headings-sentence-case = NO -->
-
-### Integrate charms
-
-<!-- vale Canonical.007-Headings-sentence-case = YES -->
+### Integrate the charms
 
 ```bash
 juju integrate falco k8s
@@ -95,9 +98,10 @@ juju integrate falco opentelemetry-collector
 juju integrate opentelemetry-collector k8s
 ```
 
-This integration deploys Falco as a subordinate on each `k8s` unit, enabling it to monitor the
-Kubernetes nodes for runtime security events. It also integrates Falco with the OpenTelemetry
-Collector to forward metrics for observability.
+These integrations deploy Falco and Opentelemetry Collector as subordinates on the K8s node. The
+Falco charm monitors the Kubernetes node for runtime security events, while the Opentelemetry
+Collector charm collects metrics from both Falco and the K8s node and forwards them to your
+observability stack.
 
 ## Verify the deployment
 
@@ -112,8 +116,8 @@ Once all units show `active/idle`, you should see output similar to:
 ```{terminal}
 :output-only:
 
-Model           Controller          Cloud/Region        Version  SLA          Timestamp
-falco-tutorial  tutorial-controller k8s/default         3.6.0    unsupported  13:45:23Z
+Model           Controller     Cloud/Region         Version  SLA          Timestamp
+falco-tutorial  concierge-lxd  localhost/localhost  3.6.13   unsupported  08:30:07Z
 
 App                      Version  Status  Scale  Charm                    Channel       Rev  Exposed  Message
 falco                             active      1  falco                                   84  no
@@ -153,6 +157,16 @@ for various security-relevant events such as:
 - Privilege escalations
 - Container escapes
 
+### Verify Falco metrics are available
+
+```bash
+juju ssh falco/0 -- curl -s http://localhost:8765/metrics  # default port is 8765
+```
+
+You should see a list of metrics exposed by Falco prefixed with `falcosecurity_`, such as
+`falcosecurity_falco_host_num_cpus_total`. These metrics are collected by the Opentelemetry
+Collector and forwarded to your observability stack for monitoring and alerting.
+
 ## Prepare Falco rules (optional)
 
 By default, Falco operator does not come with any rules. You can customize rules by creating a
@@ -172,7 +186,9 @@ will pull the rules from the specified repository and apply them.
 
 ```{tip}
 You can use the official [Falco rules
-repository](https://github.com/falcosecurity/rules/blob/main/rules/falco_rules.yaml) as a starting point.
+repository](https://github.com/falcosecurity/rules/blob/main/rules/falco_rules.yaml) as a starting
+point. For more information, see the {ref}`Configure custom repository for Falco rules
+<how_to_configure_custom_repository>` guide.
 ```
 
 ## Test Falco detection (optional)
