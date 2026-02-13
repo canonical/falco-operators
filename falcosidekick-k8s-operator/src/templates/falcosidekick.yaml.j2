@@ -20,6 +20,7 @@ tlsserver:
   notlspaths:
     - "/ping"
     - "/healthz"
+    - "/metrics"
 {%- endif %}
 
 {% if charm_state.falcosidekick_loki_hostport -%}

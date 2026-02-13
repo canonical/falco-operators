@@ -29,6 +29,10 @@ charm-libs:
     version: "1"
   - lib: traefik_k8s.ingress
     version: "2"
+  - lib: grafana_k8s.grafana_dashboard
+    version: "0"
+  - lib: prometheus_k8s.prometheus_scrape
+    version: "0"
 
 parts:
   charm:
@@ -67,7 +71,14 @@ requires:
   ingress:
     limit: 1
     interface: ingress
+  logging:
+    interface: loki_push_api
+    limit: 1
 
 provides:
   http-endpoint:
     interface: falcosidekick_http_endpoint
+  grafana-dashboard:
+    interface: grafana_dashboard
+  metrics-endpoint:
+    interface: prometheus_scrape

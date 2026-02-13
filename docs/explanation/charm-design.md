@@ -50,9 +50,9 @@ The main charm module coordinates the overall charm behavior:
 - Initializes relation libraries and helper objects
 - Delegates workload configuration to the service/workload module
 
-For example, the Falco operator observes the `http-endpoint` relation and triggers reconciliation
-when it changes, while the Falcosidekick K8s operator observes multiple relations including
-`send-loki-logs`, `certificates`, and `ingress`.
+For example, the Falco operator observes the `http-endpoint` and `cos-agent` relations and triggers reconciliation
+when they change, while the Falcosidekick K8s operator observes multiple relations including
+`send-loki-logs`, `certificates`, `ingress`, `logging`, `grafana-dashboard`, and `metrics-endpoint`.
 
 ### `state.py`
 
@@ -98,8 +98,8 @@ For the Falcosidekick K8s operator, `workload.py` manages:
 
 Both charms use relation libraries to handle integrations:
 
-- **Falco operator**: Uses `HttpEndpointRequirer` to connect to Falcosidekick
-- **Falcosidekick K8s operator**: Uses `HttpEndpointProvider`, `LokiPushApiConsumer`, `TlsCertificateRequirer`, and `IngressPerAppRequirer`
+- **Falco operator**: Uses `HttpEndpointRequirer` to connect to Falcosidekick and `CosAgentProvider` for metrics collection
+- **Falcosidekick K8s operator**: Uses `HttpEndpointProvider`, `LokiPushApiConsumer`, `LogForwarder`, `TlsCertificateRequirer`, `IngressPerAppRequirer`, `GrafanaDashboardProvider`, and `MetricsEndpointProvider`
 
 These libraries abstract the complexity of relation data exchange and provide clean interfaces for the charm to use.
 

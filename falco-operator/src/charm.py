@@ -9,6 +9,7 @@ import logging
 import typing
 
 import ops
+from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
 
 from config import InvalidCharmConfigError
@@ -24,6 +25,7 @@ from state import CharmBaseWithState, CharmState
 
 logger = logging.getLogger(__name__)
 
+METRICS_PORT = 8765
 HTTP_ENDPOINT_RELATION_NAME = "http-endpoint"
 
 
@@ -42,6 +44,13 @@ class Falco(CharmBaseWithState):
 
         self.http_endpoint_requirer = HttpEndpointRequirer(
             self, relation_name=HTTP_ENDPOINT_RELATION_NAME
+        )
+
+        self._cos_agent = COSAgentProvider(
+            self,
+            metrics_endpoints=[
+                {"path": "/metrics", "port": METRICS_PORT},
+            ],
         )
 
         self.falco_layout = FalcoLayout(base_dir=self.charm_dir / "falco")
