@@ -27,16 +27,15 @@ If you have completed the previous tutorials, you should have the following depl
 Model           Controller     Cloud/Region         Version  SLA          Timestamp
 falco-tutorial  concierge-lxd  localhost/localhost  3.6.13   unsupported  08:30:07Z
 
-App    Version  Status  Scale  Charm  Channel       Rev  Exposed  Message
-falco           active      1  falco  0.42/edge      29  no
-k8s    1.35.0   active      1  k8s    1.35/stable  1724  no       Ready
+App                      Version  Status  Scale  Charm                    Channel       Rev  Exposed  Message
+falco                             active      1  falco                                   84  no
+k8s                               active      1  k8s                      1.35/stable   156  no       Ready
+opentelemetry-collector           active      1  opentelemetry-collector  2/stable      148  no
 
-Unit        Workload  Agent  Machine  Public address  Ports     Message
-k8s/1*      active    idle   1        10.171.136.189  6443/tcp  Ready
-  falco/0*  active    idle            10.171.136.189
-
-Machine  State    Address         Inst id        Base          AZ    Message
-1        started  10.171.136.189  juju-c5c489-1  ubuntu@24.04  test  Running
+Unit                          Workload  Agent  Machine  Public address  Ports     Message
+k8s/0*                        active    idle   0        10.0.0.10       6443/tcp  Ready
+  falco/0*                    active    idle            10.0.0.10                 Falco is running
+  opentelemetry-collector/0*  active    idle            10.0.0.10
 ```
 
 and
@@ -89,16 +88,18 @@ falco-tutorial  concierge-lxd  localhost/localhost  3.6.13   unsupported  08:39:
 SAAS           Status  Store           URL
 http-endpoint  active  k8s-controller  admin/falcosidekick-tutorial.http-endpoint
 
-App    Version  Status  Scale  Charm  Channel       Rev  Exposed  Message
-falco           active      1  falco  0.42/edge      29  no
-k8s    1.35.0   active      1  k8s    1.35/stable  1724  no       Ready
+App                      Version  Status  Scale  Charm                    Channel       Rev  Exposed  Message
+falco                             active      1  falco                                   84  no
+k8s                               active      1  k8s                      1.35/stable   156  no       Ready
+opentelemetry-collector           active      1  opentelemetry-collector  2/stable      148  no
 
-Unit        Workload  Agent  Machine  Public address  Ports     Message
-k8s/1*      active    idle   1        10.171.136.189  6443/tcp  Ready
-  falco/0*  active    idle            10.171.136.189
+Unit                          Workload  Agent  Machine  Public address  Ports     Message
+k8s/0*                        active    idle   0        10.0.0.10       6443/tcp  Ready
+  falco/0*                    active    idle            10.0.0.10                 Falco is running
+  opentelemetry-collector/0*  active    idle            10.0.0.10
 
 Machine  State    Address         Inst id        Base          AZ    Message
-1        started  10.171.136.189  juju-c5c489-1  ubuntu@24.04  test  Running
+0        started  10.0.0.10       juju-c5c489-0  ubuntu@24.04  test  Running
 
 Integration provider         Requirer             Interface                    Type         Message
 http-endpoint:http-endpoint  falco:http-endpoint  falcosidekick_http_endpoint  regular
@@ -106,6 +107,7 @@ k8s:cluster                  k8s:cluster          k8s-cluster                  p
 k8s:cos-tokens               k8s:cos-tokens       cos-k8s-tokens               peer
 k8s:juju-info                falco:general-info   juju-info                    subordinate
 k8s:upgrade                  k8s:upgrade          upgrade                      peer
+...
 ```
 
 ## Understand the integration

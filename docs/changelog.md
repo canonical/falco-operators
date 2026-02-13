@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-02-11
+
+### Added
+
+- COS (Canonical Observability Stack) integration support
+  - Falco operator: Added `cos-agent` relation for metrics collection through Grafana Agent
+  - Falcosidekick K8s operator: Added `grafana-dashboard` relation for pre-configured dashboards
+  - Falcosidekick K8s operator: Added `metrics-endpoint` relation for Prometheus metrics scraping
+  - Falcosidekick K8s operator: Added `logging` relation for internal application logs forwarding to Loki
+  - Basic prometheus alert rules for both charms
+
+### Updated
+
+- Documentation to include new COS integration
+
 ## 2026-01-30
 
 Comprehensive documentation overhaul following Diátaxis framework.

@@ -14,7 +14,9 @@ from workload import Falcosidekick
 class TestCharm:
     """Test Charm class."""
 
-    def test_on_falcosidekick_pebble_ready_cannot_connect(self, loki_relation):
+    def test_on_falcosidekick_pebble_ready_cannot_connect(
+        self, loki_relation, metrics_endpoint_relation
+    ):
         """Test on falcosidekick pebble ready event when container cannot connect.
 
         Arrange: Set up mock container that cannot connect.
@@ -25,7 +27,9 @@ class TestCharm:
         ctx = testing.Context(FalcosidekickCharm)
         # mypy thinks this can_connect argument does not exist.
         container = testing.Container(Falcosidekick.container_name, can_connect=False)  # type: ignore
-        state_in = testing.State(containers=[container], relations=[loki_relation])
+        state_in = testing.State(
+            containers=[container], relations=[loki_relation, metrics_endpoint_relation]
+        )
 
         # Act: Create a testing context and run the event
         state_out = ctx.run(ctx.on.pebble_ready(container=container), state_in)
@@ -43,7 +47,9 @@ class TestCharm:
             65535,
         ],
     )
-    def test_config_changed_with_valid_port(self, port, loki_relation, certificates_relation):
+    def test_config_changed_with_valid_port(
+        self, port, loki_relation, certificates_relation, metrics_endpoint_relation
+    ):
         """Test config changed event with valid port numbers.
 
         Arrange: Set up mock container with valid port configuration.
@@ -57,7 +63,7 @@ class TestCharm:
         state_in = testing.State(
             containers=[container],
             config={"port": port},
-            relations=[loki_relation, certificates_relation],
+            relations=[loki_relation, certificates_relation, metrics_endpoint_relation],
         )
 
         # Act: Run the config changed event
@@ -75,7 +81,9 @@ class TestCharm:
             100000,
         ],
     )
-    def test_config_changed_with_invalid_port(self, port, loki_relation):
+    def test_config_changed_with_invalid_port(
+        self, port, loki_relation, metrics_endpoint_relation
+    ):
         """Test config changed event with invalid port numbers.
 
         Arrange: Set up mock container with invalid port configuration.
@@ -87,7 +95,9 @@ class TestCharm:
         # mypy thinks this can_connect argument does not exist.
         container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
         state_in = testing.State(
-            containers=[container], config={"port": port}, relations=[loki_relation]
+            containers=[container],
+            config={"port": port},
+            relations=[loki_relation, metrics_endpoint_relation],
         )
 
         # Act: Run the config changed event
@@ -117,6 +127,7 @@ class TestCharm:
         loki_relation,
         certificates_relation,
         ingress_relation,
+        metrics_endpoint_relation,
     ):
         """Test charm behavior in various combination of required relation scenarios.
 
@@ -127,7 +138,7 @@ class TestCharm:
         ctx = testing.Context(FalcosidekickCharm)
         # mypy thinks this can_connect argument does not exist.
         container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
-        relations = []
+        relations = [metrics_endpoint_relation]
         if has_loki:
             relations.append(loki_relation)
         if has_cert:

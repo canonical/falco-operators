@@ -9,7 +9,9 @@ import logging
 import typing
 
 import ops
-from charms.loki_k8s.v1.loki_push_api import LokiPushApiConsumer
+from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
+from charms.loki_k8s.v1.loki_push_api import LogForwarder, LokiPushApiConsumer
+from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointProvider
 
@@ -25,9 +27,12 @@ from workload import (
 logger = logging.getLogger(__name__)
 
 CERTIFICATE_RELATION_NAME = "certificates"
-SEND_LOKI_LOG_RELATION_NAME = "send-loki-logs"
+DASHBOARD_RELATION_NAME = "grafana-dashboard"
 HTTP_ENDPOINT_RELATION_NAME = "http-endpoint"
 INGRESS_RELATION_NAME = "ingress"
+LOGGING_RELATION_NAME = "logging"
+METRICS_RELATION_NAME = "metrics-endpoint"
+SEND_LOKI_LOG_RELATION_NAME = "send-loki-logs"
 
 
 class FalcosidekickCharm(CharmBaseWithState):
@@ -63,6 +68,13 @@ class FalcosidekickCharm(CharmBaseWithState):
         self.ingress_requirer = IngressPerAppRequirer(
             self, relation_name=INGRESS_RELATION_NAME, strip_prefix=True, redirect_https=True
         )
+        self.grafana_dashboard_provider = GrafanaDashboardProvider(
+            self, relation_name=DASHBOARD_RELATION_NAME
+        )
+        self.prometheus_metrics_endpoint_provider = MetricsEndpointProvider(
+            self, relation_name=METRICS_RELATION_NAME
+        )
+        self.logging_forwarder = LogForwarder(self, relation_name=LOGGING_RELATION_NAME)
 
         self.framework.observe(self.on.install, self._install)
         self.framework.observe(self.on.config_changed, self.reconcile)
@@ -136,6 +148,7 @@ class FalcosidekickCharm(CharmBaseWithState):
                 self.http_endpoint_provider,
                 self.tls_certificate_requirer,
                 self.ingress_requirer,
+                self.prometheus_metrics_endpoint_provider,
             )
         except InvalidCharmConfigError as e:
             logger.error("%s", e)
