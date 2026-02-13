@@ -4,7 +4,7 @@ This directory holds the [Rock][Rock] image definition for falcosidekick.
 
 ## Build and test
 
-Please follow the [rockcraft documentation][rockcraft documentation] to set up your environment.
+Please follow the [Rockcraft documentation][rockcraft documentation] to set up your environment.
 
 To build the rock image and load it into your local Docker daemon, run:
 
