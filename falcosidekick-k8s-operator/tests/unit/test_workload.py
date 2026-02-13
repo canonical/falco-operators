@@ -147,9 +147,15 @@ class TestFalcosidekick:
             mock_ingress_requirer = Mock()
             mock_ingress_requirer.is_ready.return_value = False
 
+            mock_metrics_endpoint_provider = Mock()
+
             # Act: Configure the workload
             falcosidekick.configure(
-                charm_state, mock_http_output_provider, mock_tls_requirer, mock_ingress_requirer
+                charm_state,
+                mock_http_output_provider,
+                mock_tls_requirer,
+                mock_ingress_requirer,
+                mock_metrics_endpoint_provider,
             )
 
             # Assert: Verify replan and restart were called
@@ -189,10 +195,15 @@ class TestFalcosidekick:
             mock_tls_requirer.is_created.return_value = True
             mock_ingress_requirer = Mock()
             mock_ingress_requirer.is_ready.return_value = False
+            mock_metrics_endpoint_provider = Mock()
 
             # Act: Configure the workload
             falcosidekick.configure(
-                charm_state, mock_http_output_provider, mock_tls_requirer, mock_ingress_requirer
+                charm_state,
+                mock_http_output_provider,
+                mock_tls_requirer,
+                mock_ingress_requirer,
+                mock_metrics_endpoint_provider,
             )
 
             # Assert: Verify replan and restart were NOT called
@@ -228,11 +239,16 @@ class TestFalcosidekick:
         mock_http_output_provider = Mock()
         mock_tls_requirer = Mock()
         mock_ingress_requirer = Mock()
+        mock_metrics_endpoint_provider = Mock()
 
         # Act: Attempt to configure the workload
         with patch.object(FalcosidekickConfigFile, "install") as mock_install:
             falcosidekick.configure(
-                charm_state, mock_http_output_provider, mock_tls_requirer, mock_ingress_requirer
+                charm_state,
+                mock_http_output_provider,
+                mock_tls_requirer,
+                mock_ingress_requirer,
+                mock_metrics_endpoint_provider,
             )
 
             # Assert: Verify install was not called

@@ -25,6 +25,10 @@ platforms:
 
 subordinate: true
 
+charm-libs:
+  - lib: grafana_agent.cos_agent
+    version: "0"
+
 parts:
   charm:
     source: .
@@ -101,3 +105,8 @@ requires:
   http-endpoint:
     limit: 1
     interface: falcosidekick_http_endpoint
+
+provides:
+  cos-agent:
+    limit: 1
+    interface: cos_agent

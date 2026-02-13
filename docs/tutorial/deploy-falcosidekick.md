@@ -8,7 +8,8 @@
 
 ## What you'll do
 
-- Deploy the Falcosidekick K8s operator.
+- Bootstrap a Juju controller on a Kubernetes cloud.
+- Deploy the Falcosidekick K8s operator to the Kubernetes cloud.
 - Verify the deployment is ready.
 - Understand how Falcosidekick receives and processes Falco alerts.
 
@@ -48,7 +49,7 @@ EXTERNAL_IP=$(juju show-unit -m concierge-lxd:admin/falco-tutorial k8s/0 | yq -r
 juju bootstrap k8s k8s-controller --config controller-service-type=loadbalancer --config controller-external-ips=[$EXTERNAL_IP]
 ```
 
-When the bootstrap is complete, you should there are a new controller listed:
+When the bootstrap is complete, you should see a new controller listed:
 
 ```bash
 juju controllers
@@ -60,7 +61,7 @@ You should see output similar to:
 :output-only:
 
 Controller       Model           User   Access     Cloud/Region         Models  Nodes    HA  Version
-concierge-lxd    falco-tutorial  admin  superuser  localhost/localhost       3      1  none  3.6.13
+concierge-lxd    falco-tutorial  admin  superuser  localhost/localhost       2      1  none  3.6.13
 k8s-controller*  -               admin  superuser  k8s                       1      1     -  3.6.13
 ```
 
@@ -113,13 +114,14 @@ falcosidekick-k8s/0*        blocked   idle        10.1.0.125         Required re
 
 ## Deploy and integrate with the supporting charms
 
-The charm needs to be integrated with some supporting charms function properly.
+The charm needs to be integrated with some supporting charms to function properly.
 
 ```bash
 juju deploy self-signed-certificates --channel=1/stable
 juju deploy opentelemetry-collector-k8s --channel=2/stable --trust
 juju integrate falcosidekick-k8s self-signed-certificates
-juju integrate falcosidekick-k8s opentelemetry-collector-k8s
+juju integrate falcosidekick-k8s:logging opentelemetry-collector-k8s
+juju integrate falcosidekick-k8s:send-loki-logs opentelemetry-collector-k8s
 ```
 
 Wait for the deployment to complete. Monitor the status with:
@@ -178,6 +180,7 @@ tlsserver:
   notlspaths:
     - "/ping"
     - "/healthz"
+    - "/metrics"
 
 loki:
   format: json
@@ -189,10 +192,10 @@ loki:
 ## Understand the deployment
 
 ````{note}
-In this tutorial, we used the self-signed-certificates charm for TLS certificates. In a production
+In this tutorial, we used the `self-signed-certificates` charm for TLS certificates. In a production
 environment, consider using a trusted certificate authority or a more robust TLS management solution.
 
-You may also need to extract the CA certificate from the self-signed-certificates charm, and
+You may also need to extract the CA certificate from the `self-signed-certificates` charm, and
 put it under the k8s nodes' trusted CA store to ensure secure communication between Falco and
 Falcosidekick. To extract the CA certificate and save the CA to the k8s node, you can use the
 following command:
@@ -225,7 +228,7 @@ during this tutorial by using the following command.
 
 ```bash
 juju destroy-model falcosidekick-tutorial
-````
+```
 
 ```{note}
 If you plan to continue with the next tutorial, keep this model deployed.
