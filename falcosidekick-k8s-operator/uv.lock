@@ -425,7 +425,7 @@ requires-dist = [
     { name = "cosl", specifier = ">=1.4.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "ops", specifier = "==3.5.2" },
-    { name = "pfe-interfaces-falcosidekick-http-endpoint", git = "https://github.com/canonical/falco-operators?subdirectory=interfaces%2Ffalcosidekick_http_endpoint&rev=0324764b10cfc5b5a6740d7123d3bd847f4d4102" },
+    { name = "pfe-interfaces-falcosidekick-http-endpoint", git = "https://github.com/canonical/falco-operators?subdirectory=interfaces%2Ffalcosidekick_http_endpoint&rev=3c478ac8465094e5470e96f401aa2db7ca395be9" },
     { name = "pydantic", specifier = ">=2.12.5" },
 ]
 
@@ -794,7 +794,7 @@ wheels = [
 [[package]]
 name = "pfe-interfaces-falcosidekick-http-endpoint"
 version = "1.0.0"
-source = { git = "https://github.com/canonical/falco-operators?subdirectory=interfaces%2Ffalcosidekick_http_endpoint&rev=0324764b10cfc5b5a6740d7123d3bd847f4d4102#0324764b10cfc5b5a6740d7123d3bd847f4d4102" }
+source = { git = "https://github.com/canonical/falco-operators?subdirectory=interfaces%2Ffalcosidekick_http_endpoint&rev=3c478ac8465094e5470e96f401aa2db7ca395be9#3c478ac8465094e5470e96f401aa2db7ca395be9" }
 dependencies = [
     { name = "ops" },
     { name = "pydantic" },
