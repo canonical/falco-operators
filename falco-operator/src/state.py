@@ -25,12 +25,14 @@ class CharmState(BaseModel):
         custom_config_repo_ref: Optional branch or tag to a custom configuration repository.
         custom_config_repo_ssh_key: Optional SSH key for custom configuration repository.
         http_output: Optional HTTP output data from http-output relation.
+        ca_cert: Optional CA cert to trust for HTTPs communications.
     """
 
     custom_config_repo: Optional[AnyUrl] = None
     custom_config_repo_ref: Optional[str] = None
     custom_config_repo_ssh_key: Optional[str] = None
     http_output: Optional[dict[str, str]] = None
+    ca_cert: Optional[str] = None
 
     @classmethod
     def from_charm(
@@ -68,18 +70,30 @@ class CharmState(BaseModel):
         custom_config_repo_ssh_key = _fetch_custom_ssh_key(charm.model, charm_config)
 
         http_output = {}
-        app_urls = http_endpoint_requirer.get_app_urls()
-        for url in app_urls.values():
+        ca_cert = None
+
+        # TODO: Remove ignore once the interface PR is merged and the revision updated in pyproject.toml
+        endpoints = http_endpoint_requirer.get_endpoints()  # type: ignore[attr-defined]
+        for data in endpoints.values():
             # There should only be one URL since this relation is limited to 1, but if there are
             # multiple, just take the last one.
-            http_output.update({"url": url})
-            logger.info("Retrieved url info from relation: %s", url)
+            http_output.update({"url": data["url"]})
+
+            # If there's a CA, store it
+            ca_cert = data.get("ca_cert")
+
+            logger.info(
+                "Retrieved endpoint info from relation. URL: %s, Has CA: %s",
+                data["url"],
+                bool(ca_cert),
+            )
 
         return cls(
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
             http_output=http_output,
+            ca_cert=ca_cert,
         )
 
 

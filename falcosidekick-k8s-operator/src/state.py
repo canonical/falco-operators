@@ -6,7 +6,7 @@
 import itertools
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Optional, cast
 
 import ops
 from charms.loki_k8s.v1.loki_push_api import LokiPushApiConsumer
@@ -64,16 +64,24 @@ class CharmState(BaseModel):
         """
         try:
             charm_config = charm.load_config(CharmConfig)
+
+            ca_cert = ""
+            cert_requirer = cast(Any, charm).tls_certificate_requirer
+            cert, _ = cert_requirer._get_assigned_cert_and_key()
+            if cert:
+                ca_cert = cert.ca
+
             _url = _get_loki_ingress_endpoint(loki_push_api_consumer)
             loki_endpoint = _url.path if _url and _url.path else "/loki/api/v1/push"
             loki_hostport = f"{_url.scheme}://{_url.host}:{_url.port}" if _url else ""
             enable_tls = True
             http_endpoint_config = {
                 "path": "/",
-                "scheme": "https",
+                "scheme": "https" if ca_cert else "http",
                 "set_ports": True,
                 "hostname": None,
                 "listen_port": charm_config.port,
+                "ca_cert": ca_cert,
             }
             if ingress_requirer.is_ready():
                 ingress_url = HttpUrl(ingress_requirer.url)

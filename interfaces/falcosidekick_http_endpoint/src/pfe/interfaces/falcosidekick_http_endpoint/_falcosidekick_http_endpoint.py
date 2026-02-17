@@ -15,6 +15,7 @@ class _HttpEndpointDataModel(BaseModel):
     """Data model for falcosidekick_http_endpoint interface."""
 
     url: HttpUrl
+    ca_cert: str | None = None
 
 
 class HttpEndpointInvalidDataError(Exception):
@@ -33,6 +34,7 @@ class HttpEndpointProvider(Object):
         listen_port: int = 80,
         set_ports: bool = False,
         hostname: str | None = None,
+        ca_cert: str | None = None,
     ) -> None:
         """Initialize an instance of HttpEndpointProvider class.
 
@@ -56,6 +58,7 @@ class HttpEndpointProvider(Object):
             listen_port: The listen port to open [1, 65535].
             set_ports: Whether to set the unit port on the charm.
             hostname: Use hostname instead of ingress address if available.
+            ca_cert: Certificate provided to consume from the requirer side.
         """
         super().__init__(charm, relation_name)
 
@@ -66,6 +69,7 @@ class HttpEndpointProvider(Object):
         self.listen_port = listen_port
         self.set_ports = set_ports
         self.hostname = hostname
+        self.ca_cert = ca_cert
 
         self.framework.observe(charm.on[relation_name].relation_changed, self._configure)
         self.framework.observe(charm.on.config_changed, self._configure)
@@ -110,13 +114,14 @@ class HttpEndpointProvider(Object):
         hostname = self.hostname or hostname
         url = f"{self.scheme}://{hostname}:{self.listen_port}/{self.path.lstrip('/')}"
         try:
-            falcosidekick_http_endpoint = _HttpEndpointDataModel(url=HttpUrl(url))
+            falcosidekick_http_endpoint = _HttpEndpointDataModel(url=HttpUrl(url),ca_cert=self.ca_cert)
             for relation in relations:
                 relation.save(falcosidekick_http_endpoint, self.charm.app)
                 logger.info(
-                    "Published HTTP endpoint to relation %s: %s",
+                    "Published HTTP endpoint to relation %s: %s. (TLS: %s)",
                     relation.id,
                     falcosidekick_http_endpoint,
+                    bool(self.ca_cert)
                 )
         except ValidationError as e:
             msg = f"Invalid http endpoint data: url={url}"
@@ -133,6 +138,7 @@ class HttpEndpointProvider(Object):
         listen_port: int,
         set_ports: bool = False,
         hostname: str | None = None,
+        ca_cert: str | None = None,
     ) -> None:
         """Update http endpoint configuration.
 
@@ -142,6 +148,7 @@ class HttpEndpointProvider(Object):
             listen_port: The listen port to open [1, 65535].
             set_ports: Whether to set the unit ports on the charm.
             hostname: Use hostname instead of ingress address if available.
+            ca_cert: PEM-encoded CA certificate.
 
         Raises:
             HttpEndpointInvalidDataError if not valid scheme.
@@ -151,6 +158,7 @@ class HttpEndpointProvider(Object):
         self.listen_port = listen_port
         self.set_ports = set_ports
         self.hostname = hostname
+        self.ca_cert = ca_cert
         self._update_config()
 
 
@@ -169,30 +177,41 @@ class HttpEndpointRequirer(Object):
         self.charm = charm
         self.relation_name = relation_name
 
-    def get_app_urls(self) -> dict[str, str]:
-        """Get the list of urls from HTTP endpoints from all related applications.
 
-        This method retrieves the URLs from the HTTP endpoints provided by the leader unit from all
-        related applications.
+    def get_endpoints(self) -> dict[str, dict[str, str]]:
+        """Retrieve HTTP endpoints and CA certificates from all related applications.
+
+        This method iterates over all established relations to fetch the endpoint 
+        configuration (URL and CA certificate) published by the leader unit of each 
+        related application.
 
         Returns:
-            A dictionary of app names to URLs from the HTTP endpoints of all leader units if
-            available.
+            A dictionary where keys are application names and values are another 
+            dictionary containing:
+                - "url": The full HTTP/HTTPS address.
+                - "ca_cert": The PEM-encoded CA certificate (empty string if not provided).
         """
         relations = self.charm.model.relations[self.relation_name]
         if not relations:
             logger.debug("No %s relations found", self.relation_name)
             return {}
-
-        falcosidekick_http_endpoints: dict[str, str] = {}
+        
+        falcosidekick_http_endpoints: dict[str, dict[str, str]] = {}
         for relation in relations:
             if relation.app not in relation.data and not relation.data.get(relation.app):
                 logger.warning("Relation data (%s) is not ready", self.relation_name)
                 continue
             try:
                 data = relation.load(_HttpEndpointDataModel, relation.app)
-                falcosidekick_http_endpoints[relation.app.name] = str(data.url)
+                falcosidekick_http_endpoints[relation.app.name] = {
+                    "url": str(data.url),
+                    "ca_cert": data.ca_cert or ""
+                }
                 logger.info("Retrieved URL from relation %s: %s", relation.id, data)
             except ValidationError as e:
                 logger.error("Invalid URL endpoint data in relation %s: %s", relation.id, e)
         return falcosidekick_http_endpoints
+    
+    def get_app_urls(self) -> dict[str, str]:
+        """Compatibility for URL-only requests."""
+        return {app: data["url"] for app, data in self.get_endpoints().items()}

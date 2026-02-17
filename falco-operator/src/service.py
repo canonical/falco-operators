@@ -328,6 +328,31 @@ class FalcoService:
 
         logger.info("Falco service removed")
 
+    def update_ca(self, ca_cert: str) -> bool:
+        """Install Falcosidekick CA.
+
+        Args:
+            ca_cert (str): CA certificate
+        """
+        if not ca_cert:
+            return False
+
+        ca_path = Path("/usr/local/share/ca-certificates/falcosidekick.crt")
+
+        if ca_path.exists() and ca_path.read_text() == ca_cert:
+            return False
+
+        logger.info("Installing new CA certificate for Falcosidekick")
+
+        ca_path.write_text(ca_cert)
+
+        try:
+            subprocess.run(["/usr/sbin/update-ca-certificates", "--fresh"], check=True)
+            return True
+        except subprocess.CalledProcessError as e:
+            logger.error("Failed to update system certificates: %s", e)
+            return False
+
     def configure(self, charm_state: state.CharmState) -> None:
         """Configure the Falco service.
 
