@@ -51,6 +51,8 @@ class TestCharmState:
         mock_charm = MagicMock()
         mock_charm.load_config.return_value = CharmConfig(port=port)
 
+        mock_charm.certificates._get_assigned_cert_and_key.return_value = (None, None)
+
         mock_loki_relation = MagicMock()
         mock_loki_relation.loki_endpoints = []
 
@@ -145,6 +147,8 @@ class TestCharmState:
         mock_charm = MagicMock()
         mock_charm.load_config.return_value = CharmConfig(port=2801)
 
+        mock_charm.certificates._get_assigned_cert_and_key.return_value = (None, None)
+
         mock_loki_relation = MagicMock()
         mock_loki_relation.loki_endpoints = []
 
@@ -158,4 +162,34 @@ class TestCharmState:
         assert state.falcosidekick_loki_endpoint == "/loki/api/v1/push"
         assert state.falcosidekick_loki_hostport == ""
         assert state.falcosidekick_listenport == 2801
+        assert state.enable_tls is True
+
+    def test_from_charm_with_tls_certificates(self):
+        """Test CharmState.from_charm when TLS certificates are present.
+
+        Arrange: Set up mock charm with a valid certificate and CA.
+        Act: Create CharmState from charm.
+        Assert: Scheme is https and ca_cert is correctly populated.
+        """
+        # Arrange
+        mock_charm = MagicMock()
+        mock_charm.load_config.return_value = CharmConfig(port=8080)
+
+        mock_cert = MagicMock()
+        mock_cert.ca = "---BEGIN CERTIFICATE---\nFAKE-CA\n---END CERTIFICATE---"
+        
+        mock_charm.certificates._get_assigned_cert_and_key.return_value = (mock_cert, "fake-key")
+
+        mock_loki_relation = MagicMock()
+        mock_loki_relation.loki_endpoints = []
+
+        mock_ingress_requirer = MagicMock()
+        mock_ingress_requirer.is_ready.return_value = False
+
+        # Act
+        state = CharmState.from_charm(mock_charm, mock_loki_relation, mock_ingress_requirer)
+
+        # Assert
+        assert state.http_endpoint_config["scheme"] == "https"
+        assert state.http_endpoint_config["ca_cert"] == "---BEGIN CERTIFICATE---\nFAKE-CA\n---END CERTIFICATE---"
         assert state.enable_tls is True
