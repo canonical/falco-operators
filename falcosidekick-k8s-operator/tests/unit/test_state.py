@@ -51,9 +51,8 @@ class TestCharmState:
         mock_charm = MagicMock()
         mock_charm.load_config.return_value = CharmConfig(port=port)
 
-        mock_certs = MagicMock()
-        mock_certs._get_assigned_cert_and_key.return_value = (None, None)
-        mock_charm.certificates = mock_certs
+        mock_charm.tls_certificate_requirer = MagicMock()
+        mock_charm.tls_certificate_requirer._get_assigned_cert_and_key.return_value = (None, None)
 
         mock_loki_relation = MagicMock()
         mock_loki_relation.loki_endpoints = []
@@ -149,9 +148,8 @@ class TestCharmState:
         mock_charm = MagicMock()
         mock_charm.load_config.return_value = CharmConfig(port=2801)
 
-        mock_certs = MagicMock()
-        mock_certs._get_assigned_cert_and_key.return_value = (None, None)
-        mock_charm.certificates = mock_certs
+        mock_charm.tls_certificate_requirer = MagicMock()
+        mock_charm.tls_certificate_requirer._get_assigned_cert_and_key.return_value = (None, None)
 
         mock_loki_relation = MagicMock()
         mock_loki_relation.loki_endpoints = []
@@ -182,9 +180,12 @@ class TestCharmState:
         mock_cert = MagicMock()
         mock_cert.ca = "---BEGIN CERTIFICATE---\nFAKE-CA\n---END CERTIFICATE---"
 
-        mock_certs = MagicMock()
-        mock_certs._get_assigned_cert_and_key.return_value = (mock_cert, "fake-key")
-        mock_charm.certificates = mock_certs
+        assigned_cert_return = (mock_cert, "fake-key")
+
+        mock_charm.tls_certificate_requirer = MagicMock()
+        mock_charm.tls_certificate_requirer._get_assigned_cert_and_key.return_value = (
+            assigned_cert_return
+        )
 
         mock_loki_relation = MagicMock()
         mock_loki_relation.loki_endpoints = []
