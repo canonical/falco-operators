@@ -1,10 +1,6 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-variables {
-  channel = "2/edge"
-}
-
 run "test_app_name" {
 
   command = plan

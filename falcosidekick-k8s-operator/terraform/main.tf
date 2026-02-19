@@ -1,7 +1,7 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-resource "juju_application" "falcosidekick_k8s" {
+resource "juju_application" "falcosidekick" {
   name       = var.app_name
   model_uuid = var.model_uuid
 
