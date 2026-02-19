@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-02-19
+
+### Added
+
+- Terraform product for Falco sidekick.
+
 ## 2026-02-11
 
 ### Added
