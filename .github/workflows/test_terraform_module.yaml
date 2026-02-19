@@ -13,10 +13,16 @@ on:
       - "falcosidekick-operator/terraform/**"
 
 jobs:
-  terraform-tests:
+  terraform-tests-lxd:
+    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@main
+    secrets: inherit
+    with:
+      k8s-controller: false
+      lxd-controller: true
+      terraform-directories: '["falco-operator/terraform"]'
+  terraform-tests-k8s:
     uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@main
     secrets: inherit
     with:
       k8s-controller: true
-      lxd-controller: true
-      terraform-directories: '["falco-operator/terraform", "falcosidekick-k8s-operator/terraform", "falcosidekick-k8s-operator/terraform-product"]'
+      terraform-directories: '["falcosidekick-k8s-operator/terraform", "falcosidekick-k8s-operator/terraform-product"]'
