@@ -18,4 +18,4 @@ jobs:
     secrets: inherit
     with:
       k8s-controller: true
-      terraform-directories: '["terraform", "terraform-product"]'
+      terraform-directories: '["falco-operators/terraform", "falcosidekick-k8s-operator/terraform", "falcosidekick-k8s-operator/terraform-product"]'
