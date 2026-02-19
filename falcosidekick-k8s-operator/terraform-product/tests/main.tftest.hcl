@@ -1,32 +1,42 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-run "test_app_name" {
+run "setup_tests" {
+  module {
+    source = "./tests/setup"
+  }
+}
 
-  command = plan
+run "basic_deploy" {
+  variables {
+    model_uuid = run.setup_tests.model_uuid
+    falcosidekick = {
+      channel = "2/edge"
+      # renovate: depName="falcosidekick-k8s"
+      revision = 41
+    }
+    traefik_k8s = {
+      channel = "latest/stable"
+      # renovate: depName="traefik-k8s"
+      revision = 236
+      config = {
+        external_hostname = "falcosidekick.example"
+      }
+    }
+  }
 
   assert {
-    condition     = module.falcosidekick.app_name == "falcosidekick-k8s"
+    condition     = output.falcosidekick_name == "falcosidekick-k8s"
     error_message = "Expect falcosidekick-k8s app_name matches 'falcosidekick-k8s'"
   }
-}
-
-run "test_integration_send_loki_logs" {
-
-  command = plan
 
   assert {
-    condition     = module.falcosidekick.falcosidekick_requires.send_loki_logs == "send-loki-logs"
-    error_message = "Expect falcosidekick-k8s module to provide 'requires.send_loki_logs' output"
+    condition     = output.falcosidekick_requires.logging == "logging"
+    error_message = "Expect falcosidekick-k8s module to provide 'requires.logging' output"
   }
-}
-
-run "test_integration_certificates" {
-
-  command = plan
 
   assert {
-    condition     = module.falcosidekick.falcosidekick_requires.certificates == "certificates"
+    condition     = output.falcosidekick_requires.certificates == "certificates"
     error_message = "Expect falcosidekick-k8s module to provide 'requires.certificates' output"
   }
 }
