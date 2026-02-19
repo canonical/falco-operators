@@ -6,10 +6,6 @@ output "falcosidekick_name" {
   value       = module.falcosidekick.app_name
 }
 
-output "falcosidekick_http_endpoint_offer_url" {
-  value = juju_offer.falcosidekick_http_endpoint.url
-}
-
 output "falcosidekick_requires" {
   value = {
     logging      = "logging"
@@ -18,7 +14,9 @@ output "falcosidekick_requires" {
 }
 
 output "falcosidekick_provides" {
-  value = {}
+  value = {
+    http_endpoint = "http-endpoint"
+  }
 }
 
 output "traefik_name" {
@@ -28,7 +26,8 @@ output "traefik_name" {
 
 output "traefik_requires" {
   value = {
-    logging = "logging"
+    certificates = "certificates"
+    logging      = "logging"
   }
 }
 
