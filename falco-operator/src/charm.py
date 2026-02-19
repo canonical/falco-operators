@@ -96,6 +96,11 @@ class Falco(CharmBaseWithState):
     def reconcile(self, _: ops.EventBase) -> None:
         """Reconcile the charm state."""
         try:
+            # Configure TLS CA trust
+            if self.state.ca_cert:
+                ca_updated = self.falco_service.update_ca(self.state.ca_cert)
+                if ca_updated:
+                    logger.info("System CA store updated, Falco will now trust Sidekick")
             self.falco_service.configure(self.state)
         except InvalidCharmConfigError:
             self.unit.status = ops.BlockedStatus("Invalid charm config")

@@ -46,7 +46,9 @@ mkdir -p ~/.kube
 juju run k8s/0 get-kubeconfig | yq -r '.kubeconfig' > ~/.kube/config
 
 EXTERNAL_IP=$(juju show-unit -m concierge-lxd:admin/falco-tutorial k8s/0 | yq -r '.k8s/0.public-address')
-juju bootstrap k8s k8s-controller --config controller-service-type=loadbalancer --config controller-external-ips=[$EXTERNAL_IP]
+juju bootstrap k8s k8s-controller \
+  --config controller-service-type=loadbalancer \
+  --config controller-external-ips='["'"$EXTERNAL_IP"'"]'
 ```
 
 When the bootstrap is complete, you should see a new controller listed:
