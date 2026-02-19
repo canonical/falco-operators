@@ -7,3 +7,4 @@ untrusted
 Pydantic
 systemd
 Systemd
+Opentelemetry

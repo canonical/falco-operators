@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 
 import ops
+from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from jinja2 import Environment, FileSystemLoader
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointProvider
@@ -17,7 +18,7 @@ from certificates import TlsCertificateRequirer
 logger = logging.getLogger(__name__)
 
 TEMPLATE_DIR = "src/templates"
-TLS_HEALTH_CHECK_PORT = 2810  # Falcosidekick TLS healthcheck port (hardcoded)
+NO_TLS_PORT = 2810  # Falcosidekick no TLS port (hardcoded)
 
 
 class MissingLokiRelationError(Exception):
@@ -185,6 +186,7 @@ class Falcosidekick:
         http_endpoint_provider: HttpEndpointProvider,
         tls_certificate_requirer: TlsCertificateRequirer,
         ingress_requirer: IngressPerAppRequirer,
+        metrics_endpoint_provider: MetricsEndpointProvider,
     ) -> None:
         """Configure the Falcosidekick workload idempotently.
 
@@ -196,6 +198,7 @@ class Falcosidekick:
             http_endpoint_provider: The HttpEndpointManager instance to set http output data.
             tls_certificate_requirer: The TlsCertificateRequirer instance to manage TLS certificates.
             ingress_requirer: The IngressPerAppRequirer instance to manage ingress relation.
+            metrics_endpoint_provider: The MetricsEndpointProvider instance to manage metrics endpoint relation.
 
         Raises:
             MissingLokiRelationError: If the Loki relation is missing.
@@ -236,11 +239,13 @@ class Falcosidekick:
             logger.warning("Configuration or certificate not changed; skipping reconfiguration")
             return
 
-        self._configure_healthchecks(
-            TLS_HEALTH_CHECK_PORT
-            if charm_state.enable_tls
-            else charm_state.falcosidekick_listenport
+        listen_port = (
+            NO_TLS_PORT if charm_state.enable_tls else charm_state.falcosidekick_listenport
         )
+        metrics_endpoint_provider.update_scrape_job_spec(
+            [{"static_configs": [{"targets": [f"*:{listen_port}"]}]}]
+        )
+        self._configure_healthchecks(listen_port)
         self.container.replan()
 
         for service_name in self.container.get_services():
