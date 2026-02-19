@@ -18,7 +18,9 @@ output "falcosidekick_requires" {
 }
 
 output "falcosidekick_provides" {
-  value = {}
+  value = {
+    http_endpoint = "http-endpoint"
+  }
 }
 
 output "traefik_name" {
@@ -28,7 +30,8 @@ output "traefik_name" {
 
 output "traefik_requires" {
   value = {
-    logging = "logging"
+    certificates = "certificates"
+    logging      = "logging"
   }
 }
 
