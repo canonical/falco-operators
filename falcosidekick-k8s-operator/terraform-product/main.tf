@@ -43,11 +43,3 @@ resource "juju_integration" "wazuh_server_traefik_ingress" {
     endpoint = "ingress"
   }
 }
-
-resource "juju_offer" "falcosidekick_http_endpoint" {
-  model_uuid = data.juju_model.falcosidekick.uuid
-
-  name             = "falcosidekick-http-endpoint"
-  application_name = var.falcosidekick.app_name
-  endpoints        = [module.falcosidekick.provides.http_endpoint]
-}
