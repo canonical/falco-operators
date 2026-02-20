@@ -8,9 +8,10 @@ output "app_name" {
 
 output "requires" {
   value = {
-    logging      = "logging"
-    certificates = "certificates"
-    ingress      = "ingress"
+    certificates   = "certificates"
+    ingress        = "ingress"
+    logging        = "logging"
+    send_loki_logs = "send-loki-logs"
   }
 }
 
