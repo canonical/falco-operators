@@ -8,8 +8,9 @@ output "falcosidekick_name" {
 
 output "falcosidekick_requires" {
   value = {
-    logging      = "logging"
-    certificates = "certificates"
+    certificates   = "certificates"
+    logging        = "logging"
+    send_loki_logs = "send-loki-logs"
   }
 }
 
