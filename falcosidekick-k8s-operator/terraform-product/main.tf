@@ -7,7 +7,7 @@ data "juju_model" "falcosidekick" {
 
 module "falcosidekick" {
   source      = "../terraform"
-  name        = var.falcosidekick.app_name
+  app_name    = var.falcosidekick.app_name
   model_uuid  = data.juju_model.falcosidekick.uuid
   base        = var.falcosidekick.base
   channel     = var.falcosidekick.channel
