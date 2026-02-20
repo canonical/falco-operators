@@ -30,7 +30,7 @@ resource "juju_application" "traefik_k8s" {
   config = var.traefik_k8s.config
 }
 
-resource "juju_integration" "wazuh_server_traefik_ingress" {
+resource "juju_integration" "falcosidekick_traefik_ingress" {
   model_uuid = data.juju_model.falcosidekick.uuid
 
   application {
