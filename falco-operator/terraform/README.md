@@ -19,7 +19,7 @@ This folder contains a base [Terraform][Terraform] module for the `falco` charm.
 
 | Name                                                                     | Version   |
 | ------------------------------------------------------------------------ | --------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.14.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.12.0 |
 | <a name="requirement_juju"></a> [juju](#requirement_juju)                | >= 1.1.1  |
 
 ### Providers
@@ -63,7 +63,7 @@ like shown below:
 
 ```text
 terraform {
-  required_version = ">= 1.14.0"
+  required_version = ">= 1.12.0"
   required_providers {
     juju = {
       source  = "juju/juju"
