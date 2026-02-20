@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 output "app_name" {
-  value       = juju_application.falcosidekick_k8s.name
+  value       = juju_application.falcosidekick.name
   description = "Name of the deployed application."
 }
 
