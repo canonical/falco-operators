@@ -40,6 +40,6 @@ resource "juju_integration" "falcosidekick_traefik_ingress" {
 
   application {
     name     = juju_application.traefik_k8s.name
-    endpoint = "traefik-route"
+    endpoint = "ingress"
   }
 }
