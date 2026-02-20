@@ -1,52 +1,42 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-run "test_app_name" {
-
-  command = plan
-
-  assert {
-    condition     = module.falcosidekick_k8s.app_name == "falcosidekick-k8s"
-    error_message = "Expect falcosidekick-k8s app_name matches 'falcosidekick-k8s'"
+run "setup_tests" {
+  module {
+    source = "./tests/setup"
   }
 }
 
-run "test_integration_send_loki_logs" {
-
-  command = plan
-
-  assert {
-    condition     = module.falcosidekick_k8s.requires.send_loki_logs == "send-loki-logs"
-    error_message = "Expect falcosidekick-k8s module to provide 'requires.send_loki_logs' output"
+run "basic_deploy" {
+  variables {
+    model_uuid = run.setup_tests.model_uuid
+    channel    = "2/edge"
+    # renovate: depName="falcosidekick-k8s"
+    revision = 41
   }
-}
-
-run "test_integration_certificates" {
-
-  command = plan
 
   assert {
-    condition     = module.falcosidekick_k8s.requires.certificates == "certificates"
-    error_message = "Expect falcosidekick-k8s module to provide 'requires.certificates' output"
+    condition     = output.app_name == "falcosidekick-k8s"
+    error_message = "falcosidekick-k8s app_name did not match expected"
   }
-}
-
-run "test_integration_ingress" {
-
-  command = plan
 
   assert {
-    condition     = module.falcosidekick_k8s.requires.ingress == "ingress"
-    error_message = "Expect falcosidekick-k8s module to provide 'requires.ingress' output"
+    condition     = output.requires.logging == "logging"
+    error_message = "falcosidekick-k8s module should provide 'requires.logging' output"
   }
-}
-
-run "test_integration_http_endpoint" {
-
-  command = plan
 
   assert {
-    condition     = module.falcosidekick_k8s.provides.http_endpoint == "http-endpoint"
-    error_message = "Expect falcosidekick-k8s module to provide 'provides.http_endpoint' output"
+    condition     = output.requires.certificates == "certificates"
+    error_message = "falcosidekick-k8s module should provide 'requires.certificates' output"
+  }
+
+  assert {
+    condition     = output.requires.ingress == "ingress"
+    error_message = "falcosidekick-k8s module should provide 'requires.ingress' output"
+  }
+
+  assert {
+    condition     = output.provides.http_endpoint == "http-endpoint"
+    error_message = "falcosidekick-k8s module should provide 'provides.http_endpoint' output"
   }
 }
