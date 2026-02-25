@@ -10,6 +10,12 @@ Each revision is versioned by the date of the revision.
 
 ## 2026-02-23
 
+### Changed
+
+- Fix ingress integration for Falco sidekick.
+
+## 2026-02-23
+
 ### Removed
 
 - Terraform product for Falco sidekick.
