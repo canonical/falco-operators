@@ -55,7 +55,7 @@ class TestCharmState:
         mock_loki_relation.loki_endpoints = []
 
         mock_ingress_requirer = MagicMock()
-        mock_ingress_requirer.relation = None
+        mock_ingress_requirer.is_ready.return_value = False
 
         # Act
         state = CharmState.from_charm(mock_charm, mock_loki_relation, mock_ingress_requirer)
@@ -93,7 +93,7 @@ class TestCharmState:
         mock_loki_relation.loki_endpoints = []
 
         mock_ingress_requirer = MagicMock()
-        mock_ingress_requirer.relation = None
+        mock_ingress_requirer.is_ready.return_value = False
 
         # Act
         with pytest.raises(InvalidCharmConfigError) as exc_info:
@@ -122,7 +122,7 @@ class TestCharmState:
         mock_loki_relation.loki_endpoints = []
 
         mock_ingress_requirer = MagicMock()
-        mock_ingress_requirer.relation = None
+        mock_ingress_requirer.is_ready.return_value = False
 
         # Act
         with pytest.raises(InvalidCharmConfigError) as exc_info:
@@ -149,7 +149,7 @@ class TestCharmState:
         mock_loki_relation.loki_endpoints = []
 
         mock_ingress_requirer = MagicMock()
-        mock_ingress_requirer.relation = None
+        mock_ingress_requirer.is_ready.return_value = False
 
         # Act
         state = CharmState.from_charm(mock_charm, mock_loki_relation, mock_ingress_requirer)
