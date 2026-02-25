@@ -109,8 +109,8 @@ class TestCharm:
         "has_loki, has_cert, has_ingress, expected_status",
         [
             (True, True, False, ops.ActiveStatus()),
-            (True, False, True, ops.BlockedStatus("Required one of: [certificates|ingress]")),
-            (True, True, True, ops.ActiveStatus()),
+            (True, False, True, ops.ActiveStatus()),
+            (True, True, True, ops.BlockedStatus("Required one of: [certificates|ingress]")),
             (True, False, False, ops.BlockedStatus("Required one of: [certificates|ingress]")),
             (False, True, False, ops.BlockedStatus("Required relations: [send-loki-logs]")),
             (False, False, True, ops.BlockedStatus("Required relations: [send-loki-logs]")),
