@@ -214,7 +214,7 @@ class Falcosidekick:
                 "send-loki-logs relation is missing; Falcosidekick requires at least one output"
             )
 
-        if not (tls_certificate_requirer.is_created() ^ ingress_requirer.is_ready()):
+        if not (tls_certificate_requirer.is_created() ^ bool(ingress_requirer.relation is not None)):
             self._stop_all()
             raise RequireOneOfIngressOrCertificateRelationError(
                 "only one of [certificates|ingress] relation is required but not both or none"

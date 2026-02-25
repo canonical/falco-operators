@@ -145,7 +145,7 @@ class TestFalcosidekick:
             mock_tls_requirer.configure.return_value = False
             mock_tls_requirer.is_created.return_value = True
             mock_ingress_requirer = Mock()
-            mock_ingress_requirer.is_ready.return_value = False
+            mock_ingress_requirer.relation = None
 
             mock_metrics_endpoint_provider = Mock()
 
@@ -194,7 +194,7 @@ class TestFalcosidekick:
             mock_tls_requirer.configure.return_value = False
             mock_tls_requirer.is_created.return_value = True
             mock_ingress_requirer = Mock()
-            mock_ingress_requirer.is_ready.return_value = False
+            mock_ingress_requirer.relation = None
             mock_metrics_endpoint_provider = Mock()
 
             # Act: Configure the workload
