@@ -12,7 +12,7 @@ run "basic_deploy" {
     model_uuid = run.setup_tests.model_uuid
     channel    = "0.42/edge"
     # renovate: depName="falco"
-    revision = 66
+    revision = 68
   }
 
   assert {
