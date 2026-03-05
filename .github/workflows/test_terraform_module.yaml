@@ -3,14 +3,14 @@
 
 # Attention: valid for K8s charms only
 
-name: Terraform module tests
+name: Terraform modules tests
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - "falco-operator/terraform/**"
-      - "falcosidekick-operator/terraform/**"
+      - "falcosidekick-k8s-operator/terraform/**"
 
 jobs:
   terraform-tests-lxd:
