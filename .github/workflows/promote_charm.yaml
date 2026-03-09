@@ -16,7 +16,7 @@ on:
         description: 'Destination Channel'
         options:
         - "[\"falco\",\"0.42/candidate\"]"
-          - "[\"falco\",\"0.42/stable\"]"
+        - "[\"falco\",\"0.42/stable\"]"
         - "[\"falcosidekick-k8s\",\"2/candidate\"]"
         - "[\"falcosidekick-k8s\",\"2/stable\"]"
     secrets:
