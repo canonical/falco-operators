@@ -27,7 +27,6 @@ dependencies = [
 Issues = "https://github.com/canonical/falco-operators/issues"
 Repository = "https://github.com/canonical/falco-operators"
 
-
 [dependency-groups]
 fmt = [
   "ruff",
@@ -69,7 +68,7 @@ packages = ["src/pfe"]
 path = "src/pfe/interfaces/falcosidekick_http_endpoint/_version.py"
 
 [tool.uv]
-package = false
+package = true
 
 [tool.ruff]
 target-version = "py310"
