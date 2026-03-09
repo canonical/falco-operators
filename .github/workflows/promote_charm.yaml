@@ -10,7 +10,7 @@ on:
         - "[\"falco\",\"0.42/edge\"]"
         - "[\"falco\",\"0.42/candidate\"]"
         - "[\"falcosidekick-k8s\",\"2/edge\"]"
-        - "[\"falcosidekick-k8s\",\"2candidatee\"]"
+        - "[\"falcosidekick-k8s\",\"2/candidate\"]"
       destination-channel:
         type: choice
         description: 'Destination Channel'
