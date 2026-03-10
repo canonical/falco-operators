@@ -8,12 +8,16 @@ on:
         description: 'Origin Channel'
         options:
         - "[\"falco\",\"0.42/edge\"]"
+        - "[\"falco\",\"0.42/candidate\"]"
         - "[\"falcosidekick-k8s\",\"2/edge\"]"
+        - "[\"falcosidekick-k8s\",\"2/candidate\"]"
       destination-channel:
         type: choice
         description: 'Destination Channel'
         options:
+        - "[\"falco\",\"0.42/candidate\"]"
         - "[\"falco\",\"0.42/stable\"]"
+        - "[\"falcosidekick-k8s\",\"2/candidate\"]"
         - "[\"falcosidekick-k8s\",\"2/stable\"]"
     secrets:
       CHARMHUB_TOKEN:
