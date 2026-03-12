@@ -35,7 +35,7 @@ parts:
     plugin: go
     source: https://github.com/falcosecurity/falcosidekick.git
     # renovate: depName=falcosecurity/falcosidekick
-    source-tag: "2.32.0"
+    source-tag: "2.33.0"
     build-snaps:
       - go/1.25/stable
     build-packages:
