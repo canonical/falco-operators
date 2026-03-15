@@ -60,7 +60,7 @@ integration = [
 package = false
 
 [tool.uv.sources]
-pfe-interfaces-falcosidekick-http-endpoint = { git = "https://github.com/canonical/falco-operators", subdirectory = "interfaces/falcosidekick_http_endpoint", rev = "3e5de0aa4410557401560ba67fd8fc4556c1bdea" }
+pfe-interfaces-falcosidekick-http-endpoint = { git = "https://github.com/canonical/falco-operators", subdirectory = "interfaces/falcosidekick_http_endpoint", rev = "7dc6fc9d2ed8d1ec760491b3ea20691cd9c96ab8" }
 
 [tool.ruff]
 target-version = "py310"
