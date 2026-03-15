@@ -61,7 +61,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2.5.0
+        uses: softprops/action-gh-release@v2.5.3
         with:
           name: ${{ steps.version.outputs.falco_version }}
           tag_name: falco/${{ steps.version.outputs.falco_version }}
