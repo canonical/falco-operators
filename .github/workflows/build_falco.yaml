@@ -15,12 +15,8 @@ on:
 jobs:
   build-falco:
     name: Build Falco from Source
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: ["self-hosted", "linux", "amd64", "noble"]
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        runs-on: [self-hosted, linux, amd64, noble]
     env:
       ARTIFACT_ROOT: /tmp/artifacts
       FALCO_SOURCE: /tmp/source/falco
