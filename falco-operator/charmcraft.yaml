@@ -38,7 +38,7 @@ parts:
     build-snaps:
       - astral-uv
     build-environment:
-      UV_WORKING_DIR: .
+      - UV_WORKING_DIR: .
     override-build: |
       craftctl default
       cp --archive --recursive --reflink=auto
