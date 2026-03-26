@@ -41,10 +41,8 @@ parts:
       - UV_WORKING_DIR: .
     override-build: |
       craftctl default
-      cp --archive --recursive --reflink=auto
-      $CRAFT_PART_BUILD/$UV_WORKING_DIR/src $CRAFT_PART_INSTALL/src
-      cp --archive --recursive --reflink=auto
-      $CRAFT_PART_BUILD/$UV_WORKING_DIR/lib $CRAFT_PART_INSTALL/lib
+      cp --archive --recursive --reflink=auto $CRAFT_PART_BUILD/$UV_WORKING_DIR/src $CRAFT_PART_INSTALL/src
+      cp --archive --recursive --reflink=auto $CRAFT_PART_BUILD/$UV_WORKING_DIR/lib $CRAFT_PART_INSTALL/lib
   falco:
     plugin: nil
     override-build: |
