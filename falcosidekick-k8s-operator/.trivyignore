@@ -4,3 +4,5 @@ CVE-2026-24051
 CVE-2026-25679
 CVE-2026-27142
 CVE-2026-27137
+# google.golang.org/grpc not fixed in upstream(2.33) yet
+CVE-2026-33186

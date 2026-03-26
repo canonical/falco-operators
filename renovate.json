@@ -13,10 +13,15 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["\\.tftest\\.hcl$", "\\.tf$"],
-      "matchStrings": ["# renovate: depName=\"(?<packageName>[^\"]+)\"\\s*\\n\\s*(?<fieldName>[a-zA-Z0-9_]+)\\s*=\\s*(?<currentValue>\\d+)"],
-      "versioningTemplate": "semver-coerced",
-      "datasourceTemplate": "custom.charmhub"
+      "datasourceTemplate": "custom.charmhub",
+      "fileMatch": [
+        "\\.tftest\\.hcl$",
+        "\\.tf$"
+      ],
+      "matchStrings": [
+        "# renovate: depName=\"(?<packageName>[^\"]+)\"\\s*\\n\\s*(?<fieldName>[a-zA-Z0-9_]+)\\s*=\\s*(?<currentValue>\\d+)"
+      ],
+      "versioningTemplate": "semver-coerced"
     },
     {
       "customType": "regex",
@@ -36,7 +41,9 @@
       "customType": "regex",
       "datasourceTemplate": "github-tags",
       "description": "Update Falco version from git tags (semver)",
-      "fileMatch": ["^\\.versions$"],
+      "fileMatch": [
+        "^\\.versions$"
+      ],
       "matchStrings": [
         "# renovate: depName=(?<depName>.*?)\\nFALCO_VERSION=(?<currentValue>.*)"
       ],
@@ -46,37 +53,45 @@
       "customType": "regex",
       "datasourceTemplate": "github-tags",
       "description": "Update Falco json plugin version from git tags (non-semver)",
-      "fileMatch": ["^\\.versions$"],
+      "extractVersionTemplate": "^plugins/json/v(?<version>.*)$",
+      "fileMatch": [
+        "^\\.versions$"
+      ],
       "matchStrings": [
         "# renovate: depName=(?<depName>.*?)\\nFALCO_JSON_PLUGIN_VERSION=(?<currentValue>.*)"
-      ],
-      "extractVersionTemplate": "^plugins/json/v(?<version>.*)$"
+      ]
     },
     {
       "customType": "regex",
       "datasourceTemplate": "github-tags",
       "description": "Update Falco k8saudit plugin version from git tags (non-semver)",
-      "fileMatch": ["^\\.versions$"],
+      "extractVersionTemplate": "^plugins/k8saudit/v(?<version>.*)$",
+      "fileMatch": [
+        "^\\.versions$"
+      ],
       "matchStrings": [
         "# renovate: depName=(?<depName>.*?)\\nFALCO_K8SAUDIT_PLUGIN_VERSION=(?<currentValue>.*)"
-      ],
-      "extractVersionTemplate": "^plugins/k8saudit/v(?<version>.*)$"
+      ]
     },
     {
       "customType": "regex",
       "datasourceTemplate": "github-tags",
       "description": "Update Falco version in charmcraft from git tags (non-semver)",
-      "fileMatch": ["charmcraft.yaml"],
+      "extractVersionTemplate": "^falco/(?<version>.*)$",
+      "fileMatch": [
+        "charmcraft.yaml"
+      ],
       "matchStrings": [
         "# renovate: depName=(?<depName>.*?)\\n\\s+VERSION=(?<currentValue>.*)"
-      ],
-      "extractVersionTemplate": "^falco/(?<version>.*)$"
+      ]
     },
     {
       "customType": "regex",
       "datasourceTemplate": "github-tags",
       "description": "Update Falcosidekick version in rockcraft from git tags (semver)",
-      "fileMatch": ["rockcraft.yaml"],
+      "fileMatch": [
+        "rockcraft.yaml"
+      ],
       "matchStrings": [
         "# renovate: depName=(?<depName>.*?)\\n\\s+source-tag:\\s\"(?<currentValue>.*)\""
       ],
@@ -90,11 +105,11 @@
   "ignorePaths": [],
   "packageRules": [
     {
+      "automerge": true,
+      "enabled": true,
       "matchDatasources": [
         "custom.charmhub"
-      ],
-      "automerge": true,
-      "enabled": true
+      ]
     },
     {
       "enabled": true,
@@ -114,5 +129,11 @@
         "patch"
       ]
     }
-  ]
+  ],
+  "schedule": [
+    "* * * * 0,6"
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  }
 }
