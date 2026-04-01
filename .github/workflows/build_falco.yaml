@@ -15,12 +15,8 @@ on:
 jobs:
   build-falco:
     name: Build Falco from Source
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: ["self-hosted", "linux", "amd64", "noble"]
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        runs-on: [ubuntu-24.04]
     env:
       ARTIFACT_ROOT: /tmp/artifacts
       FALCO_SOURCE: /tmp/source/falco
@@ -148,7 +144,7 @@ jobs:
           mv $TARBALL ${{ github.workspace }}/
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: falco-${{ steps.version.outputs.falco_version }}-${{ steps.version.outputs.arch }}
           path: |
