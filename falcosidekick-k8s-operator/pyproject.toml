@@ -64,7 +64,7 @@ allow-direct-references = true
 package = false
 
 [tool.uv.sources]
-pfe-interfaces-falcosidekick-http-endpoint = { path = "./falcosidekick_http_endpoint" }
+pfe-interfaces-falcosidekick-http-endpoint = { path = "../intetrrfaces/falcosidekick_http_endpoint" }
 
 [tool.ruff]
 target-version = "py310"
