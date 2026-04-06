@@ -8,7 +8,7 @@ on:
 jobs:
   integration-tests:
     uses:
-      canonical/operator-workflows/.github/workflows/integration_test.yaml@monorepo
+      canonical/operator-workflows/.github/workflows/integration_test.yaml@charmbuild
     secrets: inherit
     strategy:
       matrix:
