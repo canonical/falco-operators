@@ -8,7 +8,7 @@ on:
 jobs:
   integration-tests:
     uses:
-      canonical/operator-workflows/.github/workflows/integration_test.yaml@charmbuild
+      canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     strategy:
       matrix:
@@ -35,4 +35,4 @@ jobs:
     if: ${{ !cancelled() && github.event_name == 'schedule' }}
     needs:
     - integration-tests
-    uses: canonical/operator-workflows/.github/workflows/allure_report.yaml@charmbuild
+    uses: canonical/operator-workflows/.github/workflows/allure_report.yaml@main
