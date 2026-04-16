@@ -24,9 +24,7 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Con
     Act: Integrate falco charm with the principal charm.
     Assert: Both applications are deployed and active.
     """
-    logger.info(
-        "Deploying %s with constraints: %s", PRINCIPAL_APP, PRINCIAPL_APP_CONSTRAINTS
-    )
+    logger.info("Deploying %s with constraints: %s", PRINCIPAL_APP, PRINCIAPL_APP_CONSTRAINTS)
     juju.deploy(
         PRINCIPAL_APP,
         app=PRINCIPAL_APP,
@@ -129,25 +127,17 @@ def test_remove_integration(juju: jubilant.Juju):
     """
     logger.info("Removing integration between %s and %s", PRINCIPAL_APP, FALCO_APP)
     juju.remove_relation(PRINCIPAL_APP, FALCO_APP)
-    juju.wait(
-        lambda status: status.apps[PRINCIPAL_APP].is_active, timeout=juju.wait_timeout
-    )
+    juju.wait(lambda status: status.apps[PRINCIPAL_APP].is_active, timeout=juju.wait_timeout)
 
     principal_units = juju.status().get_units(PRINCIPAL_APP)
     for unit_name in principal_units:
         logger.info("Checking if falco service is stopped in unit %s", unit_name)
         result = juju.ssh(unit_name, "systemctl is-active falco || echo 'inactive'")
-        assert (
-            "inactive" in result or "failed" in result
-        ), "Falco service should be inactive"
+        assert "inactive" in result or "failed" in result, "Falco service should be inactive"
 
-        logger.info(
-            "Checking if falco systemd service file is removed in unit %s", unit_name
-        )
+        logger.info("Checking if falco systemd service file is removed in unit %s", unit_name)
         result = juju.ssh(
             unit_name,
             "test -f /etc/systemd/system/falco.service && echo 'exists' || echo 'missing'",
         )
-        assert (
-            "missing" in result.strip()
-        ), "Falco systemd service file should be removed"
+        assert "missing" in result.strip(), "Falco systemd service file should be removed"

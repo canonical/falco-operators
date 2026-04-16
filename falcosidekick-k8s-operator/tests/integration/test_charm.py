@@ -35,9 +35,7 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Con
     logger.info("Deploying %s", FALCOSIDEKICK_K8S)
     juju.deploy(
         charm,
-        resources={
-            FALCOSIDEKICK_IMAGE: pytestconfig.getoption("--falcosidekick-image")
-        },
+        resources={FALCOSIDEKICK_IMAGE: pytestconfig.getoption("--falcosidekick-image")},
         app=FALCOSIDEKICK_K8S,
         log=False,
     )
@@ -57,14 +55,10 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Con
     )
 
     logger.info("Relating %s and %s", FALCOSIDEKICK_K8S, GRAFANA_AGENT_K8S)
-    juju.integrate(
-        f"{FALCOSIDEKICK_K8S}:send-loki-logs", f"{GRAFANA_AGENT_K8S}:logging-provider"
-    )
+    juju.integrate(f"{FALCOSIDEKICK_K8S}:send-loki-logs", f"{GRAFANA_AGENT_K8S}:logging-provider")
 
     logger.info("Relating %s and %s", FALCOSIDEKICK_K8S, SELF_SIGNED_CERTIFICATE)
-    juju.integrate(
-        f"{FALCOSIDEKICK_K8S}:certificates", f"{SELF_SIGNED_CERTIFICATE}:certificates"
-    )
+    juju.integrate(f"{FALCOSIDEKICK_K8S}:certificates", f"{SELF_SIGNED_CERTIFICATE}:certificates")
 
     logger.info("Waiting for deployment to settle")
     juju.wait(
@@ -131,10 +125,7 @@ def test_config_change_invalid_port(juju: jubilant.Juju):
 
     status = juju.status()
     assert status.apps[FALCOSIDEKICK_K8S].app_status.current == "blocked"
-    assert (
-        "Invalid charm configuration"
-        in status.apps[FALCOSIDEKICK_K8S].app_status.message
-    )
+    assert "Invalid charm configuration" in status.apps[FALCOSIDEKICK_K8S].app_status.message
 
     logger.info("Resetting charm config")
     juju.config(FALCOSIDEKICK_K8S, reset=["port"], log=False)
