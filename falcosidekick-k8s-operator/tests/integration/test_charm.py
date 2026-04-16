@@ -35,27 +35,36 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Con
     logger.info("Deploying %s", FALCOSIDEKICK_K8S)
     juju.deploy(
         charm,
-        resources={FALCOSIDEKICK_IMAGE: pytestconfig.getoption("--falcosidekick-image")},
+        resources={
+            FALCOSIDEKICK_IMAGE: pytestconfig.getoption("--falcosidekick-image")
+        },
         app=FALCOSIDEKICK_K8S,
+        log=False,
     )
     logger.info("Deploying %s", GRAFANA_AGENT_K8S)
     juju.deploy(
         GRAFANA_AGENT_K8S,
         channel=GRAFANA_AGENT_K8S_CHANNEL,
         revision=GRAFANA_AGENT_K8S_REVISION,
+        log=False,
     )
     logger.info("Deploying %s", SELF_SIGNED_CERTIFICATE)
     juju.deploy(
         SELF_SIGNED_CERTIFICATE,
         channel=SELF_SIGNED_CERTIFICATE_CHANNEL,
         revision=SELF_SIGNED_CERTIFICATE_REVISION,
+        log=False,
     )
 
     logger.info("Relating %s and %s", FALCOSIDEKICK_K8S, GRAFANA_AGENT_K8S)
-    juju.integrate(f"{FALCOSIDEKICK_K8S}:send-loki-logs", f"{GRAFANA_AGENT_K8S}:logging-provider")
+    juju.integrate(
+        f"{FALCOSIDEKICK_K8S}:send-loki-logs", f"{GRAFANA_AGENT_K8S}:logging-provider"
+    )
 
     logger.info("Relating %s and %s", FALCOSIDEKICK_K8S, SELF_SIGNED_CERTIFICATE)
-    juju.integrate(f"{FALCOSIDEKICK_K8S}:certificates", f"{SELF_SIGNED_CERTIFICATE}:certificates")
+    juju.integrate(
+        f"{FALCOSIDEKICK_K8S}:certificates", f"{SELF_SIGNED_CERTIFICATE}:certificates"
+    )
 
     logger.info("Waiting for deployment to settle")
     juju.wait(
@@ -81,7 +90,7 @@ def test_config_change_valid_port(juju: jubilant.Juju):
     Assert: Charm is active after port change and remains active after reset.
     """
     logger.info("Changing port to valid value 8080")
-    juju.config(FALCOSIDEKICK_K8S, {"port": "8080"})
+    juju.config(FALCOSIDEKICK_K8S, {"port": "8080"}, log=False)
 
     logger.info("Waiting for charm to settle after config change")
     juju.wait(
@@ -93,7 +102,7 @@ def test_config_change_valid_port(juju: jubilant.Juju):
     assert status.apps[FALCOSIDEKICK_K8S].app_status.current == "active"
 
     logger.info("Resetting charm config")
-    juju.config(FALCOSIDEKICK_K8S, reset=["port"])
+    juju.config(FALCOSIDEKICK_K8S, reset=["port"], log=False)
 
     logger.info("Waiting for charm to settle after config reset")
     juju.wait(
@@ -112,7 +121,7 @@ def test_config_change_invalid_port(juju: jubilant.Juju):
     Assert: Charm is blocked after invalid port change and active after reset.
     """
     logger.info("Changing port to invalid value 0")
-    juju.config(FALCOSIDEKICK_K8S, {"port": "0"})
+    juju.config(FALCOSIDEKICK_K8S, {"port": "0"}, log=False)
 
     logger.info("Waiting for charm to enter blocked status")
     juju.wait(
@@ -122,10 +131,13 @@ def test_config_change_invalid_port(juju: jubilant.Juju):
 
     status = juju.status()
     assert status.apps[FALCOSIDEKICK_K8S].app_status.current == "blocked"
-    assert "Invalid charm configuration" in status.apps[FALCOSIDEKICK_K8S].app_status.message
+    assert (
+        "Invalid charm configuration"
+        in status.apps[FALCOSIDEKICK_K8S].app_status.message
+    )
 
     logger.info("Resetting charm config")
-    juju.config(FALCOSIDEKICK_K8S, reset=["port"])
+    juju.config(FALCOSIDEKICK_K8S, reset=["port"], log=False)
 
     logger.info("Waiting for charm to return to active status")
     juju.wait(

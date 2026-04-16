@@ -21,7 +21,9 @@ def charm_fixture(pytestconfig: pytest.Config):
 
 
 @pytest.fixture(scope="session", name="juju")
-def juju_fixture(request: pytest.FixtureRequest) -> Generator[jubilant.Juju, None, None]:
+def juju_fixture(
+    request: pytest.FixtureRequest,
+) -> Generator[jubilant.Juju, None, None]:
     """Pytest fixture that wraps :meth:`jubilant.with_model`."""
 
     def show_debug_log(juju: jubilant.Juju):
