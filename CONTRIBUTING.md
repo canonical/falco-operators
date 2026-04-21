@@ -97,89 +97,36 @@ All commits in a pull request must have cryptographic (verified) signatures.
 To add signatures on your commits, follow the
 [GitHub documentation](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).
 
-## Develop
+## Development
 
-To make contributions to this charm, you'll need a working
-[development setup](https://documentation.ubuntu.com/juju/latest/howto/manage-your-juju-deployment/set-up-your-juju-deployment-local-testing-and-development/).
+### Contributing code
 
-The code for this charm can be downloaded as follows:
+Please follow the contribution guideline for each charm or interface to learn more about how to do development:
 
-```
-git clone https://github.com/canonical/falco-operators
-```
+- [`falco-operator`](./falco-operator/CONTRIBUTING.md)
+- [`falcosidekick-k8s-operator`](./falcosidekick-k8s-operator/CONTRIBUTING.md)
+- [`interfaces/falcosidekick_http_endpoint`](./interfaces/falcosidekick_http_endpoint/CONTRIBUTING.md)
 
-Make sure to install [`uv`](https://docs.astral.sh/uv/). For example, you can install `uv` on Ubuntu using:
+### Contributing documentation
 
-```bash
-sudo snap install astral-uv --classic
-```
-
-For other systems, follow the [`uv` installation guide](https://docs.astral.sh/uv/getting-started/installation/).
-
-Then install `tox` with its extensions, and install a range of Python versions:
+If you make changes to any markdown file, please also run the following command in the repository
+**root directory** to validate the documentation changes:
 
 ```bash
-uv python install
-uv tool install tox --with tox-uv
-uv tool update-shell
+make docs-check
 ```
 
-To create a development environment, run:
+The repository also hosted the documentation for Falco operators in the `./docs` directory. It is
+based on the Canonical starter pack and hosted on [Read the Docs](https://about.readthedocs.com/).
+
+If you are contributing to documentation, you should validate the documentation locally before
+submitting your changes:
 
 ```bash
-uv sync --all-groups
-source .venv/bin/activate
+cd docs
+make spelling
+make linkcheck
+make vale
+make lint-md
+make run
 ```
-
-### Test
-
-This project uses `tox` for managing test environments. There are some pre-configured environments
-that can be used for linting and formatting code when you're preparing contributions to the charm:
-
-* ``tox``: Executes all of the basic checks and tests (``lint``, ``unit``, ``static``, and ``coverage-report``).
-* ``tox -e fmt``: Runs formatting using ``ruff``.
-* ``tox -e lint``: Runs a range of static code analysis to check the code.
-* ``tox -e static``: Runs other checks such as ``bandit`` for security issues.
-* ``tox -e unit``: Runs the unit tests.
-* ``tox -e integration``: Runs the integration tests.
-
-### Build the rock and charm
-
-Use [Rockcraft](https://documentation.ubuntu.com/rockcraft/stable/) to create an
-OCI image for the Falco app, and then upload the image to a MicroK8s registry,
-which stores OCI archives so they can be downloaded and deployed.
-
-Enable the MicroK8s registry:
-
-```bash
-microk8s enable registry
-```
-
-The following commands pack the OCI image and push it into
-the MicroK8s registry:
-
-```bash
-cd <project_dir>
-rockcraft pack
-skopeo --insecure-policy copy --dest-tls-verify=false oci-archive:<rock-name>.rock docker://localhost:32000/<app-name>:latest
-```
-
-Build the charm in this git repository using:
-
-```shell
-charmcraft pack
-```
-
-### Deploy
-
-```bash
-# Create a model
-juju add-model charm-dev
-# Enable DEBUG logging
-juju model-config logging-config="<root>=INFO;unit=DEBUG"
-# Deploy the charm
-juju deploy ./falco*.charm 
-```
-
-
-
