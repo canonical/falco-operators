@@ -1,4 +1,5 @@
+AI
 Falco
-monorepo
 falcosidekick
 Falcosidekick
+monorepo
