@@ -20,12 +20,14 @@ services:
     override: replace
     summary: Falcosidekick service
     command: falcosidekick -c /etc/falcosidekick/falcosidekick.yaml
+    on-check-failure:
+      health: restart
+
 
 # See https://github.com/falcosecurity/falcosidekick/tree/master?tab=readme-ov-file#endpoints
 # The port 2801 is the default port, and it can be changed in the configuration file.
 checks:
   health:
-    level: alive
     override: replace
     http:
       url: "http://localhost:2801/healthz"
