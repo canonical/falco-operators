@@ -16,9 +16,11 @@ jobs:
           - charm: "falco"
             provider: "lxd"
             provider-channel: "6/stable"
+            modules: '["test_charm.py"]'
           - charm: "falcosidekick-k8s"
             provider: "k8s"
             provider-channel: "1.34-classic/stable"
+            modules: '["test_charm.py", "test_charm_behind_ingress.py"]'
     with:
       trivy-fs-enabled: true
       trivy-image-config: "trivy.yaml"
@@ -31,6 +33,7 @@ jobs:
       identifier: "${{ matrix.charm }}"
       working-directory: "${{ matrix.charm }}-operator"
       build-context: ".."
+      modules: "${{ matrix.modules }}"
   allure-report:
     if: ${{ !cancelled() && github.event_name == 'schedule' }}
     needs:
