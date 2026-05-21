@@ -5,6 +5,9 @@ on:
   schedule:
   - cron: "0 15 * * SAT"
 
+permissions:
+  packages: write
+
 jobs:
   integration-tests:
     uses:
