@@ -5,14 +5,14 @@ on:
   schedule:
   - cron: "0 15 * * SAT"
 
-permissions:
-  packages: write
-
 jobs:
   integration-tests:
     uses:
       canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         include:
