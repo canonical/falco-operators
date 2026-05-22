@@ -70,7 +70,7 @@ jobs:
           echo "Plugins source cloned at $FALCO_PLUGINS_SOURCE/k8saudit with tag: plugins/k8saudit/v${{ steps.version.outputs.k8saudit_plugin_version }}"
 
       - name: Setup Go
-        uses: actions/setup-go@v6.3.0
+        uses: actions/setup-go@v6.4.0
         with:
           cache: false
           go-version: "1.26"
@@ -144,7 +144,7 @@ jobs:
           mv $TARBALL ${{ github.workspace }}/
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v7.0.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: falco-${{ steps.version.outputs.falco_version }}-${{ steps.version.outputs.arch }}
           path: |
