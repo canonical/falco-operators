@@ -17,7 +17,7 @@ dependencies = [
   "charmlibs-systemd~=1.0",
   "cosl>=1.4.0",
   "jinja2>=3.1.6",
-  "ops==3.6.0",
+  "ops==3.7.0",
   "pfe-interfaces-falcosidekick-http-endpoint",
   "pydantic>=2.12.5",
 ]
@@ -28,7 +28,7 @@ fmt = [
 ]
 lint = [
   "codespell",
-  "jubilant==1.7.0",
+  "jubilant==1.9.0",
   "mypy",
   "pep8-naming",
   "pytest",
@@ -52,7 +52,7 @@ static = [
 integration = [
   "allure-pytest>=2.8.18",
   "allure-pytest-collection-report @ git+https://github.com/canonical/data-platform-workflows@v24.0.0#subdirectory=python/pytest_plugins/allure_pytest_collection_report",
-  "jubilant==1.7.0",
+  "jubilant==1.9.0",
   "pytest",
 ]
 
