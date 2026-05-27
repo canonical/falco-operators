@@ -23,7 +23,6 @@ class TestCharmState:
         Assert: CharmState has correct port value.
         """
         state = CharmState(
-            enable_tls=True,
             http_endpoint_config={"path": "/", "scheme": "https"},
             falcosidekick_listenport=8080,
             falcosidekick_loki_endpoint="/loki/api/v1/push",
@@ -62,7 +61,6 @@ class TestCharmState:
 
         # Assert
         assert state.falcosidekick_listenport == port
-        assert state.enable_tls is True
         mock_charm.load_config.assert_called_once_with(CharmConfig)
 
     @pytest.mark.parametrize(
@@ -158,4 +156,3 @@ class TestCharmState:
         assert state.falcosidekick_loki_endpoint == "/loki/api/v1/push"
         assert state.falcosidekick_loki_hostport == ""
         assert state.falcosidekick_listenport == 2801
-        assert state.enable_tls is True

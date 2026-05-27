@@ -7,9 +7,15 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import ops
+import pytest
 
 from state import CharmState
-from workload import Falcosidekick, FalcosidekickConfigFile, Template
+from workload import (
+    Falcosidekick,
+    FalcosidekickConfigFile,
+    RequireOneOfIngressOrCertificateRelationError,
+    Template,
+)
 
 
 class TestTemplate:
@@ -30,7 +36,7 @@ class TestTemplate:
         mock_container.isdir.return_value = True
 
         template = Template("falcosidekick.yaml.j2", Path("/etc/test.yaml"), mock_container)
-        context = {"charm_state": Mock(falcosidekick_listenport=2801)}
+        context = {"charm_state": Mock(falcosidekick_listenport=2801), "enable_tls": False}
 
         # Act: Install the template
         result = template.install(context)
@@ -39,6 +45,31 @@ class TestTemplate:
         mock_container.push.assert_called_once()
         assert result is True
         assert mock_container.push.call_args[0][0] == Path("/etc/test.yaml")
+        rendered_content = mock_container.push.call_args[0][1]
+        assert "tlsserver" not in rendered_content
+
+    def test_install_template_includes_tlsserver_when_tls_enabled(self):
+        """Test rendered falcosidekick.yaml includes tlsserver block when TLS is enabled.
+
+        Arrange: Set up mock container; provide enable_tls=True in context.
+        Act: Install template.
+        Assert: Rendered content contains the tlsserver key.
+        """
+        mock_container = Mock(spec=ops.Container)
+        mock_pull = Mock()
+        mock_pull.read.return_value = "old content"
+        mock_container.pull.return_value = mock_pull
+        mock_container.isdir.return_value = True
+
+        template = Template("falcosidekick.yaml.j2", Path("/etc/test.yaml"), mock_container)
+        context = {"charm_state": Mock(falcosidekick_listenport=2801), "enable_tls": True}
+
+        # Act: Install the template
+        template.install(context)
+
+        # Assert: Rendered content includes the tlsserver block
+        rendered_content = mock_container.push.call_args[0][1]
+        assert "tlsserver" in rendered_content
 
     def test_install_template_ok_no_changes(self):
         """Test template installation when configuration hasn't changed.
@@ -134,7 +165,6 @@ class TestFalcosidekick:
         with patch.object(FalcosidekickConfigFile, "install", return_value=True):
             falcosidekick = Falcosidekick(mock_charm)
             charm_state = CharmState(
-                enable_tls=True,
                 http_endpoint_config={"path": "/", "scheme": "https"},
                 falcosidekick_listenport=2801,
                 falcosidekick_loki_endpoint="/loki/api/v1/push",
@@ -183,7 +213,6 @@ class TestFalcosidekick:
         with patch.object(FalcosidekickConfigFile, "install", return_value=False):
             falcosidekick = Falcosidekick(mock_charm)
             charm_state = CharmState(
-                enable_tls=True,
                 http_endpoint_config={"path": "/", "scheme": "https"},
                 falcosidekick_listenport=2801,
                 falcosidekick_loki_endpoint="/loki/api/v1/push",
@@ -215,6 +244,80 @@ class TestFalcosidekick:
                 path="/", scheme="https"
             )
 
+    def test_configure_raises_when_neither_relation_established(self):
+        """Test configure raises when neither TLS certificate nor ingress relation is established.
+
+        Arrange: Set up mock charm with healthy container; both TLS and ingress absent.
+        Act: Configure workload.
+        Assert: RequireOneOfIngressOrCertificateRelationError is raised.
+        """
+        mock_charm = Mock(spec=ops.CharmBase)
+        mock_container = Mock(spec=ops.Container)
+        mock_container.can_connect.return_value = True
+        mock_charm.unit.get_container.return_value = mock_container
+
+        falcosidekick = Falcosidekick(mock_charm)
+        charm_state = CharmState(
+            http_endpoint_config={"path": "/", "scheme": "https"},
+            falcosidekick_listenport=2801,
+            falcosidekick_loki_endpoint="/loki/api/v1/push",
+            falcosidekick_loki_hostport="http://loki:3100",
+        )
+        mock_http_output_provider = Mock()
+        mock_tls_requirer = Mock()
+        mock_tls_requirer.is_created.return_value = False
+        mock_ingress_requirer = Mock()
+        mock_ingress_requirer.relation = None
+        mock_metrics_endpoint_provider = Mock()
+        mock_container.get_services.return_value = {}
+        mock_container.get_checks.return_value = {}
+
+        with pytest.raises(RequireOneOfIngressOrCertificateRelationError):
+            falcosidekick.configure(
+                charm_state,
+                mock_http_output_provider,
+                mock_tls_requirer,
+                mock_ingress_requirer,
+                mock_metrics_endpoint_provider,
+            )
+
+    def test_configure_raises_when_both_relations_established(self):
+        """Test configure raises when both TLS certificate and ingress relations are established.
+
+        Arrange: Set up mock charm with healthy container; both TLS and ingress present.
+        Act: Configure workload.
+        Assert: RequireOneOfIngressOrCertificateRelationError is raised.
+        """
+        mock_charm = Mock(spec=ops.CharmBase)
+        mock_container = Mock(spec=ops.Container)
+        mock_container.can_connect.return_value = True
+        mock_charm.unit.get_container.return_value = mock_container
+
+        falcosidekick = Falcosidekick(mock_charm)
+        charm_state = CharmState(
+            http_endpoint_config={"path": "/", "scheme": "https"},
+            falcosidekick_listenport=2801,
+            falcosidekick_loki_endpoint="/loki/api/v1/push",
+            falcosidekick_loki_hostport="http://loki:3100",
+        )
+        mock_http_output_provider = Mock()
+        mock_tls_requirer = Mock()
+        mock_tls_requirer.is_created.return_value = True
+        mock_ingress_requirer = Mock()
+        mock_ingress_requirer.relation = Mock()  # relation exists
+        mock_metrics_endpoint_provider = Mock()
+        mock_container.get_services.return_value = {}
+        mock_container.get_checks.return_value = {}
+
+        with pytest.raises(RequireOneOfIngressOrCertificateRelationError):
+            falcosidekick.configure(
+                charm_state,
+                mock_http_output_provider,
+                mock_tls_requirer,
+                mock_ingress_requirer,
+                mock_metrics_endpoint_provider,
+            )
+
     def test_configure_container_not_ready(self):
         """Test Falcosidekick configuration when container is not ready.
 
@@ -230,7 +333,6 @@ class TestFalcosidekick:
 
         falcosidekick = Falcosidekick(mock_charm)
         charm_state = CharmState(
-            enable_tls=True,
             http_endpoint_config={"path": "/", "scheme": "https"},
             falcosidekick_listenport=2801,
             falcosidekick_loki_endpoint="/loki/api/v1/push",

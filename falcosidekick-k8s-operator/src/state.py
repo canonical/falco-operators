@@ -25,14 +25,12 @@ class CharmState(BaseModel):
     the charm configuration and other sources.
 
     Attributes:
-        enable_tls: Whether TLS is enabled for the Falcosidekick workload.
         http_endpoint_config: The HTTP endpoint configuration dictionary.
         falcosidekick_listenport: The port on which Falcosidekick listens.
         falcosidekick_loki_endpoint: The URL of the Loki push API endpoint.
         falcosidekick_loki_hostport: The host and port of the Loki push API endpoint.
     """
 
-    enable_tls: bool
     http_endpoint_config: dict
     falcosidekick_listenport: int
     falcosidekick_loki_endpoint: str
@@ -67,7 +65,6 @@ class CharmState(BaseModel):
             _url = _get_loki_ingress_endpoint(loki_push_api_consumer)
             loki_endpoint = _url.path if _url and _url.path else "/loki/api/v1/push"
             loki_hostport = f"{_url.scheme}://{_url.host}:{_url.port}" if _url else ""
-            enable_tls = True
             http_endpoint_config = {
                 "path": "/",
                 "scheme": "https",
@@ -77,7 +74,6 @@ class CharmState(BaseModel):
             }
             if ingress_requirer.is_ready():
                 ingress_url = HttpUrl(ingress_requirer.url)
-                enable_tls = False  # TLS is handled by ingress
                 http_endpoint_config.update(
                     {
                         "path": ingress_url.path,
@@ -93,7 +89,6 @@ class CharmState(BaseModel):
             error_field_str = " ".join(f"{f}" for f in error_fields)
             raise InvalidCharmConfigError(f"Invalid charm configuration: {error_field_str}") from e
         return cls(
-            enable_tls=enable_tls,
             http_endpoint_config=http_endpoint_config,
             falcosidekick_listenport=charm_config.port,
             falcosidekick_loki_endpoint=loki_endpoint,
@@ -128,7 +123,9 @@ class CharmBaseWithState(ops.CharmBase, ABC):
         """
 
 
-def _get_loki_ingress_endpoint(loki_push_api_consumer: LokiPushApiConsumer) -> Optional[HttpUrl]:
+def _get_loki_ingress_endpoint(
+    loki_push_api_consumer: LokiPushApiConsumer,
+) -> Optional[HttpUrl]:
     """Get the first encounter Loki ingress endpoint.
 
     Args:

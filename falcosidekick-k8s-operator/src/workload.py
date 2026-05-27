@@ -148,7 +148,6 @@ class Falcosidekick:
         return {
             "checks": {
                 "health": {
-                    "level": "alive",
                     "override": "replace",
                     "http": {"url": f"http://localhost:{port}/healthz"},
                 }
@@ -214,9 +213,10 @@ class Falcosidekick:
                 "send-loki-logs relation is missing; Falcosidekick requires at least one output"
             )
 
-        if not (
-            tls_certificate_requirer.is_created() ^ bool(ingress_requirer.relation is not None)
-        ):
+        tls_relation = tls_certificate_requirer.is_created()
+        ingress_relation = ingress_requirer.relation is not None
+
+        if not (tls_relation ^ ingress_relation):
             self._stop_all()
             raise RequireOneOfIngressOrCertificateRelationError(
                 "only one of [certificates|ingress] relation is required but not both or none"
@@ -236,14 +236,14 @@ class Falcosidekick:
         cert_changed = tls_certificate_requirer.configure(container=self.container)
 
         # Install configuration file
-        changed = self.config_file.install(context={"charm_state": charm_state})
+        changed = self.config_file.install(
+            context={"charm_state": charm_state, "enable_tls": tls_relation}
+        )
         if not changed and not cert_changed:
             logger.warning("Configuration or certificate not changed; skipping reconfiguration")
             return
 
-        listen_port = (
-            NO_TLS_PORT if charm_state.enable_tls else charm_state.falcosidekick_listenport
-        )
+        listen_port = NO_TLS_PORT if ingress_relation else charm_state.falcosidekick_listenport
         metrics_endpoint_provider.update_scrape_job_spec(
             [{"static_configs": [{"targets": [f"*:{listen_port}"]}]}]
         )
