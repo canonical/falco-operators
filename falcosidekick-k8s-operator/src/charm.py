@@ -111,6 +111,7 @@ class FalcosidekickCharm(CharmBaseWithState):
                 self,
                 self.loki_push_api_consumer,
                 self.ingress_requirer,
+                self.tls_certificate_requirer,
             )
         return self._state
 
@@ -143,11 +144,15 @@ class FalcosidekickCharm(CharmBaseWithState):
 
         try:
             logger.info("Configuring '%s' workload", self.falcosidekick.container_name)
+            self.ingress_requirer.provide_ingress_requirements(
+                scheme="https",
+                host=self.model.app.name,
+                port=self.state.falcosidekick_listenport,
+            )
             self.falcosidekick.configure(
                 self.state,
                 self.http_endpoint_provider,
                 self.tls_certificate_requirer,
-                self.ingress_requirer,
                 self.prometheus_metrics_endpoint_provider,
             )
         except InvalidCharmConfigError as e:

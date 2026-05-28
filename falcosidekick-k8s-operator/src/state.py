@@ -13,6 +13,7 @@ from charms.loki_k8s.v1.loki_push_api import LokiPushApiConsumer
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from pydantic import BaseModel, HttpUrl, ValidationError
 
+from certificates import TlsCertificateRequirer
 from config import CharmConfig, InvalidCharmConfigError
 
 logger = logging.getLogger(__name__)
@@ -25,12 +26,16 @@ class CharmState(BaseModel):
     the charm configuration and other sources.
 
     Attributes:
+        tls_relation: Whether the TLS certificate relation is established.
+        ingress_relation: Whether the ingress relation is present.
         http_endpoint_config: The HTTP endpoint configuration dictionary.
         falcosidekick_listenport: The port on which Falcosidekick listens.
         falcosidekick_loki_endpoint: The URL of the Loki push API endpoint.
         falcosidekick_loki_hostport: The host and port of the Loki push API endpoint.
     """
 
+    tls_relation: bool
+    ingress_relation: bool
     http_endpoint_config: dict
     falcosidekick_listenport: int
     falcosidekick_loki_endpoint: str
@@ -42,6 +47,7 @@ class CharmState(BaseModel):
         charm: ops.CharmBase,
         loki_push_api_consumer: LokiPushApiConsumer,
         ingress_requirer: IngressPerAppRequirer,
+        tls_certificate_requirer: TlsCertificateRequirer,
     ) -> "CharmState":
         """Create a CharmState from a charm instance.
 
@@ -52,6 +58,7 @@ class CharmState(BaseModel):
             charm: The charm instance from which to extract state.
             loki_push_api_consumer: The LokiPushApiConsumer instance to get Loki relation data.
             ingress_requirer: The IngressPerAppRequirer instance to get ingress relation data.
+            tls_certificate_requirer: The TlsCertificateRequirer instance to get TLS relation data.
 
         Returns:
             CharmState: A validated CharmState instance.
@@ -65,6 +72,8 @@ class CharmState(BaseModel):
             _url = _get_loki_ingress_endpoint(loki_push_api_consumer)
             loki_endpoint = _url.path if _url and _url.path else "/loki/api/v1/push"
             loki_hostport = f"{_url.scheme}://{_url.host}:{_url.port}" if _url else ""
+            tls_relation = tls_certificate_requirer.is_created()
+            ingress_relation = ingress_requirer.relation is not None
             http_endpoint_config = {
                 "path": "/",
                 "scheme": "https",
@@ -89,6 +98,8 @@ class CharmState(BaseModel):
             error_field_str = " ".join(f"{f}" for f in error_fields)
             raise InvalidCharmConfigError(f"Invalid charm configuration: {error_field_str}") from e
         return cls(
+            tls_relation=tls_relation,
+            ingress_relation=ingress_relation,
             http_endpoint_config=http_endpoint_config,
             falcosidekick_listenport=charm_config.port,
             falcosidekick_loki_endpoint=loki_endpoint,

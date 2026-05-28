@@ -165,6 +165,8 @@ class TestFalcosidekick:
         with patch.object(FalcosidekickConfigFile, "install", return_value=True):
             falcosidekick = Falcosidekick(mock_charm)
             charm_state = CharmState(
+                tls_relation=True,
+                ingress_relation=False,
                 http_endpoint_config={"path": "/", "scheme": "https"},
                 falcosidekick_listenport=2801,
                 falcosidekick_loki_endpoint="/loki/api/v1/push",
@@ -173,9 +175,6 @@ class TestFalcosidekick:
             mock_http_output_provider = Mock()
             mock_tls_requirer = Mock()
             mock_tls_requirer.configure.return_value = False
-            mock_tls_requirer.is_created.return_value = True
-            mock_ingress_requirer = Mock()
-            mock_ingress_requirer.relation = None
 
             mock_metrics_endpoint_provider = Mock()
 
@@ -184,7 +183,6 @@ class TestFalcosidekick:
                 charm_state,
                 mock_http_output_provider,
                 mock_tls_requirer,
-                mock_ingress_requirer,
                 mock_metrics_endpoint_provider,
             )
 
@@ -213,6 +211,8 @@ class TestFalcosidekick:
         with patch.object(FalcosidekickConfigFile, "install", return_value=False):
             falcosidekick = Falcosidekick(mock_charm)
             charm_state = CharmState(
+                tls_relation=True,
+                ingress_relation=False,
                 http_endpoint_config={"path": "/", "scheme": "https"},
                 falcosidekick_listenport=2801,
                 falcosidekick_loki_endpoint="/loki/api/v1/push",
@@ -221,9 +221,6 @@ class TestFalcosidekick:
             mock_http_output_provider = Mock()
             mock_tls_requirer = Mock()
             mock_tls_requirer.configure.return_value = False
-            mock_tls_requirer.is_created.return_value = True
-            mock_ingress_requirer = Mock()
-            mock_ingress_requirer.relation = None
             mock_metrics_endpoint_provider = Mock()
 
             # Act: Configure the workload
@@ -231,7 +228,6 @@ class TestFalcosidekick:
                 charm_state,
                 mock_http_output_provider,
                 mock_tls_requirer,
-                mock_ingress_requirer,
                 mock_metrics_endpoint_provider,
             )
 
@@ -258,6 +254,8 @@ class TestFalcosidekick:
 
         falcosidekick = Falcosidekick(mock_charm)
         charm_state = CharmState(
+            tls_relation=False,
+            ingress_relation=False,
             http_endpoint_config={"path": "/", "scheme": "https"},
             falcosidekick_listenport=2801,
             falcosidekick_loki_endpoint="/loki/api/v1/push",
@@ -265,9 +263,6 @@ class TestFalcosidekick:
         )
         mock_http_output_provider = Mock()
         mock_tls_requirer = Mock()
-        mock_tls_requirer.is_created.return_value = False
-        mock_ingress_requirer = Mock()
-        mock_ingress_requirer.relation = None
         mock_metrics_endpoint_provider = Mock()
         mock_container.get_services.return_value = {}
         mock_container.get_checks.return_value = {}
@@ -277,7 +272,6 @@ class TestFalcosidekick:
                 charm_state,
                 mock_http_output_provider,
                 mock_tls_requirer,
-                mock_ingress_requirer,
                 mock_metrics_endpoint_provider,
             )
 
@@ -295,6 +289,8 @@ class TestFalcosidekick:
 
         falcosidekick = Falcosidekick(mock_charm)
         charm_state = CharmState(
+            tls_relation=True,
+            ingress_relation=True,
             http_endpoint_config={"path": "/", "scheme": "https"},
             falcosidekick_listenport=2801,
             falcosidekick_loki_endpoint="/loki/api/v1/push",
@@ -302,9 +298,6 @@ class TestFalcosidekick:
         )
         mock_http_output_provider = Mock()
         mock_tls_requirer = Mock()
-        mock_tls_requirer.is_created.return_value = True
-        mock_ingress_requirer = Mock()
-        mock_ingress_requirer.relation = Mock()  # relation exists
         mock_metrics_endpoint_provider = Mock()
         mock_container.get_services.return_value = {}
         mock_container.get_checks.return_value = {}
@@ -314,7 +307,6 @@ class TestFalcosidekick:
                 charm_state,
                 mock_http_output_provider,
                 mock_tls_requirer,
-                mock_ingress_requirer,
                 mock_metrics_endpoint_provider,
             )
 
@@ -333,6 +325,8 @@ class TestFalcosidekick:
 
         falcosidekick = Falcosidekick(mock_charm)
         charm_state = CharmState(
+            tls_relation=False,
+            ingress_relation=False,
             http_endpoint_config={"path": "/", "scheme": "https"},
             falcosidekick_listenport=2801,
             falcosidekick_loki_endpoint="/loki/api/v1/push",
@@ -340,7 +334,6 @@ class TestFalcosidekick:
         )
         mock_http_output_provider = Mock()
         mock_tls_requirer = Mock()
-        mock_ingress_requirer = Mock()
         mock_metrics_endpoint_provider = Mock()
 
         # Act: Attempt to configure the workload
@@ -349,7 +342,6 @@ class TestFalcosidekick:
                 charm_state,
                 mock_http_output_provider,
                 mock_tls_requirer,
-                mock_ingress_requirer,
                 mock_metrics_endpoint_provider,
             )
 
