@@ -4,22 +4,23 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
+    - main
 
 jobs:
   publish-to-edge:
     uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
     secrets: inherit
     permissions:
-      contents: read
+      contents: write
       packages: write
+      actions: read
     strategy:
       matrix:
         include:
-          - charm: "falco"
-            channel: "0.42/edge"
-          - charm: "falcosidekick-k8s"
-            channel: "2/edge"
+        - charm: "falco"
+          channel: "0.42/edge"
+        - charm: "falcosidekick-k8s"
+          channel: "2/edge"
     with:
       channel: ${{ matrix.channel }}
       identifier: ${{ matrix.charm }}
