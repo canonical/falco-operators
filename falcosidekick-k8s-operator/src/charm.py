@@ -17,11 +17,10 @@ from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointProvider
 
 from certificates import TlsCertificateRequirer
 from config import InvalidCharmConfigError
-from state import CharmBaseWithState, CharmState
+from state import CharmBaseWithState, CharmState, RequireOneOfIngressOrCertificateRelationError
 from workload import (
     Falcosidekick,
     MissingLokiRelationError,
-    RequireOneOfIngressOrCertificateRelationError,
 )
 
 logger = logging.getLogger(__name__)

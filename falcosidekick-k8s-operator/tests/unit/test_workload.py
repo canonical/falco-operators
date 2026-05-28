@@ -7,13 +7,11 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import ops
-import pytest
 
 from state import CharmState
 from workload import (
     Falcosidekick,
     FalcosidekickConfigFile,
-    RequireOneOfIngressOrCertificateRelationError,
     Template,
 )
 
@@ -238,76 +236,6 @@ class TestFalcosidekick:
             # But http output info should still be set
             mock_http_output_provider.update_config.assert_called_once_with(
                 path="/", scheme="https"
-            )
-
-    def test_configure_raises_when_neither_relation_established(self):
-        """Test configure raises when neither TLS certificate nor ingress relation is established.
-
-        Arrange: Set up mock charm with healthy container; both TLS and ingress absent.
-        Act: Configure workload.
-        Assert: RequireOneOfIngressOrCertificateRelationError is raised.
-        """
-        mock_charm = Mock(spec=ops.CharmBase)
-        mock_container = Mock(spec=ops.Container)
-        mock_container.can_connect.return_value = True
-        mock_charm.unit.get_container.return_value = mock_container
-
-        falcosidekick = Falcosidekick(mock_charm)
-        charm_state = CharmState(
-            tls_relation=False,
-            ingress_relation=False,
-            http_endpoint_config={"path": "/", "scheme": "https"},
-            falcosidekick_listenport=2801,
-            falcosidekick_loki_endpoint="/loki/api/v1/push",
-            falcosidekick_loki_hostport="http://loki:3100",
-        )
-        mock_http_output_provider = Mock()
-        mock_tls_requirer = Mock()
-        mock_metrics_endpoint_provider = Mock()
-        mock_container.get_services.return_value = {}
-        mock_container.get_checks.return_value = {}
-
-        with pytest.raises(RequireOneOfIngressOrCertificateRelationError):
-            falcosidekick.configure(
-                charm_state,
-                mock_http_output_provider,
-                mock_tls_requirer,
-                mock_metrics_endpoint_provider,
-            )
-
-    def test_configure_raises_when_both_relations_established(self):
-        """Test configure raises when both TLS certificate and ingress relations are established.
-
-        Arrange: Set up mock charm with healthy container; both TLS and ingress present.
-        Act: Configure workload.
-        Assert: RequireOneOfIngressOrCertificateRelationError is raised.
-        """
-        mock_charm = Mock(spec=ops.CharmBase)
-        mock_container = Mock(spec=ops.Container)
-        mock_container.can_connect.return_value = True
-        mock_charm.unit.get_container.return_value = mock_container
-
-        falcosidekick = Falcosidekick(mock_charm)
-        charm_state = CharmState(
-            tls_relation=True,
-            ingress_relation=True,
-            http_endpoint_config={"path": "/", "scheme": "https"},
-            falcosidekick_listenport=2801,
-            falcosidekick_loki_endpoint="/loki/api/v1/push",
-            falcosidekick_loki_hostport="http://loki:3100",
-        )
-        mock_http_output_provider = Mock()
-        mock_tls_requirer = Mock()
-        mock_metrics_endpoint_provider = Mock()
-        mock_container.get_services.return_value = {}
-        mock_container.get_checks.return_value = {}
-
-        with pytest.raises(RequireOneOfIngressOrCertificateRelationError):
-            falcosidekick.configure(
-                charm_state,
-                mock_http_output_provider,
-                mock_tls_requirer,
-                mock_metrics_endpoint_provider,
             )
 
     def test_configure_container_not_ready(self):

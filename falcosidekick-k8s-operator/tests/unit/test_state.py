@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from config import CharmConfig, InvalidCharmConfigError
-from state import CharmState
+from state import CharmState, RequireOneOfIngressOrCertificateRelationError
 
 
 class TestCharmState:
@@ -178,3 +178,37 @@ class TestCharmState:
         assert state.falcosidekick_loki_endpoint == "/loki/api/v1/push"
         assert state.falcosidekick_loki_hostport == ""
         assert state.falcosidekick_listenport == 2801
+
+    @pytest.mark.parametrize(
+        "tls_created, ingress_present",
+        [
+            (False, False),  # neither relation
+            (True, True),  # both relations
+        ],
+    )
+    def test_from_charm_raises_when_tls_and_ingress_xor_violated(
+        self, tls_created, ingress_present
+    ):
+        """Test CharmState.from_charm raises when TLS and ingress XOR constraint is violated.
+
+        Arrange: Set up mock charm with TLS and ingress relation state violating XOR.
+        Act: Create CharmState from charm.
+        Assert: RequireOneOfIngressOrCertificateRelationError is raised.
+        """
+        mock_charm = MagicMock()
+        mock_charm.load_config.return_value = CharmConfig(port=2801)
+
+        mock_loki_relation = MagicMock()
+        mock_loki_relation.loki_endpoints = []
+
+        mock_ingress_requirer = MagicMock()
+        mock_ingress_requirer.is_ready.return_value = False
+        mock_ingress_requirer.relation = MagicMock() if ingress_present else None
+
+        mock_tls_requirer = MagicMock()
+        mock_tls_requirer.is_created.return_value = tls_created
+
+        with pytest.raises(RequireOneOfIngressOrCertificateRelationError):
+            CharmState.from_charm(
+                mock_charm, mock_loki_relation, mock_ingress_requirer, mock_tls_requirer
+            )

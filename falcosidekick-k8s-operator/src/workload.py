@@ -24,10 +24,6 @@ class MissingLokiRelationError(Exception):
     """Exception raised when the Loki relation is missing."""
 
 
-class RequireOneOfIngressOrCertificateRelationError(Exception):
-    """Exception raised when the not one of ingress or certificate relation exists."""
-
-
 class Template:
     """Template file manager.
 
@@ -198,7 +194,6 @@ class Falcosidekick:
 
         Raises:
             MissingLokiRelationError: If the Loki relation is missing.
-            RequireOneOfIngressOrCertificateRelationError: If not one of ingress or certificate relation exists.
         """
         if not self.ready:
             logger.warning("Cannot configure; container is not ready")
@@ -208,12 +203,6 @@ class Falcosidekick:
             self._stop_all()
             raise MissingLokiRelationError(
                 "send-loki-logs relation is missing; Falcosidekick requires at least one output"
-            )
-
-        if not (charm_state.tls_relation ^ charm_state.ingress_relation):
-            self._stop_all()
-            raise RequireOneOfIngressOrCertificateRelationError(
-                "only one of [certificates|ingress] relation is required but not both or none"
             )
 
         # Set http output information idempotently

@@ -19,6 +19,10 @@ from config import CharmConfig, InvalidCharmConfigError
 logger = logging.getLogger(__name__)
 
 
+class RequireOneOfIngressOrCertificateRelationError(Exception):
+    """Exception raised when not exactly one of ingress or certificate relation exists."""
+
+
 class CharmState(BaseModel):
     """The pydantic model for charm state.
 
@@ -65,7 +69,8 @@ class CharmState(BaseModel):
 
         Raises:
             InvalidCharmConfigError: If configuration validation fails.
-            InvalidStateError: If relation data is invalid.
+            RequireOneOfIngressOrCertificateRelationError: If not exactly one of ingress or
+                certificate relation is present.
         """
         try:
             charm_config = charm.load_config(CharmConfig)
@@ -97,6 +102,10 @@ class CharmState(BaseModel):
             error_fields = set(itertools.chain.from_iterable(err["loc"] for err in e.errors()))
             error_field_str = " ".join(f"{f}" for f in error_fields)
             raise InvalidCharmConfigError(f"Invalid charm configuration: {error_field_str}") from e
+        if not (tls_relation ^ ingress_relation):
+            raise RequireOneOfIngressOrCertificateRelationError(
+                "only one of [certificates|ingress] relation is required but not both or none"
+            )
         return cls(
             tls_relation=tls_relation,
             ingress_relation=ingress_relation,
