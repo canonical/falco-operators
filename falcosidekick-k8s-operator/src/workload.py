@@ -230,7 +230,9 @@ class Falcosidekick:
             logger.warning("Configuration or certificate not changed; skipping reconfiguration")
             return
 
-        listen_port = NO_TLS_PORT if charm_state.ingress_relation else charm_state.falcosidekick_listenport
+        listen_port = (
+            NO_TLS_PORT if charm_state.ingress_relation else charm_state.falcosidekick_listenport
+        )
         metrics_endpoint_provider.update_scrape_job_spec(
             [{"static_configs": [{"targets": [f"*:{listen_port}"]}]}]
         )
