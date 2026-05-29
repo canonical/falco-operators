@@ -7,7 +7,9 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import ops
+from ops import testing
 
+from charm import FalcosidekickCharm
 from state import CharmState
 from workload import (
     Falcosidekick,
@@ -48,28 +50,32 @@ class TestTemplate:
         rendered_content = mock_container.push.call_args[0][1]
         assert "tlsserver" not in rendered_content
 
-    def test_install_template_includes_tlsserver_when_tls_enabled(self):
+    def test_install_template_includes_tlsserver_when_tls_enabled(
+        self,
+        loki_relation,
+        certificates_relation,
+        metrics_endpoint_relation,
+    ):
         """Test rendered falcosidekick.yaml includes tlsserver block when TLS is enabled.
 
-        Arrange: Set up mock container; provide tls_relation=True in context.
-        Act: Install template.
-        Assert: Rendered content contains the tlsserver key.
+        Arrange: Set up a scenario state with a certificates relation present.
+        Act: Run config_changed event.
+        Assert: Pushed config file contains the tlsserver key.
         """
-        mock_container = Mock(spec=ops.Container)
-        mock_pull = Mock()
-        mock_pull.read.return_value = "old content"
-        mock_container.pull.return_value = mock_pull
-        mock_container.isdir.return_value = True
+        ctx = testing.Context(FalcosidekickCharm)
+        container = testing.Container(Falcosidekick.container_name, can_connect=True)  # type: ignore
+        state_in = testing.State(
+            containers=[container],
+            relations=[loki_relation, certificates_relation, metrics_endpoint_relation],
+        )
 
-        template = Template("falcosidekick.yaml.j2", Path("/etc/test.yaml"), mock_container)
-        context = {"charm_state": Mock(falcosidekick_listenport=2801, tls_relation=True)}
+        state_out = ctx.run(ctx.on.config_changed(), state_in)
 
-        # Act: Install the template
-        template.install(context)
-
-        # Assert: Rendered content includes the tlsserver block
-        rendered_content = mock_container.push.call_args[0][1]
-        assert "tlsserver" in rendered_content
+        out_container = state_out.get_container(Falcosidekick.container_name)
+        config_path = out_container.get_filesystem(
+            ctx
+        ) / FalcosidekickConfigFile.config_file.relative_to("/")
+        assert "tlsserver" in config_path.read_text()
 
     def test_install_template_ok_no_changes(self):
         """Test template installation when configuration hasn't changed.
