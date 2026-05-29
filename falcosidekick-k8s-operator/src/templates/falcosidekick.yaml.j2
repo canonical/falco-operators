@@ -11,7 +11,7 @@
 listenport: {{ charm_state.falcosidekick_listenport }}
 listenaddress: "" # ip address to bind falcosidekick to (default: "" meaning all addresses)
 
-{% if enable_tls -%}
+{% if charm_state.tls_relation -%}
 tlsserver:
   deploy: true
   keyfile: "/etc/falcosidekick/certs/server/server.key"

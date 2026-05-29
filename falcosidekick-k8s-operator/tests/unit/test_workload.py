@@ -34,7 +34,9 @@ class TestTemplate:
         mock_container.isdir.return_value = True
 
         template = Template("falcosidekick.yaml.j2", Path("/etc/test.yaml"), mock_container)
-        context = {"charm_state": Mock(falcosidekick_listenport=2801), "enable_tls": False}
+        context = {
+            "charm_state": Mock(falcosidekick_listenport=2801, tls_relation=None),
+        }
 
         # Act: Install the template
         result = template.install(context)
@@ -49,7 +51,7 @@ class TestTemplate:
     def test_install_template_includes_tlsserver_when_tls_enabled(self):
         """Test rendered falcosidekick.yaml includes tlsserver block when TLS is enabled.
 
-        Arrange: Set up mock container; provide enable_tls=True in context.
+        Arrange: Set up mock container; provide tls_relation=True in context.
         Act: Install template.
         Assert: Rendered content contains the tlsserver key.
         """
@@ -60,7 +62,7 @@ class TestTemplate:
         mock_container.isdir.return_value = True
 
         template = Template("falcosidekick.yaml.j2", Path("/etc/test.yaml"), mock_container)
-        context = {"charm_state": Mock(falcosidekick_listenport=2801), "enable_tls": True}
+        context = {"charm_state": Mock(falcosidekick_listenport=2801, tls_relation=True)}
 
         # Act: Install the template
         template.install(context)

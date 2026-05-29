@@ -212,9 +212,7 @@ class Falcosidekick:
         cert_changed = tls_certificate_requirer.configure(container=self.container)
 
         # Install configuration file
-        changed = self.config_file.install(
-            context={"charm_state": charm_state, "enable_tls": charm_state.tls_relation}
-        )
+        changed = self.config_file.install(context={"charm_state": charm_state})
         if not changed and not cert_changed:
             logger.warning("Configuration or certificate not changed; skipping reconfiguration")
             return
