@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2025 Canonical Ltd.
+# Copyright 2026 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 """Integration tests."""
@@ -21,7 +21,7 @@ FALCOSIDEKICK_IMAGE = "falcosidekick-image"
 
 INGRESS_CHARM = "ingress-configurator"
 INGRESS_CHARM_CHANNEL = "stable"
-INGRESS_CHARM_REVISION = 25
+INGRESS_CHARM_REVISION = 78
 
 DEPLOY_TIMEOUT = 10 * 60
 
