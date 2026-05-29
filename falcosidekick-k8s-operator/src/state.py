@@ -74,38 +74,41 @@ class CharmState(BaseModel):
         """
         try:
             charm_config = charm.load_config(CharmConfig)
-            _url = _get_loki_ingress_endpoint(loki_push_api_consumer)
-            loki_endpoint = _url.path if _url and _url.path else "/loki/api/v1/push"
-            loki_hostport = f"{_url.scheme}://{_url.host}:{_url.port}" if _url else ""
-            tls_relation = tls_certificate_requirer.is_created()
-            ingress_relation = ingress_requirer.relation is not None
-            http_endpoint_config = {
-                "path": "/",
-                "scheme": "https",
-                "set_ports": True,
-                "hostname": None,
-                "listen_port": charm_config.port,
-            }
-            if ingress_requirer.is_ready():
-                ingress_url = HttpUrl(ingress_requirer.url)
-                http_endpoint_config.update(
-                    {
-                        "path": ingress_url.path,
-                        "scheme": ingress_url.scheme,
-                        "set_ports": False,
-                        "hostname": ingress_url.host,
-                        "listen_port": ingress_url.port,
-                    }
-                )
         except ValidationError as e:
             logger.error("Configuration validation error: %s", e)
             error_fields = set(itertools.chain.from_iterable(err["loc"] for err in e.errors()))
             error_field_str = " ".join(f"{f}" for f in error_fields)
             raise InvalidCharmConfigError(f"Invalid charm configuration: {error_field_str}") from e
+
+        tls_relation = tls_certificate_requirer.is_created()
+        ingress_relation = ingress_requirer.relation is not None
         if not (tls_relation ^ ingress_relation):
             raise RequireOneOfIngressOrCertificateRelationError(
                 "only one of [certificates|ingress] relation is required but not both or none"
             )
+
+        _url = _get_loki_ingress_endpoint(loki_push_api_consumer)
+        loki_endpoint = _url.path if _url and _url.path else "/loki/api/v1/push"
+        loki_hostport = f"{_url.scheme}://{_url.host}:{_url.port}" if _url else ""
+        http_endpoint_config = {
+            "path": "/",
+            "scheme": "https",
+            "set_ports": True,
+            "hostname": None,
+            "listen_port": charm_config.port,
+        }
+        if ingress_requirer.is_ready():
+            ingress_url = HttpUrl(ingress_requirer.url)
+            http_endpoint_config.update(
+                {
+                    "path": ingress_url.path,
+                    "scheme": ingress_url.scheme,
+                    "set_ports": False,
+                    "hostname": ingress_url.host,
+                    "listen_port": ingress_url.port,
+                }
+            )
+
         return cls(
             tls_relation=tls_relation,
             ingress_relation=ingress_relation,
