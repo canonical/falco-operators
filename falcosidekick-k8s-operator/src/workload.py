@@ -24,6 +24,10 @@ class MissingLokiRelationError(Exception):
     """Exception raised when the Loki relation is missing."""
 
 
+class WorkloadNotStartingError(Exception):
+    """Exception raised when the workload is not starting."""
+
+
 class Template:
     """Template file manager.
 
@@ -224,7 +228,13 @@ class Falcosidekick:
             [{"static_configs": [{"targets": [f"*:{listen_port}"]}]}]
         )
         self._configure_healthchecks(listen_port)
-        self.container.replan()
+
+        try:
+            self.container.replan()
+        except ops.pebble.ChangeError as change_error:
+            raise WorkloadNotStartingError(
+                "Failed to start workload after configuration changes"
+            ) from change_error
 
         for service_name in self.container.get_services():
             logger.debug(f"Restarting {service_name} in {self.container_name}")
