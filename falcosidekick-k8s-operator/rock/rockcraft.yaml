@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 name: falcosidekick
-# renovate: base: ubuntu:26.04@sha256:5e275723f82c67e387ba9e3c24baa0abdcb268917f276a0561c97bef9450d0b4
+# renovate: base: ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64
 base: ubuntu@24.04
 adopt-info: "falcosidekick"
 summary: Falcosidekick - Connect Falco to your ecosystem
@@ -20,12 +20,14 @@ services:
     override: replace
     summary: Falcosidekick service
     command: falcosidekick -c /etc/falcosidekick/falcosidekick.yaml
+    on-check-failure:
+      health: restart
+
 
 # See https://github.com/falcosecurity/falcosidekick/tree/master?tab=readme-ov-file#endpoints
 # The port 2801 is the default port, and it can be changed in the configuration file.
 checks:
   health:
-    level: alive
     override: replace
     http:
       url: "http://localhost:2801/healthz"
@@ -35,7 +37,7 @@ parts:
     plugin: go
     source: https://github.com/falcosecurity/falcosidekick.git
     # renovate: depName=falcosecurity/falcosidekick
-    source-tag: "2.33.0"
+    source-tag: "2.34.0"
     build-snaps:
       - go/1.25/stable
     build-packages:

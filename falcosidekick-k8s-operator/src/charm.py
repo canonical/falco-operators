@@ -17,11 +17,15 @@ from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointProvider
 
 from certificates import TlsCertificateRequirer
 from config import InvalidCharmConfigError
-from state import CharmBaseWithState, CharmState
+from state import (
+    CharmBaseWithState,
+    CharmState,
+    RequireOneOfIngressOrCertificateRelationError,
+)
 from workload import (
     Falcosidekick,
     MissingLokiRelationError,
-    RequireOneOfIngressOrCertificateRelationError,
+    WorkloadNotStartingError,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,7 +70,10 @@ class FalcosidekickCharm(CharmBaseWithState):
             self, relation_name=CERTIFICATE_RELATION_NAME
         )
         self.ingress_requirer = IngressPerAppRequirer(
-            self, relation_name=INGRESS_RELATION_NAME, strip_prefix=True, redirect_https=True
+            self,
+            relation_name=INGRESS_RELATION_NAME,
+            strip_prefix=True,
+            redirect_https=True,
         )
         self.grafana_dashboard_provider = GrafanaDashboardProvider(
             self, relation_name=DASHBOARD_RELATION_NAME
@@ -84,7 +91,8 @@ class FalcosidekickCharm(CharmBaseWithState):
             self.loki_push_api_consumer.on.loki_push_api_endpoint_joined, self.reconcile
         )
         self.framework.observe(
-            self.loki_push_api_consumer.on.loki_push_api_endpoint_departed, self.reconcile
+            self.loki_push_api_consumer.on.loki_push_api_endpoint_departed,
+            self.reconcile,
         )
 
         self.framework.observe(
@@ -111,6 +119,7 @@ class FalcosidekickCharm(CharmBaseWithState):
                 self,
                 self.loki_push_api_consumer,
                 self.ingress_requirer,
+                self.tls_certificate_requirer,
             )
         return self._state
 
@@ -143,11 +152,11 @@ class FalcosidekickCharm(CharmBaseWithState):
 
         try:
             logger.info("Configuring '%s' workload", self.falcosidekick.container_name)
+
             self.falcosidekick.configure(
                 self.state,
                 self.http_endpoint_provider,
                 self.tls_certificate_requirer,
-                self.ingress_requirer,
                 self.prometheus_metrics_endpoint_provider,
             )
         except InvalidCharmConfigError as e:
@@ -162,6 +171,16 @@ class FalcosidekickCharm(CharmBaseWithState):
             logger.error("%s", e)
             self.unit.status = ops.BlockedStatus("Required one of: [certificates|ingress]")
             return
+        except WorkloadNotStartingError as e:
+            logger.error("%s", e)
+            self.unit.status = ops.BlockedStatus("Workload failed to start")
+            return
+
+        self.ingress_requirer.provide_ingress_requirements(
+            scheme="https",
+            host=self.model.app.name,
+            port=self.state.falcosidekick_listenport,
+        )
 
         self.unit.status = ops.ActiveStatus()
 
