@@ -27,4 +27,4 @@ jobs:
       channel: ${{ matrix.channel }}
       identifier: ${{ matrix.charm }}
       working-directory: './${{ matrix.charm }}-operator'
-      tag-prefix: ${{ matrix.include.tag-prefix }}
+      tag-prefix: ${{ matrix.tag-prefix }}
