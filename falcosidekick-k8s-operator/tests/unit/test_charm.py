@@ -114,8 +114,9 @@ class TestCharm:
             (True, False, False, ops.BlockedStatus("Required one of: [certificates|ingress]")),
             (False, True, False, ops.BlockedStatus("Required relations: [send-loki-logs]")),
             (False, False, True, ops.BlockedStatus("Required relations: [send-loki-logs]")),
-            (False, True, True, ops.BlockedStatus("Required relations: [send-loki-logs]")),
-            (False, False, False, ops.BlockedStatus("Required relations: [send-loki-logs]")),
+            # XOR check runs at state-creation time, before the loki check in workload
+            (False, True, True, ops.BlockedStatus("Required one of: [certificates|ingress]")),
+            (False, False, False, ops.BlockedStatus("Required one of: [certificates|ingress]")),
         ],
     )
     def test_charm_with_different_required_relations(
