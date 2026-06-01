@@ -19,9 +19,12 @@ jobs:
         include:
           - charm: "falco"
             channel: "0.42/edge"
+            tag-prefix: "falco"
           - charm: "falcosidekick-k8s"
             channel: "2/edge"
+            tag-prefix: "falcosidekick"
     with:
       channel: ${{ matrix.channel }}
       identifier: ${{ matrix.charm }}
       working-directory: './${{ matrix.charm }}-operator'
+      tag-prefix: ${{ matrix.include.tag-prefix }}
