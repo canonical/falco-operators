@@ -11,5 +11,6 @@ providers:
   microk8s:
     enable: true
     bootstrap: true
+    channel: 1.34-strict/stable
     addons:
       - hostpath-storage
