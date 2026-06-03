@@ -1,0 +1,33 @@
+project: falco-operators
+path: /home/ubuntu/proj
+kill-timeout: 60m
+warn-timeout: 1m
+backends:
+  integration-test:
+    type: integration-test
+    systems:
+    - ubuntu-24.04:
+        runner: [self-hosted, noble]
+environment:
+  CONCIERGE: '$(HOST: echo "${CONCIERGE:-concierge.yaml}")'
+  OPCLI_GIT_REF: '$(HOST: echo "${OPCLI_GIT_REF:-main}")'
+exclude:
+- .git
+- .tox
+- .venv
+- .*_cache
+integration-suites:
+  falco-operator/tests/integration/:
+    summary: falco machine charm integration tests
+    cwd: falco-operator/
+    backends:
+    - integration-test
+    environment:
+      CONCIERGE: concierge.yaml
+  falcosidekick-k8s-operator/tests/integration/:
+    summary: falcosidekick k8s charm integration tests
+    cwd: falcosidekick-k8s-operator/
+    backends:
+    - integration-test
+    environment:
+      CONCIERGE: concierge-microk8s.yaml

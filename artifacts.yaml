@@ -1,0 +1,19 @@
+version: 1
+rocks:
+- name: falcosidekick
+  rockcraft-yaml: falcosidekick-k8s-operator/rock/rockcraft.yaml
+  platforms:
+  - arch: amd64
+charms:
+- name: falco
+  charmcraft-yaml: falco-operator/charmcraft.yaml
+  platforms:
+  - arch: amd64
+- name: falcosidekick-k8s
+  charmcraft-yaml: falcosidekick-k8s-operator/charmcraft.yaml
+  resources:
+    falcosidekick-image:
+      type: oci-image
+      rock: falcosidekick
+  platforms:
+  - arch: amd64
