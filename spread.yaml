@@ -33,4 +33,4 @@ integration-suites:
     backends:
     - integration-test
     environment:
-      CONCIERGE: concierge-microk8s.yaml
+      CONCIERGE: concierge-k8s.yaml
