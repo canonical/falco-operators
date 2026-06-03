@@ -10,10 +10,12 @@ rocks:
 charms:
 - name: falco
   charmcraft-yaml: falco-operator/charmcraft.yaml
+  pack-dir: .
   platforms:
   - arch: amd64
 - name: falcosidekick-k8s
   charmcraft-yaml: falcosidekick-k8s-operator/charmcraft.yaml
+  pack-dir: .
   resources:
     falcosidekick-image:
       type: oci-image
