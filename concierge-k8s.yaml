@@ -16,5 +16,4 @@ providers:
       load-balancer:
         l2-mode: "true"
         cidrs: "10.43.45.0/28"
-      local-storage: {}
-      network: {}
+
