@@ -27,6 +27,11 @@ integration-suites:
     - integration-test
     environment:
       CONCIERGE: concierge.yaml
+    pytest-arguments-template: |
+      {% set charm = artifacts.charms | selectattr("name", "equalto", "falco") | first %}
+      {% for build in charm.builds | selectattr("arch", "equalto", arch) %}
+      --charm-file={{ build.path | replace('./', '../', 1) }}
+      {% endfor %}
   falcosidekick-k8s-operator/tests/integration/:
     summary: falcosidekick k8s charm integration tests
     working-dir: falcosidekick-k8s-operator/
@@ -34,3 +39,12 @@ integration-suites:
     - integration-test
     environment:
       CONCIERGE: concierge-k8s.yaml
+    pytest-arguments-template: |
+      {% set charm = artifacts.charms | selectattr("name", "equalto", "falcosidekick-k8s") | first %}
+      {% for build in charm.builds | selectattr("arch", "equalto", arch) %}
+      --charm-file={{ build.path | replace('./', '../', 1) }}
+      {% endfor %}
+      {% set rock = artifacts.rocks | selectattr("name", "equalto", "falcosidekick") | first %}
+      {% for build in rock.builds | selectattr("arch", "equalto", arch) %}
+      --falcosidekick-image={{ build.image or build.file }}
+      {% endfor %}
