@@ -44,6 +44,7 @@ def juju_fixture(request: pytest.FixtureRequest) -> Generator[jubilant.Juju, Non
     model = request.config.getoption("--model")
     if model:
         juju = jubilant.Juju(model=model)
+        juju.wait_timeout = 240
         yield juju
         show_debug_log(juju)
         return
