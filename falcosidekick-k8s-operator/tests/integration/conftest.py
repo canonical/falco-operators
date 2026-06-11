@@ -8,26 +8,12 @@ from collections.abc import Generator
 
 import jubilant
 import pytest
-from opcli.models.artifacts_build import ArtifactsGenerated
-from opcli.pytest_plugin import build_rock_images
 
 
 @pytest.fixture(scope="module", name="charm")
 def charm_fixture(charm_paths):
     """Get the falcosidekick-k8s charm path from built artifacts."""
     return charm_paths["falcosidekick-k8s"].path
-
-
-@pytest.fixture(scope="session")
-def resource_images(opcli_artifacts: ArtifactsGenerated, opcli_build_yaml_path) -> dict[str, str]:
-    """Get OCI resource images for the falcosidekick-k8s charm."""
-    rock_imgs = build_rock_images(opcli_artifacts, opcli_build_yaml_path.parent)
-    charm = next(c for c in opcli_artifacts.charms if c.name == "falcosidekick-k8s")
-    return {
-        res_name: rock_imgs[res.rock]
-        for res_name, res in (charm.resources or {}).items()
-        if res.rock and res.rock in rock_imgs
-    }
 
 
 @pytest.fixture(scope="session", name="juju")
