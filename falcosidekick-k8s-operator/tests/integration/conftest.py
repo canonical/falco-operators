@@ -19,10 +19,15 @@ def charm_fixture(charm_paths):
 
 
 @pytest.fixture(scope="session")
-def falcosidekick_image(opcli_artifacts: ArtifactsGenerated, opcli_build_yaml_path) -> str:
-    """Get the falcosidekick OCI image reference from built artifacts."""
-    images = build_rock_images(opcli_artifacts, opcli_build_yaml_path.parent)
-    return images["falcosidekick"]
+def resource_images(opcli_artifacts: ArtifactsGenerated, opcli_build_yaml_path) -> dict[str, str]:
+    """Get OCI resource images for the falcosidekick-k8s charm."""
+    rock_imgs = build_rock_images(opcli_artifacts, opcli_build_yaml_path.parent)
+    charm = next(c for c in opcli_artifacts.charms if c.name == "falcosidekick-k8s")
+    return {
+        res_name: rock_imgs[res.rock]
+        for res_name, res in (charm.resources or {}).items()
+        if res.rock and res.rock in rock_imgs
+    }
 
 
 @pytest.fixture(scope="session", name="juju")

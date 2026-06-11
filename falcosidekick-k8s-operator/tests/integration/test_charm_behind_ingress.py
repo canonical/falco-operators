@@ -16,7 +16,6 @@ GRAFANA_AGENT_K8S_CHANNEL = "2/stable"
 GRAFANA_AGENT_K8S_REVISION = 181
 
 FALCOSIDEKICK_K8S = "falcosidekick-k8s"
-FALCOSIDEKICK_IMAGE = "falcosidekick-image"
 
 INGRESS_CHARM = "ingress-configurator"
 INGRESS_CHARM_CHANNEL = "stable"
@@ -25,7 +24,7 @@ INGRESS_CHARM_REVISION = 78
 DEPLOY_TIMEOUT = 10 * 60
 
 
-def test_deploy_charms(juju: jubilant.Juju, charm: str, falcosidekick_image: str):
+def test_deploy_charms(juju: jubilant.Juju, charm: str, resource_images: dict[str, str]):
     """
     Arrange: Deploy falcosidekick charm.
     Act: Wait for deployment to settle.
@@ -48,7 +47,7 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, falcosidekick_image: str
     logger.info("Deploying %s", FALCOSIDEKICK_K8S)
     juju.deploy(
         charm,
-        resources={FALCOSIDEKICK_IMAGE: falcosidekick_image},
+        resources=resource_images,
         app=FALCOSIDEKICK_K8S,
     )
 
