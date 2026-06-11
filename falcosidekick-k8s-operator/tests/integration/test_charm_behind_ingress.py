@@ -24,7 +24,7 @@ INGRESS_CHARM_REVISION = 78
 DEPLOY_TIMEOUT = 10 * 60
 
 
-def test_deploy_charms(juju: jubilant.Juju, charm: str, resource_images: dict[str, str]):
+def test_deploy_charms(juju: jubilant.Juju, charm: str, charm_resource_images: dict):
     """
     Arrange: Deploy falcosidekick charm.
     Act: Wait for deployment to settle.
@@ -47,7 +47,7 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, resource_images: dict[st
     logger.info("Deploying %s", FALCOSIDEKICK_K8S)
     juju.deploy(
         charm,
-        resources=resource_images,
+        resources=charm_resource_images["falcosidekick-k8s"],
         app=FALCOSIDEKICK_K8S,
     )
 
