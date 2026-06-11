@@ -13,7 +13,7 @@ backends:
         runner: [self-hosted, self-hosted-linux-amd64-noble-large]
 environment:
   CONCIERGE: '$(HOST: echo "${CONCIERGE:-concierge.yaml}")'
-  OPCLI_GIT_REF: '$(HOST: echo "${OPCLI_GIT_REF:-main}")'
+  OPCLI_GIT_REF: '$(HOST: echo "${OPCLI_GIT_REF:-v0.0.1-alpha.2}")'
 exclude:
 - .git
 - .tox
