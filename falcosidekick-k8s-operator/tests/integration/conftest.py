@@ -8,16 +8,21 @@ from collections.abc import Generator
 
 import jubilant
 import pytest
+from opcli.models.artifacts_build import ArtifactsGenerated
+from opcli.pytest_plugin import build_rock_images
 
 
 @pytest.fixture(scope="module", name="charm")
-def charm_fixture(pytestconfig: pytest.Config):
-    """Get value from parameter charm-file."""
-    charm = pytestconfig.getoption("--charm-file")
-    use_existing = pytestconfig.getoption("--use-existing", default=False)
-    if not use_existing:
-        assert charm, "--charm-file must be set"
-    return charm
+def charm_fixture(charm_paths):
+    """Get the falcosidekick-k8s charm path from built artifacts."""
+    return charm_paths["falcosidekick-k8s"].path
+
+
+@pytest.fixture(scope="session")
+def falcosidekick_image(opcli_artifacts: ArtifactsGenerated, opcli_build_yaml_path) -> str:
+    """Get the falcosidekick OCI image reference from built artifacts."""
+    images = build_rock_images(opcli_artifacts, opcli_build_yaml_path.parent)
+    return images["falcosidekick"]
 
 
 @pytest.fixture(scope="session", name="juju")

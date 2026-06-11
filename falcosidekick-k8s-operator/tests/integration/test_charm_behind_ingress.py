@@ -8,7 +8,6 @@
 import logging
 
 import jubilant
-import pytest
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +25,7 @@ INGRESS_CHARM_REVISION = 78
 DEPLOY_TIMEOUT = 10 * 60
 
 
-def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Config):
+def test_deploy_charms(juju: jubilant.Juju, charm: str, falcosidekick_image: str):
     """
     Arrange: Deploy falcosidekick charm.
     Act: Wait for deployment to settle.
@@ -49,7 +48,7 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Con
     logger.info("Deploying %s", FALCOSIDEKICK_K8S)
     juju.deploy(
         charm,
-        resources={FALCOSIDEKICK_IMAGE: pytestconfig.getoption("--falcosidekick-image")},
+        resources={FALCOSIDEKICK_IMAGE: falcosidekick_image},
         app=FALCOSIDEKICK_K8S,
     )
 
