@@ -9,8 +9,8 @@ on:
     - cron: "0 15 * * SAT"
 
 jobs:
-  integration-tests:
-    uses: canonical/charm-ci/.github/workflows/integration-test.yml@main
+  integration-test:
+    uses: canonical/charm-ci/.github/workflows/integration-test.yml@v0.0.1-alpha.2
     secrets: inherit
     permissions:
       contents: read
@@ -22,7 +22,7 @@ jobs:
     name: Required Integration Test Status Checks
     runs-on: ubuntu-latest
     needs:
-      - integration-tests
+      - integration-test
     if: always() && !cancelled()
     timeout-minutes: 5
     steps:
