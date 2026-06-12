@@ -12,7 +12,7 @@ backends:
     - ubuntu-24.04:
         runner: [self-hosted, self-hosted-linux-amd64-noble-large]
 environment:
-  CONCIERGE: '$(HOST: echo "${CONCIERGE:-concierge.yaml}")'
+  CONCIERGE: '$(HOST: echo "${CONCIERGE:-concierge-lxd.yaml}")'
   OPCLI_GIT_REF: '$(HOST: echo "${OPCLI_GIT_REF:-main}")'
 exclude:
 - .git
@@ -26,7 +26,7 @@ integration-suites:
     backends:
     - integration-test
     environment:
-      CONCIERGE: concierge.yaml
+      CONCIERGE: concierge-lxd.yaml
   falcosidekick-k8s-operator/tests/integration/:
     summary: falcosidekick k8s charm integration tests
     working-dir: falcosidekick-k8s-operator/
