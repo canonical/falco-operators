@@ -13,6 +13,7 @@ charms:
   pack-dir: .
   platforms:
   - arch: amd64
+  channel: 0.42/edge
 - name: falcosidekick-k8s
   charmcraft-yaml: falcosidekick-k8s-operator/charmcraft.yaml
   pack-dir: .
@@ -22,3 +23,4 @@ charms:
       rock: falcosidekick
   platforms:
   - arch: amd64
+  channel: 2/edge
