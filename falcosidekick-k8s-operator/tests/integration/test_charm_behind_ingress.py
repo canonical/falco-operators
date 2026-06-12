@@ -8,7 +8,6 @@
 import logging
 
 import jubilant
-import pytest
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,6 @@ GRAFANA_AGENT_K8S_CHANNEL = "2/stable"
 GRAFANA_AGENT_K8S_REVISION = 181
 
 FALCOSIDEKICK_K8S = "falcosidekick-k8s"
-FALCOSIDEKICK_IMAGE = "falcosidekick-image"
 
 INGRESS_CHARM = "ingress-configurator"
 INGRESS_CHARM_CHANNEL = "stable"
@@ -26,7 +24,7 @@ INGRESS_CHARM_REVISION = 78
 DEPLOY_TIMEOUT = 10 * 60
 
 
-def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Config):
+def test_deploy_charms(juju: jubilant.Juju, charm: str, charm_resource_images: dict):
     """
     Arrange: Deploy falcosidekick charm.
     Act: Wait for deployment to settle.
@@ -49,7 +47,7 @@ def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Con
     logger.info("Deploying %s", FALCOSIDEKICK_K8S)
     juju.deploy(
         charm,
-        resources={FALCOSIDEKICK_IMAGE: pytestconfig.getoption("--falcosidekick-image")},
+        resources=charm_resource_images["falcosidekick-k8s"],
         app=FALCOSIDEKICK_K8S,
     )
 
