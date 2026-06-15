@@ -25,7 +25,7 @@ jobs:
       FALCO_PLUGINS_GIT_REPO:  "https://github.com/falcosecurity/plugins.git"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
 
       - name: Extract Falco and Falco plugin version
         id: version
