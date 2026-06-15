@@ -1,0 +1,36 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+project: falco-operators
+path: /home/ubuntu/proj
+kill-timeout: 60m
+warn-timeout: 1m
+backends:
+  integration-test:
+    type: integration-test
+    systems:
+    - ubuntu-24.04:
+        runner: [self-hosted, self-hosted-linux-amd64-noble-large]
+environment:
+  CONCIERGE: '$(HOST: echo "${CONCIERGE:-concierge-lxd.yaml}")'
+  OPCLI_GIT_REF: '$(HOST: echo "${OPCLI_GIT_REF:-main}")'
+exclude:
+- .git
+- .tox
+- .venv
+- .*_cache
+integration-suites:
+  falco-operator/tests/integration/:
+    summary: falco machine charm integration tests
+    working-dir: falco-operator/
+    backends:
+    - integration-test
+    environment:
+      CONCIERGE: concierge-lxd.yaml
+  falcosidekick-k8s-operator/tests/integration/:
+    summary: falcosidekick k8s charm integration tests
+    working-dir: falcosidekick-k8s-operator/
+    backends:
+    - integration-test
+    environment:
+      CONCIERGE: concierge-k8s.yaml
