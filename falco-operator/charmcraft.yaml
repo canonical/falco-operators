@@ -38,7 +38,7 @@ parts:
     build-snaps:
       - astral-uv
     build-environment:
-      - UV_WORKING_DIR: .
+      - UV_WORKING_DIR: falco-operator
     override-build: |
       craftctl default
       cp --archive --recursive --reflink=auto $CRAFT_PART_BUILD/$UV_WORKING_DIR/src $CRAFT_PART_INSTALL/src

@@ -1,44 +1,37 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
 name: Integration tests
 
 on:
   pull_request:
   schedule:
-  - cron: "0 15 * * SAT"
+    - cron: "0 15 * * SAT"
 
 jobs:
-  integration-tests:
-    uses:
-      canonical/operator-workflows/.github/workflows/integration_test.yaml@main
+  integration-test:
+    uses: canonical/charm-ci/.github/workflows/integration-test.yml@v0.0.1-alpha.3
     secrets: inherit
     permissions:
       contents: read
       packages: write
-    strategy:
-      matrix:
-        include:
-          - charm: "falco"
-            provider: "lxd"
-            provider-channel: "6/stable"
-            modules: '["test_charm.py"]'
-          - charm: "falcosidekick-k8s"
-            provider: "k8s"
-            provider-channel: "1.34-classic/stable"
-            modules: '["test_charm.py", "test_charm_behind_ingress.py"]'
+      actions: read
     with:
-      trivy-fs-enabled: true
-      trivy-image-config: "trivy.yaml"
-      self-hosted-runner: true
-      juju-channel: "3/stable"
-      channel: "${{ matrix.provider-channel }}"
-      with-uv: true
-      use-canonical-k8s: true
-      provider: "${{ matrix.provider }}"
-      identifier: "${{ matrix.charm }}"
-      working-directory: "${{ matrix.charm }}-operator"
-      build-context: ".."
-      modules: "${{ matrix.modules }}"
-  allure-report:
-    if: ${{ !cancelled() && github.event_name == 'schedule' }}
+      working-directory: .
+  required_status_checks:
+    name: Required Integration Test Status Checks
+    runs-on: ubuntu-latest
     needs:
-    - integration-tests
-    uses: canonical/operator-workflows/.github/workflows/allure_report.yaml@main
+      - integration-test
+    if: always() && !cancelled()
+    timeout-minutes: 5
+    steps:
+      - name: Check integration-test status
+        run: |
+          RESULT="${{ needs.integration-test.result }}"
+          if [ "$RESULT" = "success" ] || [ "$RESULT" = "skipped" ]; then
+            exit 0
+          else
+            echo "integration-test failed with status: $RESULT"
+            exit 1
+          fi      

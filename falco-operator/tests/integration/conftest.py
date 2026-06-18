@@ -11,13 +11,9 @@ import pytest
 
 
 @pytest.fixture(scope="module", name="charm")
-def charm_fixture(pytestconfig: pytest.Config):
-    """Get value from parameter charm-file."""
-    charm = pytestconfig.getoption("--charm-file")
-    use_existing = pytestconfig.getoption("--use-existing", default=False)
-    if not use_existing:
-        assert charm, "--charm-file must be set"
-    return charm
+def charm_fixture(charm_paths):
+    """Get the falco charm path from built artifacts."""
+    return charm_paths["falco"].path
 
 
 @pytest.fixture(scope="session", name="juju")
@@ -44,6 +40,7 @@ def juju_fixture(request: pytest.FixtureRequest) -> Generator[jubilant.Juju, Non
     model = request.config.getoption("--model")
     if model:
         juju = jubilant.Juju(model=model)
+        juju.wait_timeout = 10 * 60
         yield juju
         show_debug_log(juju)
         return

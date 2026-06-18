@@ -1,0 +1,26 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+version: 1
+rocks:
+- name: falcosidekick
+  rockcraft-yaml: falcosidekick-k8s-operator/rock/rockcraft.yaml
+  platforms:
+  - arch: amd64
+charms:
+- name: falco
+  charmcraft-yaml: falco-operator/charmcraft.yaml
+  pack-dir: .
+  platforms:
+  - arch: amd64
+  channel: 0.42/edge
+- name: falcosidekick-k8s
+  charmcraft-yaml: falcosidekick-k8s-operator/charmcraft.yaml
+  pack-dir: .
+  resources:
+    falcosidekick-image:
+      type: oci-image
+      rock: falcosidekick
+  platforms:
+  - arch: amd64
+  channel: 2/edge
