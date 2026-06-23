@@ -14,7 +14,5 @@ jobs:
       matrix:
         charm: ["falco", "falcosidekick-k8s"]
     with:
-      self-hosted-runner: true
-      self-hosted-runner-label: "edge"
       with-uv: true
       working-directory: './${{ matrix.charm }}-operator'
