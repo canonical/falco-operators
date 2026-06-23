@@ -14,7 +14,7 @@ description: |
 
 links:
   contact: https://launchpad.net/~canonical-is-devops
-  documentation: https://charmhub.io/falcosidekick-k8s
+  documentation: https://canonical.com/juju/docs/falco-charms/
   issues: https://github.com/canonical/falco-operators/issues
   source: https://github.com/canonical/falco-operators
 

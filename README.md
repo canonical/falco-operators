@@ -16,6 +16,37 @@ In addition to charm related code, this repository also contains packages to the
 1. [`falco`](.github/workflows/build_falco.yaml): A customized Falco package built from source.
 2. [`falcocsidekick`](./falcosidekick-k8s-operator/rock): A customized Falcosidekick rock image built from source.
 
+## Documentation
+
+Our documentation is stored in the `docs` directory and
+can be viewed at https://canonical.com/juju/docs/falco-charms/.
+It is based on the Canonical Sphinx Stack and hosted on
+[Read the Docs](https://about.readthedocs.com/). In structuring, the
+documentation employs the [Diátaxis](https://diataxis.fr/) approach.
+
+You may open a pull request with your documentation changes, or you can
+[file a bug](https://github.com/canonical/falco-operators/issues) to
+provide constructive feedback or suggestions.
+
+To run the documentation locally before submitting your changes:
+
+```bash
+cd docs
+make run
+```
+
+GitHub runs automatic checks on the documentation to verify spelling, 
+validate links and style guide compliance.
+
+You can (and should) run the same checks locally:
+
+```bash
+make spelling
+make linkcheck
+make vale
+make lint-md
+```
+
 ## Project and community
 
 The Falco operators project is a member of the Ubuntu family. It is an open source project that warmly welcomes

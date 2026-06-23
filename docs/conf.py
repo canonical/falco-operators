@@ -25,6 +25,9 @@ import yaml
 project = "Falco operators"
 author = "Canonical Ltd."
 
+# Version
+
+version = f"{os.environ.get('READTHEDOCS_VERSION', 'local')}"
 
 # Sidebar documentation title; best kept reasonably short
 #
@@ -67,7 +70,7 @@ copyright = "%s CC-BY-SA, %s" % (datetime.date.today().year, author)
 # NOTE: The Open Graph Protocol (OGP) enhances page display in a social graph
 #       and is used by social media platforms; see https://ogp.me/
 
-ogp_site_url = "https://documentation.ubuntu.com/falco-operators/"
+ogp_site_url = f"https://canonical.com/juju/docs/falco-charms/{version}/"
 
 
 # Preview name of the documentation website
@@ -171,7 +174,7 @@ html_theme_options = {
 #
 # If your documentation is hosted on https://docs.ubuntu.com/, uncomment and update as needed.
 
-slug = "falco-operators"
+slug = 'juju/docs/falco-charms'
 
 #######################
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
@@ -179,7 +182,7 @@ slug = "falco-operators"
 
 # Use RTD canonical URL to ensure duplicate pages have a specific canonical URL
 
-html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
+html_baseurl = f"https://canonical.com/juju/docs/falco-charms/{version}/"
 
 # sphinx-sitemap uses html_baseurl to generate the full URL for each page:
 
@@ -308,7 +311,10 @@ html_css_files = ["cookie-banner.css"]
 
 # Adds custom JavaScript files, located under 'html_static_path'
 
-html_js_files = ["js/bundle.js"]
+html_js_files = [
+    "js/bundle.js",
+    "js/overwrite_links.js",
+]
 
 
 # Specifies a reST snippet to be appended to each .rst file
