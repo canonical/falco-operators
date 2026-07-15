@@ -16,6 +16,13 @@ In addition to charm related code, this repository also contains packages to the
 1. [`falco`](.github/workflows/build_falco.yaml): A customized Falco package built from source.
 2. [`falcocsidekick`](./falcosidekick-k8s-operator/rock): A customized Falcosidekick rock image built from source.
 
+## Charmhub
+
+| Name | Listing |
+|------|---------|
+| `falco` | https://charmhub.io/falco |
+| `falcosidekick-k8s` | https://charmhub.io/falcosidekick-k8s |
+
 ## Documentation
 
 Our documentation is stored in the `docs` directory and
@@ -46,13 +53,6 @@ make linkcheck
 make vale
 make lint-md
 ```
-
-## Charmhub
-
-| Name | Listing |
-|------|---------|
-| `falco` | https://charmhub.io/falco |
-| `falcosidekick-k8s` | https://charmhub.io/falcosidekick-k8s |
 
 ## Project and community
 
