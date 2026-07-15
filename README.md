@@ -47,6 +47,13 @@ make vale
 make lint-md
 ```
 
+## Charmhub
+
+| Name | Listing |
+|------|---------|
+| `falco` | https://charmhub.io/falco |
+| `falcosidekick-k8s` | https://charmhub.io/falcosidekick-k8s |
+
 ## Project and community
 
 The Falco operators project is a member of the Ubuntu family. It is an open source project that warmly welcomes
