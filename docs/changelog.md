@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-09-09
+
+- Reworked the documentation home page around deployment, customization, integrations, operations, design, and security.
+
 ## 2026-06-18
 
 - Migrate the RTD documentation URL under the Canonical domain.

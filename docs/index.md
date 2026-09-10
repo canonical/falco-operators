@@ -28,16 +28,44 @@ the Official [Falco Operator Documentation](https://documentation.ubuntu.com/fal
 
 ## In this documentation
 
-|                                                                                                         |                                                                                                 |
-| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| {ref}`Tutorial <tutorial>`</br> Get started - a hands-on introduction to using the charms for new users | {ref}`How-to guides <how_to>`</br> Step-by-step guides covering key operations and common tasks |
-| {ref}`Reference <reference>`</br> Technical information - specifications, APIs, architecture            | {ref}`Explanation <explanation>`</br> Concepts - discussion and clarification of key topics     |
+Use the following guides to move from first deployment to ongoing operations, integrations, and security hardening.
+
+```{list-table}
+:header-rows: 1
+:widths: 15 30
+
+* -
+  -
+* - **Get started**
+  - {ref}`Deploy Falco operator <tutorial_getting_started>` | {ref}`Deploy Falcosidekick K8s operator <tutorial_deploy_falcosidekick>` | {ref}`Connect Falco to Falcosidekick <tutorial_end_to_end>`
+* - **Customize runtime detection**
+  - {ref}`Configure custom repository <how_to_configure_custom_repository>` | {ref}`Configurations <reference_configurations>` | {ref}`Actions <reference_actions>`
+* - **Integrations and observability**
+  - {ref}`Integrate with the Canonical Observability Stack <how_to_integrate_with_cos>` | {ref}`Integration endpoints <reference_integrations>` | {ref}`Metrics <reference_metrics>`
+* - **Operations**
+  - {ref}`Troubleshooting <how_to_troubleshoot>` | {ref}`Upgrade <how_to_upgrade>` | {ref}`Backup and restore <reference_back_up_restore>`
+* - **Design**
+  - {ref}`Architecture <reference_architecture>` | {ref}`Charm design <explanation_charm_design>`
+* - **Security**
+  - {ref}`Security overview <explanation_security>` | {ref}`Configure TLS termination with ingress <how_to_configure_tls_ingress>`
+```
+
+## How this documentation is organized
+
+This documentation uses the
+[Diátaxis documentation structure](https://diataxis.fr/).
+
+- The {ref}`Tutorial <tutorial>` section walks through end-to-end deployments of Falco, Falcosidekick, and their alert pipeline.
+- The {ref}`How to <how_to>` section covers practical tasks for configuring integrations, managing runtime rules, troubleshooting issues, and upgrading the charms.
+- The {ref}`Reference <reference>` section provides technical details on configurations, actions, integrations, metrics, architecture, and backup expectations.
+- The {ref}`Explanation <explanation>` section gives background on the charm design and the security model behind the operators.
+- The {ref}`Changelog <changelog>` records notable user-facing documentation changes over time.
 
 ## Contributing to this documentation
 
 Documentation is an important part of this project, and we take the same open-source approach to
 the documentation as the code. As such, we welcome community contributions, suggestions, and
-constructive feedback on our documentation. See {ref}`How to contribute <contribute>` for more
+constructive feedback on our documentation. See {ref}`How to contribute <how_to_contribute>` for more
 information.
 
 If there's a particular area of documentation that you'd like to see that's missing, please

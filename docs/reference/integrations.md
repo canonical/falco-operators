@@ -133,7 +133,7 @@ juju integrate falcosidekick-k8s:send-loki-logs loki-k8s:logging
 ```
 
 ```{seealso}
-{ref}`How to integrate with COS <integrate-with-cos>`
+{ref}`How to integrate with COS <how_to_integrate_with_cos>`
 ```
 
 #### `logging`
