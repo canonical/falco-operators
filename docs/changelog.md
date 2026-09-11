@@ -10,7 +10,7 @@ Each revision is versioned by the date of the revision.
 
 ## 2026-09-09
 
-- Reworked the documentation home page around deployment, customization, integrations, operations, design, and security.
+- Reworked the documentation home page around integrations, operations, design, and security, and documented the available metrics endpoints.
 
 ## 2026-06-18
 
