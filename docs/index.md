@@ -47,7 +47,7 @@ Use the following guides to move from first deployment to ongoing operations, in
 * - **Design**
   - {ref}`Architecture <reference_architecture>` | {ref}`Charm design <explanation_charm_design>`
 * - **Security**
-  - {ref}`Security overview <explanation_security>` | {ref}`Configure TLS termination with ingress <how_to_configure_tls_ingress>`
+  - {ref}`Overview <explanation_security>` | {ref}`Configure TLS termination with ingress <how_to_configure_tls_ingress>`
 ```
 
 ## How this documentation is organized
