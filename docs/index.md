@@ -43,7 +43,7 @@ Use the following guides to move from first deployment to ongoing operations, in
 * - **Integrations and observability**
   - {ref}`Integrate with the Canonical Observability Stack <how_to_integrate_with_cos>` | {ref}`Integration endpoints <reference_integrations>` | {ref}`Metrics <reference_metrics>`
 * - **Operations**
-  - {ref}`Troubleshooting <how_to_troubleshoot>` | {ref}`Upgrade <how_to_upgrade>` | {ref}`Backup and restore <reference_back_up_restore>`
+  - {ref}`Troubleshoot <how_to_troubleshoot>` | {ref}`Upgrade <how_to_upgrade>` | {ref}`Backup and restore <reference_back_up_restore>`
 * - **Design**
   - {ref}`Architecture <reference_architecture>` | {ref}`Charm design <explanation_charm_design>`
 * - **Security**
