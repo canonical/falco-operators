@@ -38,10 +38,10 @@ Use the following guides to move from first deployment to ongoing operations, in
   -
 * - **Get started**
   - {ref}`Deploy Falco operator <tutorial_getting_started>` | {ref}`Deploy Falcosidekick K8s operator <tutorial_deploy_falcosidekick>` | {ref}`Connect Falco to Falcosidekick <tutorial_end_to_end>`
-* - **Integrations and observability**
-  - {ref}`Integrate with the Canonical Observability Stack <how_to_integrate_with_cos>` | {ref}`Integration endpoints <reference_integrations>` | {ref}`Metrics <reference_metrics>`
 * - **Operations**
   - {ref}`Configure custom repository <how_to_configure_custom_repository>` | {ref}`Configurations <reference_configurations>` | {ref}`Actions <reference_actions>` | {ref}`Troubleshoot <how_to_troubleshoot>` | {ref}`Upgrade <how_to_upgrade>` | {ref}`Backup and restore <reference_back_up_restore>`
+* - **Integrations and observability**
+  - {ref}`Integrate with the Canonical Observability Stack <how_to_integrate_with_cos>` | {ref}`Integration endpoints <reference_integrations>` | {ref}`Metrics <reference_metrics>`
 * - **Design**
   - {ref}`Architecture <reference_architecture>` | {ref}`Charm design <explanation_charm_design>`
 * - **Security**
