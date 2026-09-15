@@ -1,4 +1,4 @@
-(troubleshoot)=
+(how_to_troubleshoot)=
 
 # Troubleshoot
 

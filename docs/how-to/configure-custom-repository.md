@@ -103,4 +103,4 @@ Falco will automatically sync the changes from the repository.
 
 ## Troubleshooting
 
-For troubleshooting common issues with custom repositories, see {ref}`how to troubleshoot <troubleshoot>`.
+For troubleshooting common issues with custom repositories, see {ref}`how to troubleshoot <how_to_troubleshoot>`.

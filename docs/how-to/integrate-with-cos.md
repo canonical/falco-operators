@@ -1,4 +1,4 @@
-(integrate-with-cos)=
+(how_to_integrate_with_cos)=
 
 # Integrate with the Canonical Observability Stack
 

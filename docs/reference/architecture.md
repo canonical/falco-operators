@@ -1,4 +1,4 @@
-(explanation_architecture)=
+(reference_architecture)=
 
 # Architecture
 

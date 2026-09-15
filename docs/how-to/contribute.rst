@@ -1,7 +1,7 @@
 .. meta::
    :description: Familiarize yourself with contributing to the Falco charm documentation.
 
-.. _contribute:
+.. _how_to_contribute:
 
 How to contribute
 =================

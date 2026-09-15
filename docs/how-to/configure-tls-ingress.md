@@ -1,4 +1,4 @@
-(configure-tls-ingress)=
+(how_to_configure_tls_ingress)=
 
 # Configure TLS termination with ingress
 
