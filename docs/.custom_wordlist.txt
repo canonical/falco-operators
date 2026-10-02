@@ -1,0 +1,10 @@
+Falco
+monorepo
+falcosidekick
+Falcosidekick
+kubectl
+untrusted
+Pydantic
+systemd
+Systemd
+Opentelemetry

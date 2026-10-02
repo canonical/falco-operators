@@ -1,0 +1,152 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+name: Build Falco Binary
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".versions"
+      - ".github/workflows/build_falco.yaml"
+      - ".github/workflows/release_falco.yaml"
+
+jobs:
+  build-falco:
+    name: Build Falco from Source
+    runs-on: ["self-hosted", "linux", "amd64", "noble"]
+    timeout-minutes: 30
+    env:
+      ARTIFACT_ROOT: /tmp/artifacts
+      FALCO_SOURCE: /tmp/source/falco
+      FALCO_GIT_REPO:  "https://github.com/falcosecurity/falco.git"
+      FALCO_PLUGINS_SOURCE: /tmp/source/plugins
+      FALCO_PLUGINS_GIT_REPO:  "https://github.com/falcosecurity/plugins.git"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Extract Falco and Falco plugin version
+        id: version
+        run: |
+          # Read versions from .versions file
+          source .versions
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
+          echo "falco_version=${FALCO_VERSION}" >> $GITHUB_OUTPUT
+          echo "json_plugin_version=${FALCO_JSON_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
+          echo "k8saudit_plugin_version=${FALCO_K8SAUDIT_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
+
+          echo "Build information:"
+          echo "Architecture: $(uname -m)"
+          echo "Building Falco version: ${FALCO_VERSION}"
+          echo "Building Falco json plugin version: ${FALCO_JSON_PLUGIN_VERSION}"
+          echo "Building Falco k8saudit plugin version: ${FALCO_K8SAUDIT_PLUGIN_VERSION}"
+
+      - name: Clone Falco and plugins source
+        run: |
+          git clone \
+            --depth 1 \
+            --recurse-submodule \
+            --branch "${{ steps.version.outputs.falco_version }}" \
+            $FALCO_GIT_REPO \
+            $FALCO_SOURCE
+          echo "Falco source cloned at $FALCO_SOURCE with tag: ${{ steps.version.outputs.falco_version }}"
+
+          mkdir -p $FALCO_PLUGINS_SOURCE
+
+          git clone \
+            --depth 1 \
+            --branch "plugins/json/v${{ steps.version.outputs.json_plugin_version }}" \
+            $FALCO_PLUGINS_GIT_REPO \
+            $FALCO_PLUGINS_SOURCE/json
+          echo "Plugins source cloned at $FALCO_PLUGINS_SOURCE/json with tag: plugins/json/v${{ steps.version.outputs.json_plugin_version }}"
+
+          git clone \
+            --depth 1 \
+            --branch "plugins/k8saudit/v${{ steps.version.outputs.k8saudit_plugin_version }}" \
+            $FALCO_PLUGINS_GIT_REPO \
+            $FALCO_PLUGINS_SOURCE/k8saudit
+          echo "Plugins source cloned at $FALCO_PLUGINS_SOURCE/k8saudit with tag: plugins/k8saudit/v${{ steps.version.outputs.k8saudit_plugin_version }}"
+
+      - name: Setup Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          cache: false
+          go-version: "1.27"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            cmake \
+            git \
+            libelf-dev \
+            linux-tools-common \
+            linux-tools-generic
+
+      - name: Build Falco binary
+        run: |
+          cd $FALCO_SOURCE
+
+          mkdir -p $FALCO_SOURCE/build && cd $FALCO_SOURCE/build
+          cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER="$(which g++)" \
+            -DCMAKE_C_COMPILER="$(which gcc)" \
+            -DCMAKE_VERBOSE_MAKEFILE=On \
+            -DUSE_BUNDLED_DEPS=On \
+            ..
+          make -j$(nproc) falco
+
+          # Display build output
+          ls -lrh ./userspace/falco
+          ls -lrh ./container_plugin-prefix/
+
+          # Verify the binary was built
+          ./userspace/falco/falco --version
+
+      - name: Build Falco plugins
+        run: |
+          cd $FALCO_PLUGINS_SOURCE/json/plugins/json && make
+          cd $FALCO_PLUGINS_SOURCE/k8saudit/plugins/k8saudit && make
+
+          # Display and verify build output
+          ls -lrh  $FALCO_PLUGINS_SOURCE/json/plugins/json/libjson.so
+          ls -lrh  $FALCO_PLUGINS_SOURCE/k8saudit/plugins/k8saudit/libk8saudit.so
+
+      - name: Prepare artifacts
+        run: |
+          mkdir -p \
+            $ARTIFACT_ROOT/etc/falco/rules.d \
+            $ARTIFACT_ROOT/etc/falco/default_rules \
+            $ARTIFACT_ROOT/usr/bin \
+            $ARTIFACT_ROOT/usr/share/falco/plugins
+
+          cp $FALCO_SOURCE/rules/falco_rules.yaml $ARTIFACT_ROOT/etc/falco/default_rules/
+          cp $FALCO_SOURCE/build/userspace/falco/falco $ARTIFACT_ROOT/usr/bin/falco
+          cp $FALCO_SOURCE/build/container_plugin-prefix/src/container_plugin/libcontainer.so $ARTIFACT_ROOT/usr/share/falco/plugins
+
+          cp $FALCO_PLUGINS_SOURCE/k8saudit/plugins/k8saudit/rules/*.yaml $ARTIFACT_ROOT/etc/falco/default_rules
+          cp $FALCO_PLUGINS_SOURCE/json/plugins/json/libjson.so $ARTIFACT_ROOT/usr/share/falco/plugins
+          cp $FALCO_PLUGINS_SOURCE/k8saudit/plugins/k8saudit/libk8saudit.so $ARTIFACT_ROOT/usr/share/falco/plugins
+
+      - name: Create tarball
+        run: |
+          TARBALL=falco-${{ steps.version.outputs.falco_version }}-${{ steps.version.outputs.arch }}.tar.gz
+
+          cd $ARTIFACT_ROOT
+          tar -czf $TARBALL *
+
+          # Move to back to workspace for upload
+          mv $TARBALL ${{ github.workspace }}/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: falco-${{ steps.version.outputs.falco_version }}-${{ steps.version.outputs.arch }}
+          path: |
+            falco-*.tar.gz
+          retention-days: 30

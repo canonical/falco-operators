@@ -1,0 +1,33 @@
+name: Promote falco charm
+
+on:
+  workflow_dispatch:
+    inputs:
+      origin-channel:
+        type: choice
+        description: 'Origin Channel'
+        options:
+        - 0.42/edge
+        - 0.42/candidate
+      destination-channel:
+        type: choice
+        description: 'Destination Channel'
+        options:
+        - 0.42/candidate
+        - 0.42/stable
+    secrets:
+      CHARMHUB_TOKEN:
+        required: true
+
+jobs:
+  promote-charm:
+    uses: canonical/operator-workflows/.github/workflows/promote_charm.yaml@main
+    with:
+      origin-channel: ${{ github.event.inputs.origin-channel }}
+      destination-channel: ${{ github.event.inputs.destination-channel }}
+      working-directory: ./falco-operator
+      base-channel: 24.04
+      base-name: ubuntu
+      base-architecture: amd64
+      tag-prefix: falco
+    secrets: inherit

@@ -1,0 +1,73 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+# See https://github.com/falcosecurity/falco/blob/master/scripts/systemd/falco-modern-bpf.service
+
+[Unit]
+Description=Falco: Container Native Runtime Security with modern ebpf
+Documentation=https://falco.org/docs/
+
+[Service]
+Type=simple
+ExecStart={{ command }} -c {{ config_file }} -r {{ rules_dir }} \
+  {%- if http_output %}
+  -o http_output.enabled=true \
+  -o http_output.url={{ http_output.url }} \
+  {%- endif %}
+  -o engine.kind=modern_ebpf \
+  -o watch_config_files=true \
+  -o json_output=true \
+  -o json_include_tags_property=true \
+  -o json_include_output_property=true \
+  -o json_include_output_fields_property=true \
+  -o json_include_message_property=false \
+  -o stdout_output.enabled=true \
+  -o syslog_output.enabled=true \
+  -o append_output[0].suggested_output=true \
+  -o append_output[1].extra_fields[0].juju_unit={{ juju_topology.unit }} \
+  -o append_output[1].extra_fields[1].juju_charm={{ juju_topology.charm_name }} \
+  -o append_output[1].extra_fields[2].juju_model={{ juju_topology.model }} \
+  -o append_output[1].extra_fields[3].juju_model_uuid={{ juju_topology.model_uuid }} \
+  -o append_output[1].extra_fields[4].juju_application={{ juju_topology.application }} \
+  -o load_plugins[0]=json \
+  -o load_plugins[1]=k8saudit \
+  -o load_plugins[2]=container \
+  -o plugins[0].name=json \
+  -o plugins[0].library_path={{ falco_home }}/usr/share/falco/plugins/libjson.so \
+  -o plugins[1].name=k8saudit \
+  -o plugins[1].library_path={{ falco_home }}/usr/share/falco/plugins/libk8saudit.so \
+  -o plugins[2].name=container \
+  -o plugins[2].library_path={{ falco_home }}/usr/share/falco/plugins/libcontainer.so \
+  -o metrics.enabled=true \
+  -o metrics.interval=1h \
+  -o metrics.output_rule=true \
+  -o metrics.rules_counters_enabled=true \
+  -o metrics.resource_utilization_enabled=true \
+  -o metrics.state_counters_enabled=true \
+  -o metrics.kernel_event_counters_enabled=true \
+  -o metrics.kernel_event_counters_per_cpu_enabled=false \
+  -o metrics.libbpf_stats_enabled=true \
+  -o metrics.plugins_metrics_enabled=true \
+  -o metrics.jemalloc_stats_enabled=false \
+  -o metrics.convert_memory_to_mb=true \
+  -o metrics.include_empty_values=false \
+  -o webserver.enabled=true \
+  -o webserver.prometheus_metrics_enabled=true \
+  -o webserver.listen_port=8765 \
+  -o webserver.listen_address=127.0.0.1
+ExecReload=kill -1 $MAINPID
+User=root
+UMask=0077
+TimeoutSec=30
+RestartSec=15s
+Restart=on-failure
+PrivateTmp=true
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectSystem=full
+ProtectKernelTunables=true
+RestrictRealtime=true
+RestrictAddressFamilies=~AF_PACKET
+StandardOutput=null
+
+[Install]
+WantedBy=multi-user.target

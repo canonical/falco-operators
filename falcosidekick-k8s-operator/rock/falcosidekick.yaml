@@ -1,0 +1,5 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+listenport: 2801 # port to listen for daemon (default: 2801)
+listenaddress: "" # ip address to bind falcosidekick to (default: "" meaning all addresses)

@@ -1,0 +1,118 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+# This file configures Charmcraft.
+# See https://canonical-charmcraft.readthedocs-hosted.com/stable/howto/manage-charmcraft/
+# for guidance.
+
+name: falco
+type: charm
+title: Falco Operator
+summary: Juju charmed operator for Falco
+description: |
+  The Falco Operator is a Juju charmed operator that simplifies the deployment
+  and management of Falco, an open-source runtime security tool for physical and
+  virtual machines. The operator automates tasks such as installation, configuration,
+  and updates of Falco instances, making it easier for users to secure their systems.
+
+links:
+  contact: https://launchpad.net/~canonical-is-devops
+  documentation: https://canonical.com/juju/docs/falco-charms/
+  issues: https://github.com/canonical/falco-operators/issues
+  source: https://github.com/canonical/falco-operators
+
+platforms:
+  ubuntu@24.04:amd64:
+
+subordinate: true
+
+charm-libs:
+  - lib: grafana_agent.cos_agent
+    version: "0"
+
+parts:
+  charm:
+    source: .
+    plugin: uv
+    build-packages:
+      - git
+    build-snaps:
+      - astral-uv
+    build-environment:
+      - UV_WORKING_DIR: falco-operator
+    override-build: |
+      craftctl default
+      cp --archive --recursive --reflink=auto $CRAFT_PART_BUILD/$UV_WORKING_DIR/src $CRAFT_PART_INSTALL/src
+      cp --archive --recursive --reflink=auto $CRAFT_PART_BUILD/$UV_WORKING_DIR/lib $CRAFT_PART_INSTALL/lib
+  falco:
+    plugin: nil
+    override-build: |
+      # Use default craft build environment
+      craftctl default
+
+      # Set Falco version
+      # renovate: depName=canonical/falco-operators
+      VERSION=0.44.1
+      # Determine architecture
+      ARCH="$(uname -m)"
+      # Github release URL for Falco. The tarball is created in the build and release falco workflow:
+      # https//github.com/canonical/falco-operators/blob/main/.github/workflows/build_falco.yaml
+      # https//github.com/canonical/falco-operators/blob/main/.github/workflows/release_falco.yaml
+      DOWNLOAD_URL="https://github.com/canonical/falco-operators/releases/download/falco\/$VERSION/falco-$VERSION-$ARCH.tar.gz"
+
+      # Install falco
+      curl -s -L -o $CRAFT_PART_SRC/falco-$VERSION-$ARCH.tar.gz $DOWNLOAD_URL
+      tar -xvf $CRAFT_PART_SRC/falco-$VERSION-$ARCH.tar.gz -C $CRAFT_PART_BUILD/
+      cp -r $CRAFT_PART_BUILD/{etc,usr} $CRAFT_PART_INSTALL/
+    organize:
+      "*": falco/
+    stage:
+      - falco/usr/bin/falco
+      - falco/usr/share/falco/
+      - falco/etc/falco/default_rules/
+
+config:
+  options:
+    custom-config-repository:
+      type: string
+      description: |
+        A repository URL where configuration files are stored. The URL must be provided in the
+        format git+ssh://username@repository@ref, where 'username' is mandatory and 'ref' is
+        optional and may be either a branch name or tag name. Tags are encouraged for
+        reproducibility and for efficiency and branch is discouraged to used. However, if a branch
+        is provided, the charm will re-pull the configuration on most charm events, as it cannot
+        guarantee that it has the latest commits otherwise. The following paths, if they exist in
+        the repository, will be synced over to the paths in the charm filesystem:
+
+        * <charm_dir>/falco/etc/falco/rules.d/
+        * <charm_dir>/falco/etc/falco/config.override.d/
+
+        The custom config repository should have the following structure
+
+        settting-repo
+        ├── config.override.d/
+        │   ├── a.yaml
+        │   └── b.yaml
+        └── rules.d/
+            ├── a.yaml
+            └── b.yaml
+    custom-config-repo-ssh-key:
+      type: secret
+      description: |
+        The Juju secret ID corresponding to the private key for SSH authentication to the git repository. The secret
+        should contain a single key, `value`, which maps to the actual SSH key. To create the secret, run the following
+        command. and use the secret ID output to configure this option.
+
+        `juju add-secret custom-config-repo-ssh-key value=<ssh-key> && juju grant-secret custom-config-repo-ssh-key <falco-operator>`
+
+requires:
+  general-info:
+    interface: juju-info
+    scope: container
+  http-endpoint:
+    limit: 1
+    interface: falcosidekick_http_endpoint
+
+provides:
+  cos-agent:
+    limit: 1
+    interface: cos_agent

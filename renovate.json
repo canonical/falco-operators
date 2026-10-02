@@ -1,0 +1,148 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "automerge": true,
+  "customDatasources": {
+    "charmhub": {
+      "defaultRegistryUrlTemplate": "https://api.charmhub.io/v2/charms/info/{{packageName}}?fields=channel-map",
+      "format": "json",
+      "transformTemplates": [
+        "{\"releases\": [{\"version\": $string($$.(`channel-map`[channel.risk = 'edge' and channel.track = 'latest' and channel.base.architecture = 'amd64' and channel.base.channel = '24.04'].revision.revision))}]}"
+      ]
+    }
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "datasourceTemplate": "custom.charmhub",
+      "fileMatch": [
+        "\\.tftest\\.hcl$",
+        "\\.tf$"
+      ],
+      "matchStrings": [
+        "# renovate: depName=\"(?<packageName>[^\"]+)\"\\s*\\n\\s*(?<fieldName>[a-zA-Z0-9_]+)\\s*=\\s*(?<currentValue>\\d+)"
+      ],
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "docker",
+      "description": "Update base image references",
+      "managerFilePatterns": [
+        "/(^|/)rockcraft.yaml$/"
+      ],
+      "matchStrings": [
+        "# renovate: build-base:\\s+(?<depName>[^:]*):(?<currentValue>[^\\s@]*)(@(?<currentDigest>sha256:[0-9a-f]*))?",
+        "# renovate: base:\\s+(?<depName>[^:]*):(?<currentValue>[^\\s@]*)(@(?<currentDigest>sha256:[0-9a-f]*))?"
+      ],
+      "matchStringsStrategy": "any",
+      "versioningTemplate": "ubuntu"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "github-tags",
+      "description": "Update Falco version from git tags (semver)",
+      "fileMatch": [
+        "^\\.versions$"
+      ],
+      "matchStrings": [
+        "# renovate: depName=(?<depName>.*?)\\nFALCO_VERSION=(?<currentValue>.*)"
+      ],
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "github-tags",
+      "description": "Update Falco json plugin version from git tags (non-semver)",
+      "extractVersionTemplate": "^plugins/json/v(?<version>.*)$",
+      "fileMatch": [
+        "^\\.versions$"
+      ],
+      "matchStrings": [
+        "# renovate: depName=(?<depName>.*?)\\nFALCO_JSON_PLUGIN_VERSION=(?<currentValue>.*)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "github-tags",
+      "description": "Update Falco k8saudit plugin version from git tags (non-semver)",
+      "extractVersionTemplate": "^plugins/k8saudit/v(?<version>.*)$",
+      "fileMatch": [
+        "^\\.versions$"
+      ],
+      "matchStrings": [
+        "# renovate: depName=(?<depName>.*?)\\nFALCO_K8SAUDIT_PLUGIN_VERSION=(?<currentValue>.*)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "github-tags",
+      "description": "Update Falco version in charmcraft from git tags (non-semver)",
+      "extractVersionTemplate": "^falco/(?<version>.*)$",
+      "fileMatch": [
+        "charmcraft.yaml"
+      ],
+      "matchStrings": [
+        "# renovate: depName=(?<depName>.*?)\\n\\s+VERSION=(?<currentValue>.*)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "github-tags",
+      "description": "Update Falcosidekick version in rockcraft from git tags (semver)",
+      "fileMatch": [
+        "rockcraft.yaml"
+      ],
+      "matchStrings": [
+        "# renovate: depName=(?<depName>.*?)\\n\\s+source-tag:\\s\"(?<currentValue>.*)\""
+      ],
+      "versioningTemplate": "semver"
+    }
+  ],
+  "extends": [
+    "config:recommended",
+    "group:allNonMajor"
+  ],
+  "ignorePaths": [],
+  "packageRules": [
+    {
+      "automerge": true,
+      "enabled": true,
+      "matchDatasources": [
+        "custom.charmhub"
+      ]
+    },
+    {
+      "enabled": true,
+      "matchDatasources": [
+        "docker"
+      ],
+      "pinDigests": true
+    },
+    {
+      "enabled": false,
+      "matchFileNames": [
+        "rockcraft.yaml"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ]
+    },
+    {
+      "groupName": "charm-ci",
+      "description": "Keep the opcli git dependency (pyproject.toml/uv.lock) and the canonical/charm-ci reusable workflow refs (.github/workflows) in lockstep, since they must always point at the same charm-ci release.",
+      "matchPackageNames": [
+        "opcli",
+        "canonical/charm-ci",
+        "*charm-ci*"
+      ]
+    }
+  ],
+  "schedule": [
+    "* * * * 0,6"
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  }
+}

@@ -1,0 +1,26 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+##################################################################
+#                 Juju Managed Falco config file                 #
+#                                                                #
+#  For more information about the configuration please refer to  #
+#  https://falco.org/docs/reference/daemon/config-options/       #
+#                                                                #
+##################################################################
+
+config_files:
+  - {{ falco_home }}/etc/falco/config.override.d
+
+plugins:
+  - name: json
+    library_path: {{ falco_home }}/usr/share/falco/plugins/libjson.so
+  - name: k8saudit
+    library_path: {{ falco_home }}/usr/share/falco/plugins/libk8saudit.so
+    init_config: ""
+    open_params: "http://:9765/k8s-audit"
+  - name: container
+    library_path: {{ falco_home }}/usr/share/falco/plugins/libcontainer.so
+    init_config:
+      label_max_len: 100
+      with_size: false

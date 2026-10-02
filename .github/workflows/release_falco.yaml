@@ -1,0 +1,83 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+name: Release Falco Binary
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".versions"
+      - ".github/workflows/build_falco.yaml"
+      - ".github/workflows/release_falco.yaml"
+
+jobs:
+  create-release:
+    name: Create Falco Release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Extract Falco and Falco plugin version
+        id: version
+        run: |
+          # Read versions from .versions file
+          source .versions
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
+          echo "falco_version=${FALCO_VERSION}" >> $GITHUB_OUTPUT
+          echo "json_plugin_version=${FALCO_JSON_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
+          echo "k8saudit_plugin_version=${FALCO_K8SAUDIT_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
+
+          echo "Build information:"
+          echo "Architecture: $(uname -m)"
+          echo "Building Falco version: ${FALCO_VERSION}"
+          echo "Building Falco json plugin version: ${FALCO_JSON_PLUGIN_VERSION}"
+          echo "Building Falco k8saudit plugin version: ${FALCO_K8SAUDIT_PLUGIN_VERSION}"
+
+      - name: Get latest build workflow run
+        id: latest_build_workflow_run
+        uses: actions/github-script@v9.0.0
+        with:
+          script: |
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "build_falco.yaml",
+            });
+            if (runs.total_count === 0) {
+              throw new Error("No workflow runs found for build_falco.yaml");
+            }
+            core.setOutput('id', runs.workflow_runs[0].id);
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8.0.1
+        with:
+          run-id: ${{ steps.latest_build_workflow_run.outputs.id }}
+          pattern: falco-${{ steps.version.outputs.falco_version }}-*
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3.0.3
+        with:
+          name: ${{ steps.version.outputs.falco_version }}
+          tag_name: falco/${{ steps.version.outputs.falco_version }}
+          body: |
+            # Falco binary release for Falco Operator
+
+            This release contains the Falco binary for Falco Operator.
+
+            ## What's Included
+
+            - Falco binary at version: **${{ steps.version.outputs.falco_version }}**
+            - Falco json at plugin version: **${{ steps.version.outputs.json_plugin_version }}**
+            - Falco k8saudit at plugin version: **${{ steps.version.outputs.k8saudit_plugin_version }}**
+            - Default rules for Falco
+            - Default rules for k8saudit plugin
+          files: |
+            falco-*.tar.gz
+          draft: false
+          prerelease: false
