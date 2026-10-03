@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 name: falcosidekick
-# renovate: base: ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
+# renovate: base: ubuntu:26.04@sha256:3595d7fc4286a33fad0fd853a4063e654287a9c3787437d7937c94ca3f7a804e
 base: ubuntu@24.04
 adopt-info: "falcosidekick"
 summary: Falcosidekick - Connect Falco to your ecosystem
