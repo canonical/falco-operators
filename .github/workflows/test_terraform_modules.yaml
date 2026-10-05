@@ -1,7 +1,5 @@
-# Copyright 2025 Canonical Ltd.
+# Copyright 2026 Canonical Ltd.
 # See LICENSE file for licensing details.
-
-# Attention: valid for K8s charms only
 
 name: Terraform modules tests
 
@@ -9,19 +7,19 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "falco-operator/terraform/**"
-      - "falcosidekick-k8s-operator/terraform/**"
+      - "**/terraform/**"
+      - ".github/workflows/test_terraform_modules.yaml"
 
 jobs:
   terraform-tests-lxd:
-    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@main
+    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@efdd72c768efaca41f992322fa51a830e90f4990  # main
     secrets: inherit
     with:
       k8s-controller: false
       lxd-controller: true
       terraform-directories: '["falco-operator/terraform"]'
   terraform-tests-k8s:
-    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@main
+    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@efdd72c768efaca41f992322fa51a830e90f4990  # main
     secrets: inherit
     with:
       k8s-controller: true

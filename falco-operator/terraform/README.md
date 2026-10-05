@@ -8,51 +8,54 @@ This folder contains a base [Terraform][Terraform] module for the `falco` charm.
 - **output.tf** - Integrates the module with other Terraform modules, primarily
   by defining potential integration endpoints (charm integrations), but also by exposing
   the Juju application name.
-- **versions.tf** - Defines the Terraform provider version.
+- **terraform.tf** - Defines the Terraform provider version.
 
 ## Module documentation
 
 <!-- vale off -->
 <!-- BEGIN_TF_DOCS -->
+## Requirements
 
-### Requirements
+| Name | Version |
+| ---- | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.12 |
+| <a name="requirement_juju"></a> [juju](#requirement\_juju) | ~> 1.0 |
 
-| Name                                                                     | Version   |
-| ------------------------------------------------------------------------ | --------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement_terraform) | >= 1.12.0 |
-| <a name="requirement_juju"></a> [juju](#requirement_juju)                | >= 1.1.1  |
+## Providers
 
-### Providers
+| Name | Version |
+| ---- | ------- |
+| <a name="provider_juju"></a> [juju](#provider\_juju) | ~> 1.0 |
 
-| Name                                                | Version  |
-| --------------------------------------------------- | -------- |
-| <a name="provider_juju"></a> [juju](#provider_juju) | >= 1.1.1 |
+## Modules
 
-### Resources
+No modules.
 
-| Name                                                                                                          | Type     |
-| ------------------------------------------------------------------------------------------------------------- | -------- |
+## Resources
+
+| Name | Type |
+| ---- | ---- |
 | [juju_application.falco](https://registry.terraform.io/providers/juju/juju/latest/docs/resources/application) | resource |
 
-### Inputs
+## Inputs
 
-| Name                                                               | Description                                                                                                   | Type          | Default          | Required |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------- | ---------------- | :------: |
-| <a name="input_app_name"></a> [app_name](#input_app_name)          | Name of the application in the Juju model.                                                                    | `string`      | `"falco"`        |    no    |
-| <a name="input_base"></a> [base](#input_base)                      | The operating system on which to deploy                                                                       | `string`      | `"ubuntu@24.04"` |    no    |
-| <a name="input_channel"></a> [channel](#input_channel)             | The channel to use when deploying a charm.                                                                    | `string`      | `"0.42/stable"`  |    no    |
-| <a name="input_config"></a> [config](#input_config)                | Application config. Details about available options can be found at https://charmhub.io/falco/configurations. | `map(string)` | `{}`             |    no    |
-| <a name="input_constraints"></a> [constraints](#input_constraints) | Juju constraints to apply for this application.                                                               | `string`      | `""`             |    no    |
-| <a name="input_model_uuid"></a> [model_uuid](#input_model_uuid)    | The UUID of the Juju model.                                                                                   | `string`      | n/a              |   yes    |
-| <a name="input_revision"></a> [revision](#input_revision)          | Revision number of the charm                                                                                  | `number`      | `null`           |    no    |
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_app_name"></a> [app\_name](#input\_app\_name) | Name of the application in the Juju model. | `string` | `"falco"` | no |
+| <a name="input_base"></a> [base](#input\_base) | The operating system on which to deploy | `string` | `null` | no |
+| <a name="input_channel"></a> [channel](#input\_channel) | The channel to use when deploying a charm. | `string` | `"0.42/stable"` | no |
+| <a name="input_config"></a> [config](#input\_config) | Application config. Details about available options can be found at https://charmhub.io/falco/configurations. | `map(string)` | `{}` | no |
+| <a name="input_constraints"></a> [constraints](#input\_constraints) | Juju constraints to apply for this application. | `string` | `null` | no |
+| <a name="input_model_uuid"></a> [model\_uuid](#input\_model\_uuid) | The UUID of the Juju model. | `string` | n/a | yes |
+| <a name="input_revision"></a> [revision](#input\_revision) | Revision number of the charm | `number` | `null` | no |
 
-### Outputs
+## Outputs
 
-| Name                                                        | Description                       |
-| ----------------------------------------------------------- | --------------------------------- |
-| <a name="output_app_name"></a> [app_name](#output_app_name) | Name of the deployed application. |
-| <a name="output_requires"></a> [requires](#output_requires) | n/a                               |
-
+| Name | Description |
+| ---- | ----------- |
+| <a name="output_application"></a> [application](#output\_application) | Full juju\_application object for the deployed application. |
+| <a name="output_provides"></a> [provides](#output\_provides) | Map of the provided integration endpoints. |
+| <a name="output_requires"></a> [requires](#output\_requires) | Map of the required integration endpoints. |
 <!-- END_TF_DOCS -->
 <!-- vale on -->
 
@@ -77,7 +80,7 @@ resource "juju_model" "my_model" {
 }
 
 module "falco" {
-  source = "git::https://github.com/canonical/falco-operators.git//falco-operator/terraform"
+  source = "git::https://github.com/canonical/falco-operators.git//falco-operator/terraform?ref=falco-operator-tf-1.0.0"
 
   model_uuid = juju_model.my_model.uuid
   channel    = "0.42/edge"
@@ -106,8 +109,8 @@ resource "juju_integration" "falco-ubuntu" {
   model_uuid = juju_model.my_model.uuid
 
   application {
-    name     = module.falco.app_name
-    endpoint = module.falco.general-info
+    name     = module.falco.application.name
+    endpoint = module.falco.requires.general_info.endpoint
   }
 
   application {
