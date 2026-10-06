@@ -16,17 +16,22 @@ run "basic_deploy" {
   }
 
   assert {
-    condition     = output.app_name == "falco"
-    error_message = "falco app_name did not match expected"
+    condition     = output.application.name == "falco"
+    error_message = "falco application name did not match expected"
   }
 
   assert {
-    condition     = output.requires.general_info == "general-info"
+    condition     = output.requires.general_info.endpoint == "general-info"
     error_message = "falco module should provide 'requires.general_info' output"
   }
 
   assert {
-    condition     = output.requires.http_endpoint == "http-endpoint"
+    condition     = output.requires.http_endpoint.endpoint == "http-endpoint"
     error_message = "falco module should provide 'requires.http_endpoint' output"
+  }
+
+  assert {
+    condition     = output.provides.cos_agent.endpoint == "cos-agent"
+    error_message = "falco module should provide 'provides.cos_agent' output"
   }
 }

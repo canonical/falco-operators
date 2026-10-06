@@ -19,6 +19,7 @@ header:
   - '.licenserc.yaml'
   - 'CODEOWNERS'
   - 'LICENSE'
+  - '**/MAJOR_VERSION'
   - 'trivy.yaml'
   - 'pyproject.toml'
   - '**/*.md.j2'

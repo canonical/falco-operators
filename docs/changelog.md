@@ -8,6 +8,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-10-05
+
+### Changed
+
+- Migrated the `falco-operator` and `falcosidekick-k8s-operator` Terraform modules to the CC008
+  Charm Terraform Standard.
+  - Renamed `versions.tf` to `terraform.tf` in both modules.
+  - Replaced the combined `app_name`/`requires`/`provides` outputs with the CC008 `application`,
+    `provides` and `requires` outputs; `application` now exposes the full `juju_application`
+    object instead of just its name.
+  - Added the missing `provides.cos_agent` output to the `falco-operator` module and the missing
+    `provides.grafana_dashboard` and `provides.metrics_endpoint` outputs to the
+    `falcosidekick-k8s-operator` module, matching the relations declared in their `charmcraft.yaml`.
+  - Added the `resources` input variable to the `falcosidekick-k8s-operator` module to allow
+    pinning the `falcosidekick-image` OCI resource.
+  - Changed the default value of `base` from `"ubuntu@24.04"` to `null` and of `constraints` from
+    `""` to `null` in both modules, and made `app_name`, `channel` and `model_uuid` non-nullable,
+    as required by CC008.
+  - Added a `MAJOR_VERSION` file to each module to drive the new `terraform_modules_release`
+    workflow.
+  - Added `terraform_modules_compliance.yaml` and `generate_terraform_docs.yaml` CI workflows, and
+    updated `test_terraform_modules.yaml` (renamed from `test_terraform_module.yaml`) and the new
+    `terraform_modules_release.yaml` workflow to cover both module directories.
+
 ## 2026-09-09
 
 - Reworked the documentation home page around integrations, operations, design, and security, and documented the available metrics endpoints.

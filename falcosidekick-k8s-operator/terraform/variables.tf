@@ -5,18 +5,20 @@ variable "app_name" {
   description = "Name of the application in the Juju model."
   type        = string
   default     = "falcosidekick-k8s"
+  nullable    = false
 }
 
 variable "base" {
   description = "The operating system on which to deploy"
   type        = string
-  default     = "ubuntu@24.04"
+  default     = null
 }
 
 variable "channel" {
   description = "The channel to use when deploying a charm."
   type        = string
   default     = "2/stable"
+  nullable    = false
 }
 
 variable "config" {
@@ -28,12 +30,19 @@ variable "config" {
 variable "constraints" {
   description = "Juju constraints to apply for this application."
   type        = string
-  default     = ""
+  default     = null
 }
 
 variable "model_uuid" {
   description = "The UUID of the Juju model."
   type        = string
+  nullable    = false
+}
+
+variable "resources" {
+  description = "Map of resources to use when deploying the application, e.g. the falcosidekick OCI image."
+  type        = map(string)
+  default     = {}
 }
 
 variable "revision" {

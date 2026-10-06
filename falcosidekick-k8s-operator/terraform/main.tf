@@ -15,4 +15,5 @@ resource "juju_application" "falcosidekick" {
   units       = var.units
   config      = var.config
   constraints = var.constraints
+  resources   = var.resources
 }
