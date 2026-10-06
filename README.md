@@ -55,13 +55,14 @@ In addition to charm related code, this repository also contains packages to the
 
 Start with the in-repo tutorials under [`docs/tutorial/`](./docs/tutorial/):
 
-1. [`docs/tutorial/getting-started.md`](./docs/tutorial/getting-started.md) deploys the Falco subordinate charm with a Kubernetes principal charm and OpenTelemetry Collector, then verifies Falco status, logs, and metrics.
+1. [`docs/tutorial/getting-started.md`](./docs/tutorial/getting-started.md) deploys the Falco subordinate charm with a Kubernetes principal charm and OpenTelemetry Collector.
 2. [`docs/tutorial/deploy-falcosidekick.md`](./docs/tutorial/deploy-falcosidekick.md) bootstraps a Juju controller on a Kubernetes cloud, deploys `falcosidekick-k8s`, and integrates the supporting charms it needs.
 3. [`docs/tutorial/end-to-end-deployment.md`](./docs/tutorial/end-to-end-deployment.md) connects Falco to Falcosidekick through the `http-endpoint` relation and verifies alert forwarding.
 
 ## Integrations
 
-For the full list of Falco and Falcosidekick K8s integrations, including observability, TLS, ingress, metrics, dashboards, and logging endpoints, see [`docs/reference/integrations.md`](./docs/reference/integrations.md). For the deployment data flow, see [`docs/reference/architecture.md`](./docs/reference/architecture.md).
+For the full list of Falco and Falcosidekick K8s relations, see [`docs/reference/integrations.md`](./docs/reference/integrations.md).
+For the deployment data flow, see [`docs/reference/architecture.md`](./docs/reference/architecture.md).
 
 ## Documentation
 
