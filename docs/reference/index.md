@@ -8,7 +8,7 @@ myst:
 
 # Reference
 
-Technical details, a high-level architecture description, and interface definitions for the falco operator charm.
+Technical details, a high-level architecture description, and interface definitions for the Falco charms.
 
 ## Charm interfaces
 
@@ -39,7 +39,7 @@ User journey context: deployment, monitoring, maintenance
 Juju ecosystem scope: charm-specific, cross-charm, cloud-level
 -->
 
-Overview of the recommended architecture to follow when using falco and falcosidekick, along with the metric types both charms support.
+Overview of the recommended architecture to follow when using Falco and Falcosidekick, along with the metric types both charms support.
 
 ```{toctree}
 :maxdepth: 1

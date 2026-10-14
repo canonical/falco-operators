@@ -6,20 +6,13 @@ myst:
 
 (how_to)=
 
-# How to
+# How-to guides
 
-Juju configuration, relations, and lifecycle commands help users customize Falco rules, secure Falcosidekick endpoints and route alerts to observability systems.
+Manage the full operations lifecycle of the Falco operators, from initial deployment through production maintenance.
 
 ## Configuration and integrations
 
-<!--
-Themes: custom Falco rules, TLS ingress, observability integrations
-Justification: configuring charm behavior and connecting Falco services to related operators
-User journey context: configuration, integration
-Juju ecosystem scope: charm-specific, cross-charm, model-level
--->
-
-Falco charm ships with a default rule set, use a custom Git repository to add new rules or override settings. Forwarding Falco alerts to COS requires integrating Falco with Falcosidekick first; see {ref}`Connect Falco to Falcosidekick <tutorial_end_to_end>`.
+Juju configuration, relations, and lifecycle commands help users customize Falco rules, secure Falcosidekick endpoints and route alerts to observability systems. Forwarding Falco alerts to COS requires integrating Falco with Falcosidekick first; see {ref}`Connect Falco to Falcosidekick <tutorial_end_to_end>`.
 
 ```{toctree}
 :maxdepth: 1
