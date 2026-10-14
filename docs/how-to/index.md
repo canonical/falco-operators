@@ -19,7 +19,7 @@ User journey context: configuration, integration
 Juju ecosystem scope: charm-specific, cross-charm, model-level
 -->
 
-Falco charm ships with a default ruleset, use a custom Git repository to add new rules or override settings. Forwarding Falco alerts to COS requires integrating Falco with Falcosidekick first; see {ref}`Connect Falco to Falcosidekick <tutorial_end_to_end>`.
+Falco charm ships with a default rule set, use a custom Git repository to add new rules or override settings. Forwarding Falco alerts to COS requires integrating Falco with Falcosidekick first; see {ref}`Connect Falco to Falcosidekick <tutorial_end_to_end>`.
 
 ```{toctree}
 :maxdepth: 1
