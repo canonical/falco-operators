@@ -12,13 +12,6 @@ Technical details, a high-level architecture description, and interface definiti
 
 ## Charm interfaces
 
-<!--
-Themes: configuration options, actions, Juju relations
-Justification: technical descriptions of the charm control surfaces and integration interfaces
-User journey context: configuration, integration, operation
-Juju ecosystem scope: charm-specific, cross-charm
--->
-
 The following pages provide more information about the charm's features,
 including actions, configurations, and integrations.
 
@@ -32,13 +25,6 @@ integrations.md
 
 ## Runtime and deployment
 
-<!--
-Themes: deployment architecture, metrics endpoints, backup requirements
-Justification: runtime behavior and deployment characteristics of the Falco charms
-User journey context: deployment, monitoring, maintenance
-Juju ecosystem scope: charm-specific, cross-charm, cloud-level
--->
-
 Overview of the recommended architecture to follow when using Falco and Falcosidekick, along with the metric types both charms support.
 
 ```{toctree}
@@ -46,5 +32,4 @@ Overview of the recommended architecture to follow when using Falco and Falcosid
 
 architecture.md
 metrics.md
-back-up-restore.md
 ```

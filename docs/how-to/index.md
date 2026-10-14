@@ -24,13 +24,6 @@ Integrate with COS <integrate-with-cos.md>
 
 ## Operations and maintenance
 
-<!--
-Themes: troubleshooting, upgrades, documentation contribution
-Justification: maintaining deployed charms and the project documentation
-User journey context: maintenance, troubleshooting
-Juju ecosystem scope: charm-specific
--->
-
 As part of ongoing maintenance, users may need to resolve blocked states that occur during configuration or integrations. Additionally, performing regular version upgrades ensures the charm meets the latest security and community standards.
 
 ```{toctree}
