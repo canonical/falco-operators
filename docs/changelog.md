@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-10-14
+
+### Changed
+
+- Reorganized the how-to and reference landing pages into functional sections, clarified the alert-forwarding prerequisite, and improved navigation.
+
 ## 2026-10-05
 
 ### Changed
