@@ -12,14 +12,14 @@ on:
 
 jobs:
   terraform-tests-lxd:
-    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@efdd72c768efaca41f992322fa51a830e90f4990  # main
+    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@030c5b20a0bb880dcf1ed326bff0fc16b6eb6ac1  # main
     secrets: inherit
     with:
       k8s-controller: false
       lxd-controller: true
       terraform-directories: '["falco-operator/terraform"]'
   terraform-tests-k8s:
-    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@efdd72c768efaca41f992322fa51a830e90f4990  # main
+    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@030c5b20a0bb880dcf1ed326bff0fc16b6eb6ac1  # main
     secrets: inherit
     with:
       k8s-controller: true
