@@ -39,7 +39,7 @@ Use the following guides to move from first deployment to ongoing operations, in
 * - **Get started**
   - {ref}`Deploy Falco operator <tutorial_getting_started>` | {ref}`Deploy Falcosidekick K8s operator <tutorial_deploy_falcosidekick>` | {ref}`Connect Falco to Falcosidekick <tutorial_end_to_end>`
 * - **Operations**
-  - {ref}`Configure custom repository <how_to_configure_custom_repository>` | {ref}`Configurations <reference_configurations>` | {ref}`Actions <reference_actions>` | {ref}`Troubleshoot <how_to_troubleshoot>` | {ref}`Upgrade <how_to_upgrade>` | {ref}`Backup and restore <reference_back_up_restore>`
+  - {ref}`Configure custom repository <how_to_configure_custom_repository>` | {ref}`Configurations <reference_configurations>` | {ref}`Actions <reference_actions>` | {ref}`Troubleshoot <how_to_troubleshoot>` | {ref}`Upgrade <how_to_upgrade>`
 * - **Integrations and observability**
   - {ref}`Integrate with the Canonical Observability Stack <how_to_integrate_with_cos>` | {ref}`Integration endpoints <reference_integrations>` | {ref}`Metrics <reference_metrics>`
 * - **Design**
@@ -55,7 +55,7 @@ This documentation uses the
 
 - The {ref}`Tutorial <tutorial>` section walks through end-to-end deployments of Falco, Falcosidekick, and their alert pipeline.
 - The {ref}`How to <how_to>` section covers practical tasks for configuring integrations, managing runtime rules, troubleshooting issues, and upgrading the charms.
-- The {ref}`Reference <reference>` section provides technical details on configurations, actions, integrations, metrics, architecture, and backup expectations.
+- The {ref}`Reference <reference>` section provides technical details on configurations, actions, integrations, metrics, and architecture.
 - The {ref}`Explanation <explanation>` section gives background on the charm design and the security model behind the operators.
 - The {ref}`Changelog <changelog>` records notable user-facing documentation changes over time.
 

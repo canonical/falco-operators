@@ -6,16 +6,30 @@ myst:
 
 (how_to)=
 
-# How to
+# How-to guides
 
-The following guides cover key processes and common tasks for managing and using the Falco operators.
+Manage the full operations lifecycle of the Falco operators, from initial deployment through production maintenance.
+
+## Configuration and integrations
+
+Juju configuration, relations, and lifecycle commands help users customize Falco rules, secure Falcosidekick endpoints and route alerts to observability systems. Forwarding Falco alerts to COS requires integrating Falco with Falcosidekick first; see {ref}`Connect Falco to Falcosidekick <tutorial_end_to_end>`.
 
 ```{toctree}
 :maxdepth: 1
-Integrate with COS <integrate-with-cos.md>
+
 configure-custom-repository.md
 configure-tls-ingress.md
-contribute.md
+Integrate with COS <integrate-with-cos.md>
+```
+
+## Operations and maintenance
+
+As part of ongoing maintenance, users may need to resolve blocked states that occur during configuration or integrations. Additionally, performing regular version upgrades ensures the charm meets the latest security and community standards.
+
+```{toctree}
+:maxdepth: 1
+
 troubleshoot.md
 upgrade.md
+contribute.rst
 ```

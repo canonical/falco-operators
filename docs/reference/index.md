@@ -8,16 +8,28 @@ myst:
 
 # Reference
 
-The pages in this section contain technical information for topics relevant to the Falco operators.
+Technical details, a high-level architecture description, and interface definitions for the Falco charms.
 
-## Falco operators
+## Charm interfaces
+
+The following pages provide more information about the charm's features,
+including actions, configurations, and integrations.
 
 ```{toctree}
 :maxdepth: 1
+
 actions.md
-architecture.md
-back-up-restore.md
 configurations.md
 integrations.md
+```
+
+## Runtime and deployment
+
+Overview of the recommended architecture to follow when using Falco and Falcosidekick, along with the metric types both charms support.
+
+```{toctree}
+:maxdepth: 1
+
+architecture.md
 metrics.md
 ```
