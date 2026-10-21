@@ -58,7 +58,7 @@ Once the PR is created, the `Build Falco Binary` workflow will run automatically
 
 After the pull request is reviewed and approved, merge the pull request to the `main` branch.
 
-### Create a github release
+### Create a GitHub release
 
 Merging the PR to `main` will trigger the [Create Falco Release](../.github/workflows/release_falco.yaml) workflow.
 
