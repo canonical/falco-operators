@@ -105,6 +105,12 @@
   "ignorePaths": [],
   "packageRules": [
     {
+      "enabled": false,
+      "matchFileNames": [
+        "docs/**"
+      ]
+    },
+    {
       "automerge": true,
       "enabled": true,
       "matchDatasources": [
