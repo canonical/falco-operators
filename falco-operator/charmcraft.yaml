@@ -51,13 +51,13 @@ parts:
 
       # Set Falco version
       # renovate: depName=canonical/falco-operators
-      VERSION=0.45.2
+      VERSION=0.45.0
       # Determine architecture
       ARCH="$(uname -m)"
       # Github release URL for Falco. The tarball is created in the build and release falco workflow:
       # https//github.com/canonical/falco-operators/blob/main/.github/workflows/build_falco.yaml
       # https//github.com/canonical/falco-operators/blob/main/.github/workflows/release_falco.yaml
-      DOWNLOAD_URL="https://github.com/canonical/falco-operators/releases/download/falco\/$VERSION/falco-$VERSION-$ARCH.tar.gz"
+      DOWNLOAD_URL="https://github.com/canonical/falco-operators/releases/download/falco/$VERSION/falco-$VERSION-$ARCH.tar.gz"
 
       # Install falco
       curl -s -L -o $CRAFT_PART_SRC/falco-$VERSION-$ARCH.tar.gz $DOWNLOAD_URL
