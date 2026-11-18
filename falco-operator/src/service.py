@@ -139,7 +139,7 @@ class Template:
 
         # These templates render systemd and YAML files, not HTML. Enabling
         # autoescape would corrupt values such as proxy URLs containing "&".
-        self._env = Environment(
+        self._env = Environment(  # nosec B701
             loader=FileSystemLoader(TEMPLATE_DIR),
             autoescape=False,  # noqa: S701
         )
