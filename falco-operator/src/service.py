@@ -190,6 +190,9 @@ class FalcoServiceFile(Template):
             "config_file": str(falco_layout.config_file),
             "falco_home": str(falco_layout.home),
             "juju_topology": JujuTopology.from_charm(charm).as_dict(),
+            "http_proxy": os.environ.get("JUJU_CHARM_HTTP_PROXY", ""),
+            "https_proxy": os.environ.get("JUJU_CHARM_HTTPS_PROXY", ""),
+            "no_proxy": os.environ.get("JUJU_CHARM_NO_PROXY", ""),
         }
         super().__init__(self.template, self.service_file, context=context)
 

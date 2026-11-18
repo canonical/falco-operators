@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-11-18
+
+### Added
+
+- Pass Juju model proxy settings (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`) to the Falco systemd service so the HTTP output works behind an egress proxy.
+
 ## 2026-10-19
 
 ### Changed
