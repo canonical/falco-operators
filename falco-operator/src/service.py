@@ -137,7 +137,12 @@ class Template:
         self.destination = destination
         self.context = context or {}
 
-        self._env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=True)
+        # These templates render systemd and YAML files, not HTML. Enabling
+        # autoescape would corrupt values such as proxy URLs containing "&".
+        self._env = Environment(
+            loader=FileSystemLoader(TEMPLATE_DIR),
+            autoescape=False,  # noqa: S701
+        )
         self._template = self._env.get_template(self.name)
 
     def install(self) -> None:
@@ -184,6 +189,7 @@ class FalcoServiceFile(Template):
             falco_layout: The Falco file layout.
             charm: The charm instance.
         """
+        self.proxy_env_file = falco_layout.config_file.parent / "proxy.env"
         context = {
             "command": str(falco_layout.cmd),
             "rules_dir": str(falco_layout.rules_dir),
@@ -193,6 +199,7 @@ class FalcoServiceFile(Template):
             "http_proxy": os.environ.get("JUJU_CHARM_HTTP_PROXY", ""),
             "https_proxy": os.environ.get("JUJU_CHARM_HTTPS_PROXY", ""),
             "no_proxy": os.environ.get("JUJU_CHARM_NO_PROXY", ""),
+            "proxy_env_file": str(self.proxy_env_file),
         }
         super().__init__(self.template, self.service_file, context=context)
 
@@ -204,6 +211,48 @@ class FalcoServiceFile(Template):
         """
         self.context.update(context)
         self.install()
+
+    def install(self) -> None:
+        """Install the service file and its root-only proxy environment file."""
+        self.context["proxy_env_file"] = str(self.proxy_env_file)
+        self._write_proxy_env_file()
+        super().install()
+
+    def remove(self) -> None:
+        """Remove the service file and its proxy environment file."""
+        super().remove()
+        if self.proxy_env_file.exists():
+            self.proxy_env_file.unlink()
+
+    def _write_proxy_env_file(self) -> None:
+        """Write proxy settings to a root-only systemd environment file.
+
+        The file is created with mode 0600 so credentials embedded in proxy
+        URLs are not exposed to unprivileged local users.
+        """
+        proxy_values = [
+            ("HTTP_PROXY", self.context.get("http_proxy", "")),
+            ("http_proxy", self.context.get("http_proxy", "")),
+            ("HTTPS_PROXY", self.context.get("https_proxy", "")),
+            ("https_proxy", self.context.get("https_proxy", "")),
+            ("NO_PROXY", self.context.get("no_proxy", "")),
+            ("no_proxy", self.context.get("no_proxy", "")),
+        ]
+        populated = [(key, value) for key, value in proxy_values if value]
+
+        if not populated:
+            if self.proxy_env_file.exists():
+                self.proxy_env_file.unlink()
+            return
+
+        self.proxy_env_file.parent.mkdir(parents=True, exist_ok=True)
+        content = "\n".join(f"{key}={value}" for key, value in populated) + "\n"
+        file_descriptor = os.open(
+            self.proxy_env_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
+        )
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as proxy_env_file:
+            proxy_env_file.write(content)
+        self.proxy_env_file.chmod(0o600)
 
 
 class FalcoConfigFile(Template):
