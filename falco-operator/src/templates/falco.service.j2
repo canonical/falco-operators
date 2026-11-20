@@ -8,6 +8,7 @@ Documentation=https://falco.org/docs/
 
 [Service]
 Type=simple
+EnvironmentFile=-{{ proxy_env_file }}
 ExecStart={{ command }} -c {{ config_file }} -r {{ rules_dir }} \
   {%- if http_output %}
   -o http_output.enabled=true \

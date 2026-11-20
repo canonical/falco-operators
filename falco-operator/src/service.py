@@ -121,23 +121,42 @@ class FalcoLayout:
         """Get the full path to the Falco configuration file."""
         return self.home / "etc/falco/falco.yaml"
 
+    @property
+    def proxy_env_file(self) -> Path:
+        """Get the full path to the Falco proxy environment file."""
+        return self.config_file.parent / "proxy.env"
+
 
 class Template:
     """Template file manager."""
 
-    def __init__(self, name: str, destination: Path, context: Optional[dict]) -> None:
+    def __init__(
+        self,
+        name: str,
+        destination: Path,
+        context: Optional[dict],
+        mode: Optional[int] = None,
+    ) -> None:
         """Initialize the template file manager.
 
         Args:
             name (str): Template file name
             destination (Path): Destination path for the rendered template
             context (Optional[dict]): Context for rendering the template
+            mode (Optional[int]): File mode for the rendered file. If omitted, the
+                file is written with the process umask.
         """
         self.name = name
         self.destination = destination
         self.context = context or {}
+        self.mode = mode
 
-        self._env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=True)
+        # These templates render systemd and YAML files, not HTML. Enabling
+        # autoescape would corrupt values such as proxy URLs containing "&".
+        self._env = Environment(  # nosec B701
+            loader=FileSystemLoader(TEMPLATE_DIR),
+            autoescape=False,  # noqa: S701
+        )
         self._template = self._env.get_template(self.name)
 
     def install(self) -> None:
@@ -163,7 +182,15 @@ class Template:
             content = self._template.render(context)
             if not self.destination.parent.exists():
                 self.destination.parent.mkdir(parents=True, exist_ok=True)
-            self.destination.write_text(content, encoding="utf-8")
+            if self.mode is None:
+                self.destination.write_text(content, encoding="utf-8")
+            else:
+                file_descriptor = os.open(
+                    self.destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, self.mode
+                )
+                with os.fdopen(file_descriptor, "w", encoding="utf-8") as destination_file:
+                    destination_file.write(content)
+                self.destination.chmod(self.mode)
             logger.debug("Template file generated at %s", self.destination)
         except OSError as e:
             logger.exception("Failed to write template to %s", self.destination)
@@ -171,7 +198,7 @@ class Template:
 
 
 class FalcoServiceFile(Template):
-    """Falco service file manager."""
+    """Falco systemd unit file manager."""
 
     service_name = FALCO_SERVICE_NAME
     template: str = "falco.service.j2"
@@ -190,6 +217,7 @@ class FalcoServiceFile(Template):
             "config_file": str(falco_layout.config_file),
             "falco_home": str(falco_layout.home),
             "juju_topology": JujuTopology.from_charm(charm).as_dict(),
+            "proxy_env_file": str(falco_layout.proxy_env_file),
         }
         super().__init__(self.template, self.service_file, context=context)
 
@@ -201,6 +229,43 @@ class FalcoServiceFile(Template):
         """
         self.context.update(context)
         self.install()
+
+
+class FalcoProxyEnvFile(Template):
+    """Falco proxy environment file manager."""
+
+    template: str = "proxy.env.j2"
+
+    def __init__(self, falco_layout: FalcoLayout) -> None:
+        """Initialize the Falco proxy environment file manager.
+
+        Args:
+            falco_layout: The Falco file layout.
+        """
+        http_proxy = os.environ.get("JUJU_CHARM_HTTP_PROXY", "")
+        https_proxy = os.environ.get("JUJU_CHARM_HTTPS_PROXY", "")
+        no_proxy = os.environ.get("JUJU_CHARM_NO_PROXY", "")
+        proxy_values = [
+            ("HTTP_PROXY", http_proxy),
+            ("http_proxy", http_proxy),
+            ("HTTPS_PROXY", https_proxy),
+            ("https_proxy", https_proxy),
+            ("NO_PROXY", no_proxy),
+            ("no_proxy", no_proxy),
+        ]
+        super().__init__(
+            self.template,
+            falco_layout.proxy_env_file,
+            context={"proxy_values": [(key, value) for key, value in proxy_values if value]},
+            mode=0o600,
+        )
+
+    def install(self) -> None:
+        """Install the proxy environment file, or remove it if unset."""
+        if not self.context["proxy_values"]:
+            self.remove()
+            return
+        super().install()
 
 
 class FalcoConfigFile(Template):
@@ -296,10 +361,12 @@ class FalcoService:
         self,
         config_file: FalcoConfigFile,
         service_file: FalcoServiceFile,
+        proxy_env_file: FalcoProxyEnvFile,
         custom_setting: FalcoCustomSetting,
     ) -> None:
         self.config_file = config_file
         self.service_file = service_file
+        self.proxy_env_file = proxy_env_file
         self.custom_setting = custom_setting
 
     def install(self) -> None:
@@ -307,6 +374,7 @@ class FalcoService:
         logger.info("Installing Falco service")
 
         self.config_file.install()
+        self.proxy_env_file.install()
         self.service_file.install()
         self.custom_setting.install()
 
@@ -323,6 +391,7 @@ class FalcoService:
         systemd.daemon_reload()
 
         self.config_file.remove()
+        self.proxy_env_file.remove()
         self.service_file.remove()
         self.custom_setting.remove()
 
@@ -340,6 +409,7 @@ class FalcoService:
 
         try:
             self.custom_setting.configure(charm_state)
+            self.proxy_env_file.install()
             self.service_file.update(context={"http_output": charm_state.http_output})
         except (GitCloneError, SshKeyScanError, RsyncError) as e:
             logger.error("Failed to configure Falco custom settings: %s", e)
