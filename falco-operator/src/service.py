@@ -228,31 +228,6 @@ class FalcoServiceFile:
             mode=0o600,
         )
 
-    @property
-    def destination(self) -> Path:
-        """Return the systemd unit destination."""
-        return self.unit_template.destination
-
-    @destination.setter
-    def destination(self, destination: Path) -> None:
-        """Set the systemd unit destination."""
-        self.unit_template.destination = destination
-
-    @property
-    def proxy_env_file(self) -> Path:
-        """Return the proxy environment file destination."""
-        return self.proxy_env_template.destination
-
-    @proxy_env_file.setter
-    def proxy_env_file(self, destination: Path) -> None:
-        """Set the proxy environment file destination."""
-        self.proxy_env_template.destination = destination
-
-    @property
-    def context(self) -> dict:
-        """Return the systemd unit template context."""
-        return self.unit_template.context
-
     def update(self, context: dict) -> None:
         """Update the systemd unit context and reinstall the managed files.
 
@@ -271,7 +246,7 @@ class FalcoServiceFile:
         else:
             self.proxy_env_template.remove()
 
-        self.unit_template.context["proxy_env_file"] = str(self.proxy_env_file)
+        self.unit_template.context["proxy_env_file"] = str(self.proxy_env_template.destination)
         self.unit_template.install()
 
     def remove(self) -> None:

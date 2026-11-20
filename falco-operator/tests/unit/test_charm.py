@@ -353,7 +353,7 @@ def test_install_writes_proxy_environment_file(
         state_out = manager.run()
         charm = manager.charm
 
-    proxy_env_file = charm.falco_service_file.proxy_env_file
+    proxy_env_file = charm.falco_service_file.proxy_env_template.destination
     assert proxy_env_file.exists()
     assert proxy_env_file.stat().st_mode & 0o777 == 0o600
 
