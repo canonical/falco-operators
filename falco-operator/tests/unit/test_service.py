@@ -150,18 +150,12 @@ def test_systemd_values_are_not_html_escaped(mock_topology, mock_falco_layout, t
         "model_uuid": "test-uuid",
         "application": "falco",
     }
-    env = {
-        "JUJU_CHARM_HTTP_PROXY": "",
-        "JUJU_CHARM_HTTPS_PROXY": "",
-        "JUJU_CHARM_NO_PROXY": "",
+    service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
+    service_file.destination = tmp_path / "falco.service"
+    service_file.context["http_output"] = {
+        "url": "https://example.com/?a=1&b=2",
     }
-    with patch.dict(os.environ, env):
-        service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-        service_file.destination = tmp_path / "falco.service"
-        service_file.context["http_output"] = {
-            "url": "https://example.com/?a=1&b=2",
-        }
-        service_file.install()
+    service_file.install()
 
     content = service_file.destination.read_text()
     assert "http_output.url=https://example.com/?a=1&b=2" in content
