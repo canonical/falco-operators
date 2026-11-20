@@ -28,6 +28,7 @@ class TestCharm:
             charm = manager.charm
             assert charm.falco_layout is not None
             assert charm.falco_service_file is not None
+            assert charm.falco_proxy_env_file is not None
             assert charm.managed_falco_config is not None
 
     def test_charm_initialization_missing_falco_directory(self, mock_charm_dir, mock_falco_layout):
@@ -353,7 +354,7 @@ def test_install_writes_proxy_environment_file(
         state_out = manager.run()
         charm = manager.charm
 
-    proxy_env_file = charm.falco_service_file.proxy_env_template.destination
+    proxy_env_file = charm.falco_proxy_env_file.destination
     assert proxy_env_file.exists()
     assert proxy_env_file.stat().st_mode & 0o777 == 0o600
 

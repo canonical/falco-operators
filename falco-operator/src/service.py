@@ -121,6 +121,11 @@ class FalcoLayout:
         """Get the full path to the Falco configuration file."""
         return self.home / "etc/falco/falco.yaml"
 
+    @property
+    def proxy_env_file(self) -> Path:
+        """Get the full path to the Falco proxy environment file."""
+        return self.config_file.parent / "proxy.env"
+
 
 class Template:
     """Template file manager."""
@@ -192,10 +197,11 @@ class Template:
             raise TemplateRenderError(f"Failed to write template to {self.destination}") from e
 
 
-class FalcoServiceFile:
-    """Manage the Falco systemd unit and its proxy environment file."""
+class FalcoServiceFile(Template):
+    """Falco systemd unit file manager."""
 
     service_name = FALCO_SERVICE_NAME
+    template: str = "falco.service.j2"
     service_file: Path = SYSTEMD_SERVICE_DIR / f"{FALCO_SERVICE_NAME}.service"
 
     def __init__(self, falco_layout: FalcoLayout, charm: CharmBase) -> None:
@@ -205,64 +211,43 @@ class FalcoServiceFile:
             falco_layout: The Falco file layout.
             charm: The charm instance.
         """
-        proxy_env_file = falco_layout.config_file.parent / "proxy.env"
-        self.unit_template = Template(
-            "falco.service.j2",
-            self.service_file,
-            context={
-                "command": str(falco_layout.cmd),
-                "rules_dir": str(falco_layout.rules_dir),
-                "config_file": str(falco_layout.config_file),
-                "falco_home": str(falco_layout.home),
-                "juju_topology": JujuTopology.from_charm(charm).as_dict(),
-                "http_proxy": os.environ.get("JUJU_CHARM_HTTP_PROXY", ""),
-                "https_proxy": os.environ.get("JUJU_CHARM_HTTPS_PROXY", ""),
-                "no_proxy": os.environ.get("JUJU_CHARM_NO_PROXY", ""),
-                "proxy_env_file": str(proxy_env_file),
-            },
-        )
-        self.proxy_env_template = Template(
-            "proxy.env.j2",
-            proxy_env_file,
-            context={},
-            mode=0o600,
-        )
+        context = {
+            "command": str(falco_layout.cmd),
+            "rules_dir": str(falco_layout.rules_dir),
+            "config_file": str(falco_layout.config_file),
+            "falco_home": str(falco_layout.home),
+            "juju_topology": JujuTopology.from_charm(charm).as_dict(),
+            "http_proxy": os.environ.get("JUJU_CHARM_HTTP_PROXY", ""),
+            "https_proxy": os.environ.get("JUJU_CHARM_HTTPS_PROXY", ""),
+            "no_proxy": os.environ.get("JUJU_CHARM_NO_PROXY", ""),
+            "proxy_env_file": str(falco_layout.proxy_env_file),
+        }
+        super().__init__(self.template, self.service_file, context=context)
 
     def update(self, context: dict) -> None:
-        """Update the systemd unit context and reinstall the managed files.
+        """Update the Falco service file with new context.
 
         Args:
             context: A dictionary containing new context values.
         """
-        self.unit_template.context.update(context)
+        self.context.update(context)
         self.install()
 
-    def install(self) -> None:
-        """Install the systemd unit and its root-only proxy environment file."""
-        proxy_values = self._proxy_values()
-        if proxy_values:
-            self.proxy_env_template.context = {"proxy_values": proxy_values}
-            self.proxy_env_template.install()
-        else:
-            self.proxy_env_template.remove()
 
-        self.unit_template.context["proxy_env_file"] = str(self.proxy_env_template.destination)
-        self.unit_template.install()
+class FalcoProxyEnvFile(Template):
+    """Falco proxy environment file manager."""
 
-    def remove(self) -> None:
-        """Remove the systemd unit and its proxy environment file."""
-        self.unit_template.remove()
-        self.proxy_env_template.remove()
+    template: str = "proxy.env.j2"
 
-    def _proxy_values(self) -> list[tuple[str, str]]:
-        """Build the populated proxy environment values.
+    def __init__(self, falco_layout: FalcoLayout) -> None:
+        """Initialize the Falco proxy environment file manager.
 
-        Returns:
-            A list of key/value pairs with empty values omitted.
+        Args:
+            falco_layout: The Falco file layout.
         """
-        http_proxy = self.unit_template.context.get("http_proxy", "")
-        https_proxy = self.unit_template.context.get("https_proxy", "")
-        no_proxy = self.unit_template.context.get("no_proxy", "")
+        http_proxy = os.environ.get("JUJU_CHARM_HTTP_PROXY", "")
+        https_proxy = os.environ.get("JUJU_CHARM_HTTPS_PROXY", "")
+        no_proxy = os.environ.get("JUJU_CHARM_NO_PROXY", "")
         proxy_values = [
             ("HTTP_PROXY", http_proxy),
             ("http_proxy", http_proxy),
@@ -271,7 +256,19 @@ class FalcoServiceFile:
             ("NO_PROXY", no_proxy),
             ("no_proxy", no_proxy),
         ]
-        return [(key, value) for key, value in proxy_values if value]
+        super().__init__(
+            self.template,
+            falco_layout.proxy_env_file,
+            context={"proxy_values": [(key, value) for key, value in proxy_values if value]},
+            mode=0o600,
+        )
+
+    def install(self) -> None:
+        """Install the proxy environment file, or remove it if unset."""
+        if not self.context["proxy_values"]:
+            self.remove()
+            return
+        super().install()
 
 
 class FalcoConfigFile(Template):
@@ -367,10 +364,12 @@ class FalcoService:
         self,
         config_file: FalcoConfigFile,
         service_file: FalcoServiceFile,
+        proxy_env_file: FalcoProxyEnvFile,
         custom_setting: FalcoCustomSetting,
     ) -> None:
         self.config_file = config_file
         self.service_file = service_file
+        self.proxy_env_file = proxy_env_file
         self.custom_setting = custom_setting
 
     def install(self) -> None:
@@ -378,6 +377,7 @@ class FalcoService:
         logger.info("Installing Falco service")
 
         self.config_file.install()
+        self.proxy_env_file.install()
         self.service_file.install()
         self.custom_setting.install()
 
@@ -394,6 +394,7 @@ class FalcoService:
         systemd.daemon_reload()
 
         self.config_file.remove()
+        self.proxy_env_file.remove()
         self.service_file.remove()
         self.custom_setting.remove()
 
@@ -411,6 +412,7 @@ class FalcoService:
 
         try:
             self.custom_setting.configure(charm_state)
+            self.proxy_env_file.install()
             self.service_file.update(context={"http_output": charm_state.http_output})
         except (GitCloneError, SshKeyScanError, RsyncError) as e:
             logger.error("Failed to configure Falco custom settings: %s", e)
