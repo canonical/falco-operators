@@ -115,11 +115,11 @@ def test_proxy_environment_file(mock_topology, mock_falco_layout, tmp_path):
     proxy_env_file = tmp_path / "proxy.env"
     with patch.dict(os.environ, env):
         service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-        service_file.destination = tmp_path / "falco.service"
-        service_file.proxy_env_file = proxy_env_file
+        service_file.unit_template.destination = tmp_path / "falco.service"
+        service_file.proxy_env_template.destination = proxy_env_file
         service_file.install()
 
-    content = service_file.destination.read_text()
+    content = service_file.unit_template.destination.read_text()
     assert f"EnvironmentFile=-{proxy_env_file}" in content
     assert "Environment=HTTP_PROXY=" not in content
     assert "Environment=http_proxy=" not in content
@@ -157,14 +157,14 @@ def test_proxy_environment_is_not_html_escaped(mock_topology, mock_falco_layout,
     proxy_env_file = tmp_path / "proxy.env"
     with patch.dict(os.environ, env):
         service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-        service_file.destination = tmp_path / "falco.service"
-        service_file.proxy_env_file = proxy_env_file
+        service_file.unit_template.destination = tmp_path / "falco.service"
+        service_file.proxy_env_template.destination = proxy_env_file
         service_file.install()
 
     proxy_content = proxy_env_file.read_text()
     assert f"HTTP_PROXY={proxy_url}" in proxy_content
     assert "&amp;" not in proxy_content
-    assert proxy_url not in service_file.destination.read_text()
+    assert proxy_url not in service_file.unit_template.destination.read_text()
 
 
 @patch("service.JujuTopology")
@@ -184,14 +184,14 @@ def test_systemd_values_are_not_html_escaped(mock_topology, mock_falco_layout, t
     }
     with patch.dict(os.environ, env):
         service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-        service_file.destination = tmp_path / "falco.service"
-        service_file.proxy_env_file = tmp_path / "proxy.env"
-        service_file.context["http_output"] = {
+        service_file.unit_template.destination = tmp_path / "falco.service"
+        service_file.proxy_env_template.destination = tmp_path / "proxy.env"
+        service_file.unit_template.context["http_output"] = {
             "url": "https://example.com/?a=1&b=2",
         }
         service_file.install()
 
-    content = service_file.destination.read_text()
+    content = service_file.unit_template.destination.read_text()
     assert "http_output.url=https://example.com/?a=1&b=2" in content
     assert "&amp;" not in content
 
@@ -214,11 +214,11 @@ def test_no_proxy_environment_when_unset(mock_topology, mock_falco_layout, tmp_p
     proxy_env_file = tmp_path / "proxy.env"
     with patch.dict(os.environ, env):
         service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-        service_file.destination = tmp_path / "falco.service"
-        service_file.proxy_env_file = proxy_env_file
+        service_file.unit_template.destination = tmp_path / "falco.service"
+        service_file.proxy_env_template.destination = proxy_env_file
         service_file.install()
 
-    content = service_file.destination.read_text()
+    content = service_file.unit_template.destination.read_text()
     assert f"EnvironmentFile=-{proxy_env_file}" in content
     assert "Environment=HTTP_PROXY" not in content
     assert "Environment=HTTPS_PROXY" not in content
