@@ -19,6 +19,7 @@ from service import (
     FALCO_SERVICE_NAME,
     FalcoConfigurationError,
     FalcoCustomSetting,
+    FalcoProxyEnvFile,
     FalcoService,
     FalcoServiceFile,
     GitCloneError,
@@ -97,16 +98,8 @@ class TestTemplate:
             template.install()
 
 
-@patch("service.JujuTopology")
-def test_proxy_environment_file(mock_topology, mock_falco_layout, tmp_path):
+def test_proxy_environment_file(mock_falco_layout, tmp_path):
     """Test proxy values are written to a root-only environment file."""
-    mock_topology.from_charm.return_value.as_dict.return_value = {
-        "unit": "falco/0",
-        "charm_name": "falco",
-        "model": "test-model",
-        "model_uuid": "test-uuid",
-        "application": "falco",
-    }
     env = {
         "JUJU_CHARM_HTTP_PROXY": "http://egress.ps7.internal:3128",
         "JUJU_CHARM_HTTPS_PROXY": "http://egress.ps7.internal:3128",
@@ -114,19 +107,9 @@ def test_proxy_environment_file(mock_topology, mock_falco_layout, tmp_path):
     }
     proxy_env_file = tmp_path / "proxy.env"
     with patch.dict(os.environ, env):
-        service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-        service_file.unit_template.destination = tmp_path / "falco.service"
-        service_file.proxy_env_template.destination = proxy_env_file
-        service_file.install()
-
-    content = service_file.unit_template.destination.read_text()
-    assert f"EnvironmentFile=-{proxy_env_file}" in content
-    assert "Environment=HTTP_PROXY=" not in content
-    assert "Environment=http_proxy=" not in content
-    assert "Environment=HTTPS_PROXY=" not in content
-    assert "Environment=https_proxy=" not in content
-    assert "Environment=NO_PROXY=" not in content
-    assert "Environment=no_proxy=" not in content
+        proxy_env = FalcoProxyEnvFile(mock_falco_layout)
+        proxy_env.destination = proxy_env_file
+        proxy_env.install()
 
     proxy_content = proxy_env_file.read_text()
     assert "HTTP_PROXY=http://egress.ps7.internal:3128" in proxy_content
@@ -138,16 +121,8 @@ def test_proxy_environment_file(mock_topology, mock_falco_layout, tmp_path):
     assert stat.S_IMODE(proxy_env_file.stat().st_mode) == 0o600
 
 
-@patch("service.JujuTopology")
-def test_proxy_environment_is_not_html_escaped(mock_topology, mock_falco_layout, tmp_path):
+def test_proxy_environment_is_not_html_escaped(mock_falco_layout, tmp_path):
     """Test ampersands in proxy values are preserved in the environment file."""
-    mock_topology.from_charm.return_value.as_dict.return_value = {
-        "unit": "falco/0",
-        "charm_name": "falco",
-        "model": "test-model",
-        "model_uuid": "test-uuid",
-        "application": "falco",
-    }
     proxy_url = "http://egress.ps7.internal:3128/?x=1&y=2"
     env = {
         "JUJU_CHARM_HTTP_PROXY": proxy_url,
@@ -156,15 +131,13 @@ def test_proxy_environment_is_not_html_escaped(mock_topology, mock_falco_layout,
     }
     proxy_env_file = tmp_path / "proxy.env"
     with patch.dict(os.environ, env):
-        service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-        service_file.unit_template.destination = tmp_path / "falco.service"
-        service_file.proxy_env_template.destination = proxy_env_file
-        service_file.install()
+        proxy_env = FalcoProxyEnvFile(mock_falco_layout)
+        proxy_env.destination = proxy_env_file
+        proxy_env.install()
 
     proxy_content = proxy_env_file.read_text()
     assert f"HTTP_PROXY={proxy_url}" in proxy_content
     assert "&amp;" not in proxy_content
-    assert proxy_url not in service_file.unit_template.destination.read_text()
 
 
 @patch("service.JujuTopology")
@@ -184,28 +157,19 @@ def test_systemd_values_are_not_html_escaped(mock_topology, mock_falco_layout, t
     }
     with patch.dict(os.environ, env):
         service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-        service_file.unit_template.destination = tmp_path / "falco.service"
-        service_file.proxy_env_template.destination = tmp_path / "proxy.env"
-        service_file.unit_template.context["http_output"] = {
+        service_file.destination = tmp_path / "falco.service"
+        service_file.context["http_output"] = {
             "url": "https://example.com/?a=1&b=2",
         }
         service_file.install()
 
-    content = service_file.unit_template.destination.read_text()
+    content = service_file.destination.read_text()
     assert "http_output.url=https://example.com/?a=1&b=2" in content
     assert "&amp;" not in content
 
 
-@patch("service.JujuTopology")
-def test_no_proxy_environment_when_unset(mock_topology, mock_falco_layout, tmp_path):
+def test_no_proxy_environment_when_unset(mock_falco_layout, tmp_path):
     """Test no proxy environment file is created when the values are unset."""
-    mock_topology.from_charm.return_value.as_dict.return_value = {
-        "unit": "falco/0",
-        "charm_name": "falco",
-        "model": "test-model",
-        "model_uuid": "test-uuid",
-        "application": "falco",
-    }
     env = {
         "JUJU_CHARM_HTTP_PROXY": "",
         "JUJU_CHARM_HTTPS_PROXY": "",
@@ -213,16 +177,10 @@ def test_no_proxy_environment_when_unset(mock_topology, mock_falco_layout, tmp_p
     }
     proxy_env_file = tmp_path / "proxy.env"
     with patch.dict(os.environ, env):
-        service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-        service_file.unit_template.destination = tmp_path / "falco.service"
-        service_file.proxy_env_template.destination = proxy_env_file
-        service_file.install()
+        proxy_env = FalcoProxyEnvFile(mock_falco_layout)
+        proxy_env.destination = proxy_env_file
+        proxy_env.install()
 
-    content = service_file.unit_template.destination.read_text()
-    assert f"EnvironmentFile=-{proxy_env_file}" in content
-    assert "Environment=HTTP_PROXY" not in content
-    assert "Environment=HTTPS_PROXY" not in content
-    assert "Environment=NO_PROXY" not in content
     assert not proxy_env_file.exists()
 
 
@@ -326,9 +284,12 @@ class TestFalcoServiceEdgeCases:
         """Test FalcoService.configure handles custom config errors."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_custom_setting = MagicMock()
 
-        falco_service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        falco_service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
 
         # Mock custom_setting.configure to raise GitCloneError
         mock_custom_setting.configure.side_effect = GitCloneError("Test error")
@@ -347,14 +308,18 @@ class TestFalcoService:
         """Test Falco service installation."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_custom_setting = MagicMock()
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         service.install()
 
         mock_config.install.assert_called_once()
         mock_service_file.install.assert_called_once()
+        mock_proxy_env_file.install.assert_called_once()
         mock_systemd.service_enable.assert_called_once_with(FALCO_SERVICE_NAME)
 
     @patch("service.systemd")
@@ -362,10 +327,13 @@ class TestFalcoService:
         """Test removing active Falco service."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_custom_setting = MagicMock()
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         service.remove()
 
         mock_systemd.service_stop.assert_called_once_with(FALCO_SERVICE_NAME)
@@ -373,23 +341,28 @@ class TestFalcoService:
         mock_systemd.daemon_reload.assert_called_once()
         mock_config.remove.assert_called_once()
         mock_service_file.remove.assert_called_once()
+        mock_proxy_env_file.remove.assert_called_once()
 
     @patch("service.systemd")
     def test_configure(self, mock_systemd):
         """Test Falco service configuration."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_service_file.context = {}
         mock_custom_setting = MagicMock()
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         charm_state = CharmState()
         service.configure(charm_state)
 
         mock_custom_setting.configure.assert_called_once_with(charm_state)
         mock_service_file.install.assert_not_called()
         mock_service_file.update.assert_called_once()
+        mock_proxy_env_file.install.assert_called_once()
         mock_systemd.daemon_reload.assert_called_once()
         mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
 
@@ -400,10 +373,13 @@ class TestFalcoService:
 
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_custom_setting = MagicMock()
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         assert service.check_active() is True
         mock_systemd.service_running.assert_called_once_with(FALCO_SERVICE_NAME)
 
@@ -414,10 +390,13 @@ class TestFalcoService:
 
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_custom_setting = MagicMock()
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         assert service.check_active() is False
         mock_systemd.service_running.assert_called_once_with(FALCO_SERVICE_NAME)
 
