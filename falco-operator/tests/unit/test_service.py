@@ -97,135 +97,133 @@ class TestTemplate:
             template.install()
 
 
-class TestFalcoServiceFile:
-    """Test FalcoServiceFile class."""
+@patch("service.JujuTopology")
+def test_proxy_environment_file(mock_topology, mock_falco_layout, tmp_path):
+    """Test proxy values are written to a root-only environment file."""
+    mock_topology.from_charm.return_value.as_dict.return_value = {
+        "unit": "falco/0",
+        "charm_name": "falco",
+        "model": "test-model",
+        "model_uuid": "test-uuid",
+        "application": "falco",
+    }
+    env = {
+        "JUJU_CHARM_HTTP_PROXY": "http://egress.ps7.internal:3128",
+        "JUJU_CHARM_HTTPS_PROXY": "http://egress.ps7.internal:3128",
+        "JUJU_CHARM_NO_PROXY": "127.0.0.1,localhost,10.0.0.0/8",
+    }
+    proxy_env_file = tmp_path / "proxy.env"
+    with patch.dict(os.environ, env):
+        service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
+        service_file.destination = tmp_path / "falco.service"
+        service_file.proxy_env_file = proxy_env_file
+        service_file.install()
 
-    @patch("service.JujuTopology")
-    def test_proxy_environment_file(self, mock_topology, mock_falco_layout, tmp_path):
-        """Test proxy values are written to a root-only environment file."""
-        mock_topology.from_charm.return_value.as_dict.return_value = {
-            "unit": "falco/0",
-            "charm_name": "falco",
-            "model": "test-model",
-            "model_uuid": "test-uuid",
-            "application": "falco",
+    content = service_file.destination.read_text()
+    assert f"EnvironmentFile=-{proxy_env_file}" in content
+    assert "Environment=HTTP_PROXY=" not in content
+    assert "Environment=http_proxy=" not in content
+    assert "Environment=HTTPS_PROXY=" not in content
+    assert "Environment=https_proxy=" not in content
+    assert "Environment=NO_PROXY=" not in content
+    assert "Environment=no_proxy=" not in content
+
+    proxy_content = proxy_env_file.read_text()
+    assert "HTTP_PROXY=http://egress.ps7.internal:3128" in proxy_content
+    assert "http_proxy=http://egress.ps7.internal:3128" in proxy_content
+    assert "HTTPS_PROXY=http://egress.ps7.internal:3128" in proxy_content
+    assert "https_proxy=http://egress.ps7.internal:3128" in proxy_content
+    assert "NO_PROXY=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
+    assert "no_proxy=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
+    assert stat.S_IMODE(proxy_env_file.stat().st_mode) == 0o600
+
+
+@patch("service.JujuTopology")
+def test_proxy_environment_is_not_html_escaped(mock_topology, mock_falco_layout, tmp_path):
+    """Test ampersands in proxy values are preserved in the environment file."""
+    mock_topology.from_charm.return_value.as_dict.return_value = {
+        "unit": "falco/0",
+        "charm_name": "falco",
+        "model": "test-model",
+        "model_uuid": "test-uuid",
+        "application": "falco",
+    }
+    proxy_url = "http://egress.ps7.internal:3128/?x=1&y=2"
+    env = {
+        "JUJU_CHARM_HTTP_PROXY": proxy_url,
+        "JUJU_CHARM_HTTPS_PROXY": "",
+        "JUJU_CHARM_NO_PROXY": "",
+    }
+    proxy_env_file = tmp_path / "proxy.env"
+    with patch.dict(os.environ, env):
+        service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
+        service_file.destination = tmp_path / "falco.service"
+        service_file.proxy_env_file = proxy_env_file
+        service_file.install()
+
+    proxy_content = proxy_env_file.read_text()
+    assert f"HTTP_PROXY={proxy_url}" in proxy_content
+    assert "&amp;" not in proxy_content
+    assert proxy_url not in service_file.destination.read_text()
+
+
+@patch("service.JujuTopology")
+def test_systemd_values_are_not_html_escaped(mock_topology, mock_falco_layout, tmp_path):
+    """Test systemd values are rendered literally, not HTML-escaped."""
+    mock_topology.from_charm.return_value.as_dict.return_value = {
+        "unit": "falco/0",
+        "charm_name": "falco",
+        "model": "test-model",
+        "model_uuid": "test-uuid",
+        "application": "falco",
+    }
+    env = {
+        "JUJU_CHARM_HTTP_PROXY": "",
+        "JUJU_CHARM_HTTPS_PROXY": "",
+        "JUJU_CHARM_NO_PROXY": "",
+    }
+    with patch.dict(os.environ, env):
+        service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
+        service_file.destination = tmp_path / "falco.service"
+        service_file.proxy_env_file = tmp_path / "proxy.env"
+        service_file.context["http_output"] = {
+            "url": "https://example.com/?a=1&b=2",
         }
-        env = {
-            "JUJU_CHARM_HTTP_PROXY": "http://egress.ps7.internal:3128",
-            "JUJU_CHARM_HTTPS_PROXY": "http://egress.ps7.internal:3128",
-            "JUJU_CHARM_NO_PROXY": "127.0.0.1,localhost,10.0.0.0/8",
-        }
-        proxy_env_file = tmp_path / "proxy.env"
-        with patch.dict(os.environ, env):
-            service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-            service_file.destination = tmp_path / "falco.service"
-            service_file.proxy_env_file = proxy_env_file
-            service_file.install()
+        service_file.install()
 
-        content = service_file.destination.read_text()
-        assert f"EnvironmentFile=-{proxy_env_file}" in content
-        assert "Environment=HTTP_PROXY=" not in content
-        assert "Environment=http_proxy=" not in content
-        assert "Environment=HTTPS_PROXY=" not in content
-        assert "Environment=https_proxy=" not in content
-        assert "Environment=NO_PROXY=" not in content
-        assert "Environment=no_proxy=" not in content
+    content = service_file.destination.read_text()
+    assert "http_output.url=https://example.com/?a=1&b=2" in content
+    assert "&amp;" not in content
 
-        proxy_content = proxy_env_file.read_text()
-        assert "HTTP_PROXY=http://egress.ps7.internal:3128" in proxy_content
-        assert "http_proxy=http://egress.ps7.internal:3128" in proxy_content
-        assert "HTTPS_PROXY=http://egress.ps7.internal:3128" in proxy_content
-        assert "https_proxy=http://egress.ps7.internal:3128" in proxy_content
-        assert "NO_PROXY=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
-        assert "no_proxy=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
-        assert stat.S_IMODE(proxy_env_file.stat().st_mode) == 0o600
 
-    @patch("service.JujuTopology")
-    def test_proxy_environment_is_not_html_escaped(
-        self, mock_topology, mock_falco_layout, tmp_path
-    ):
-        """Test ampersands in proxy values are preserved in the environment file."""
-        mock_topology.from_charm.return_value.as_dict.return_value = {
-            "unit": "falco/0",
-            "charm_name": "falco",
-            "model": "test-model",
-            "model_uuid": "test-uuid",
-            "application": "falco",
-        }
-        proxy_url = "http://egress.ps7.internal:3128/?x=1&y=2"
-        env = {
-            "JUJU_CHARM_HTTP_PROXY": proxy_url,
-            "JUJU_CHARM_HTTPS_PROXY": "",
-            "JUJU_CHARM_NO_PROXY": "",
-        }
-        proxy_env_file = tmp_path / "proxy.env"
-        with patch.dict(os.environ, env):
-            service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-            service_file.destination = tmp_path / "falco.service"
-            service_file.proxy_env_file = proxy_env_file
-            service_file.install()
+@patch("service.JujuTopology")
+def test_no_proxy_environment_when_unset(mock_topology, mock_falco_layout, tmp_path):
+    """Test no proxy environment file is created when the values are unset."""
+    mock_topology.from_charm.return_value.as_dict.return_value = {
+        "unit": "falco/0",
+        "charm_name": "falco",
+        "model": "test-model",
+        "model_uuid": "test-uuid",
+        "application": "falco",
+    }
+    env = {
+        "JUJU_CHARM_HTTP_PROXY": "",
+        "JUJU_CHARM_HTTPS_PROXY": "",
+        "JUJU_CHARM_NO_PROXY": "",
+    }
+    proxy_env_file = tmp_path / "proxy.env"
+    with patch.dict(os.environ, env):
+        service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
+        service_file.destination = tmp_path / "falco.service"
+        service_file.proxy_env_file = proxy_env_file
+        service_file.install()
 
-        proxy_content = proxy_env_file.read_text()
-        assert f"HTTP_PROXY={proxy_url}" in proxy_content
-        assert "&amp;" not in proxy_content
-        assert proxy_url not in service_file.destination.read_text()
-
-    @patch("service.JujuTopology")
-    def test_systemd_values_are_not_html_escaped(self, mock_topology, mock_falco_layout, tmp_path):
-        """Test systemd values are rendered literally, not HTML-escaped."""
-        mock_topology.from_charm.return_value.as_dict.return_value = {
-            "unit": "falco/0",
-            "charm_name": "falco",
-            "model": "test-model",
-            "model_uuid": "test-uuid",
-            "application": "falco",
-        }
-        env = {
-            "JUJU_CHARM_HTTP_PROXY": "",
-            "JUJU_CHARM_HTTPS_PROXY": "",
-            "JUJU_CHARM_NO_PROXY": "",
-        }
-        with patch.dict(os.environ, env):
-            service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-            service_file.destination = tmp_path / "falco.service"
-            service_file.proxy_env_file = tmp_path / "proxy.env"
-            service_file.context["http_output"] = {
-                "url": "https://example.com/?a=1&b=2",
-            }
-            service_file.install()
-
-        content = service_file.destination.read_text()
-        assert "http_output.url=https://example.com/?a=1&b=2" in content
-        assert "&amp;" not in content
-
-    @patch("service.JujuTopology")
-    def test_no_proxy_environment_when_unset(self, mock_topology, mock_falco_layout, tmp_path):
-        """Test no proxy environment file is created when the values are unset."""
-        mock_topology.from_charm.return_value.as_dict.return_value = {
-            "unit": "falco/0",
-            "charm_name": "falco",
-            "model": "test-model",
-            "model_uuid": "test-uuid",
-            "application": "falco",
-        }
-        env = {
-            "JUJU_CHARM_HTTP_PROXY": "",
-            "JUJU_CHARM_HTTPS_PROXY": "",
-            "JUJU_CHARM_NO_PROXY": "",
-        }
-        proxy_env_file = tmp_path / "proxy.env"
-        with patch.dict(os.environ, env):
-            service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
-            service_file.destination = tmp_path / "falco.service"
-            service_file.proxy_env_file = proxy_env_file
-            service_file.install()
-
-        content = service_file.destination.read_text()
-        assert f"EnvironmentFile=-{proxy_env_file}" in content
-        assert "Environment=HTTP_PROXY" not in content
-        assert "Environment=HTTPS_PROXY" not in content
-        assert "Environment=NO_PROXY" not in content
-        assert not proxy_env_file.exists()
+    content = service_file.destination.read_text()
+    assert f"EnvironmentFile=-{proxy_env_file}" in content
+    assert "Environment=HTTP_PROXY" not in content
+    assert "Environment=HTTPS_PROXY" not in content
+    assert "Environment=NO_PROXY" not in content
+    assert not proxy_env_file.exists()
 
 
 class TestFalcoCustomSetting:
