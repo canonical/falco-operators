@@ -125,17 +125,26 @@ class FalcoLayout:
 class Template:
     """Template file manager."""
 
-    def __init__(self, name: str, destination: Path, context: Optional[dict]) -> None:
+    def __init__(
+        self,
+        name: str,
+        destination: Path,
+        context: Optional[dict],
+        mode: Optional[int] = None,
+    ) -> None:
         """Initialize the template file manager.
 
         Args:
             name (str): Template file name
             destination (Path): Destination path for the rendered template
             context (Optional[dict]): Context for rendering the template
+            mode (Optional[int]): File mode for the rendered file. If omitted, the
+                file is written with the process umask.
         """
         self.name = name
         self.destination = destination
         self.context = context or {}
+        self.mode = mode
 
         # These templates render systemd and YAML files, not HTML. Enabling
         # autoescape would corrupt values such as proxy URLs containing "&".
@@ -168,18 +177,25 @@ class Template:
             content = self._template.render(context)
             if not self.destination.parent.exists():
                 self.destination.parent.mkdir(parents=True, exist_ok=True)
-            self.destination.write_text(content, encoding="utf-8")
+            if self.mode is None:
+                self.destination.write_text(content, encoding="utf-8")
+            else:
+                file_descriptor = os.open(
+                    self.destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, self.mode
+                )
+                with os.fdopen(file_descriptor, "w", encoding="utf-8") as destination_file:
+                    destination_file.write(content)
+                self.destination.chmod(self.mode)
             logger.debug("Template file generated at %s", self.destination)
         except OSError as e:
             logger.exception("Failed to write template to %s", self.destination)
             raise TemplateRenderError(f"Failed to write template to {self.destination}") from e
 
 
-class FalcoServiceFile(Template):
-    """Falco service file manager."""
+class FalcoServiceFile:
+    """Manage the Falco systemd unit and its proxy environment file."""
 
     service_name = FALCO_SERVICE_NAME
-    template: str = "falco.service.j2"
     service_file: Path = SYSTEMD_SERVICE_DIR / f"{FALCO_SERVICE_NAME}.service"
 
     def __init__(self, falco_layout: FalcoLayout, charm: CharmBase) -> None:
@@ -189,70 +205,98 @@ class FalcoServiceFile(Template):
             falco_layout: The Falco file layout.
             charm: The charm instance.
         """
-        self.proxy_env_file = falco_layout.config_file.parent / "proxy.env"
-        context = {
-            "command": str(falco_layout.cmd),
-            "rules_dir": str(falco_layout.rules_dir),
-            "config_file": str(falco_layout.config_file),
-            "falco_home": str(falco_layout.home),
-            "juju_topology": JujuTopology.from_charm(charm).as_dict(),
-            "http_proxy": os.environ.get("JUJU_CHARM_HTTP_PROXY", ""),
-            "https_proxy": os.environ.get("JUJU_CHARM_HTTPS_PROXY", ""),
-            "no_proxy": os.environ.get("JUJU_CHARM_NO_PROXY", ""),
-            "proxy_env_file": str(self.proxy_env_file),
-        }
-        super().__init__(self.template, self.service_file, context=context)
+        proxy_env_file = falco_layout.config_file.parent / "proxy.env"
+        self.unit_template = Template(
+            "falco.service.j2",
+            self.service_file,
+            context={
+                "command": str(falco_layout.cmd),
+                "rules_dir": str(falco_layout.rules_dir),
+                "config_file": str(falco_layout.config_file),
+                "falco_home": str(falco_layout.home),
+                "juju_topology": JujuTopology.from_charm(charm).as_dict(),
+                "http_proxy": os.environ.get("JUJU_CHARM_HTTP_PROXY", ""),
+                "https_proxy": os.environ.get("JUJU_CHARM_HTTPS_PROXY", ""),
+                "no_proxy": os.environ.get("JUJU_CHARM_NO_PROXY", ""),
+                "proxy_env_file": str(proxy_env_file),
+            },
+        )
+        self.proxy_env_template = Template(
+            "proxy.env.j2",
+            proxy_env_file,
+            context={},
+            mode=0o600,
+        )
+
+    @property
+    def destination(self) -> Path:
+        """Return the systemd unit destination."""
+        return self.unit_template.destination
+
+    @destination.setter
+    def destination(self, destination: Path) -> None:
+        """Set the systemd unit destination."""
+        self.unit_template.destination = destination
+
+    @property
+    def proxy_env_file(self) -> Path:
+        """Return the proxy environment file destination."""
+        return self.proxy_env_template.destination
+
+    @proxy_env_file.setter
+    def proxy_env_file(self, destination: Path) -> None:
+        """Set the proxy environment file destination."""
+        self.proxy_env_template.destination = destination
+
+    @property
+    def context(self) -> dict:
+        """Return the systemd unit template context."""
+        return self.unit_template.context
 
     def update(self, context: dict) -> None:
-        """Update the Falco service file with new context.
+        """Update the systemd unit context and reinstall the managed files.
 
         Args:
             context: A dictionary containing new context values.
         """
-        self.context.update(context)
+        self.unit_template.context.update(context)
         self.install()
 
     def install(self) -> None:
-        """Install the service file and its root-only proxy environment file."""
-        self.context["proxy_env_file"] = str(self.proxy_env_file)
-        self._write_proxy_env_file()
-        super().install()
+        """Install the systemd unit and its root-only proxy environment file."""
+        proxy_values = self._proxy_values()
+        if proxy_values:
+            self.proxy_env_template.context = {"proxy_values": proxy_values}
+            self.proxy_env_template.install()
+        else:
+            self.proxy_env_template.remove()
+
+        self.unit_template.context["proxy_env_file"] = str(self.proxy_env_file)
+        self.unit_template.install()
 
     def remove(self) -> None:
-        """Remove the service file and its proxy environment file."""
-        super().remove()
-        if self.proxy_env_file.exists():
-            self.proxy_env_file.unlink()
+        """Remove the systemd unit and its proxy environment file."""
+        self.unit_template.remove()
+        self.proxy_env_template.remove()
 
-    def _write_proxy_env_file(self) -> None:
-        """Write proxy settings to a root-only systemd environment file.
+    def _proxy_values(self) -> list[tuple[str, str]]:
+        """Build the populated proxy environment values.
 
-        The file is created with mode 0600 so credentials embedded in proxy
-        URLs are not exposed to unprivileged local users.
+        Returns:
+            A list of key/value pairs with empty values omitted.
         """
+        http_proxy = self.unit_template.context.get("http_proxy", "")
+        https_proxy = self.unit_template.context.get("https_proxy", "")
+        no_proxy = self.unit_template.context.get("no_proxy", "")
         proxy_values = [
-            ("HTTP_PROXY", self.context.get("http_proxy", "")),
-            ("http_proxy", self.context.get("http_proxy", "")),
-            ("HTTPS_PROXY", self.context.get("https_proxy", "")),
-            ("https_proxy", self.context.get("https_proxy", "")),
-            ("NO_PROXY", self.context.get("no_proxy", "")),
-            ("no_proxy", self.context.get("no_proxy", "")),
+            ("HTTP_PROXY", http_proxy),
+            ("http_proxy", http_proxy),
+            ("HTTPS_PROXY", https_proxy),
+            ("https_proxy", https_proxy),
+            ("NO_PROXY", no_proxy),
+            ("no_proxy", no_proxy),
         ]
-        populated = [(key, value) for key, value in proxy_values if value]
-
-        if not populated:
-            if self.proxy_env_file.exists():
-                self.proxy_env_file.unlink()
-            return
-
-        self.proxy_env_file.parent.mkdir(parents=True, exist_ok=True)
-        content = "\n".join(f"{key}={value}" for key, value in populated) + "\n"
-        file_descriptor = os.open(
-            self.proxy_env_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
-        )
-        with os.fdopen(file_descriptor, "w", encoding="utf-8") as proxy_env_file:
-            proxy_env_file.write(content)
-        self.proxy_env_file.chmod(0o600)
+        return [(key, value) for key, value in proxy_values if value]
 
 
 class FalcoConfigFile(Template):
