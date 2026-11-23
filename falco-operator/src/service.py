@@ -732,7 +732,10 @@ class FalcoCustomSetting:
         removed = False
 
         # Remove all custom rules files
-        for rule_file in self.falco_layout.rules_dir.glob("*.yaml"):
+        for rule_file in [
+            *self.falco_layout.rules_dir.glob("*.yaml"),
+            *self.falco_layout.rules_dir.glob("*.yml"),
+        ]:
             rule_file.unlink()
             removed = True
 
