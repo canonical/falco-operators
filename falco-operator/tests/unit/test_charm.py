@@ -340,15 +340,20 @@ def test_install_writes_proxy_environment_file(
 ):
     """Test the install event writes proxy settings to a root-only env file."""
     proxy_url = "http://egress.ps7.internal:3128"
-    monkeypatch.setenv("JUJU_CHARM_HTTP_PROXY", proxy_url)
-    monkeypatch.setenv("JUJU_CHARM_HTTPS_PROXY", proxy_url)
-    monkeypatch.setenv("JUJU_CHARM_NO_PROXY", "127.0.0.1,localhost,10.0.0.0/8")
     service_file_path = tmp_path / "falco.service"
     monkeypatch.setattr("service.FalcoServiceFile.service_file", service_file_path)
     monkeypatch.setattr("service.systemd.service_enable", MagicMock())
 
     context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
-    state_in = ops.testing.State()
+    state_in = ops.testing.State(
+        model=ops.testing.Model(
+            proxy_config=ops.testing.ProxyConfig(
+                http=proxy_url,
+                https=proxy_url,
+                no=("127.0.0.1", "localhost", "10.0.0.0/8"),
+            )
+        )
+    )
 
     with context(context.on.install(), state_in) as manager:
         state_out = manager.run()
