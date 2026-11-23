@@ -52,6 +52,19 @@
     {
       "customType": "regex",
       "datasourceTemplate": "github-tags",
+      "description": "Update falcoctl version from git tags (semver)",
+      "extractVersionTemplate": "^v(?<version>.*)$",
+      "fileMatch": [
+        "^\\.versions$"
+      ],
+      "matchStrings": [
+        "# renovate: depName=(?<depName>.*?)\\nFALCOCTL_VERSION=(?<currentValue>.*)"
+      ],
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "github-tags",
       "description": "Update Falco json plugin version from git tags (non-semver)",
       "extractVersionTemplate": "^plugins/json/v(?<version>.*)$",
       "fileMatch": [

@@ -1,7 +1,7 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-name: Build Falco Binary
+name: Build Falco and falcoctl Binaries
 
 on:
   pull_request:
@@ -14,36 +14,40 @@ on:
 
 jobs:
   build-falco:
-    name: Build Falco from Source
+    name: Build Falco and falcoctl from Source
     runs-on: ["self-hosted", "linux", "amd64", "noble"]
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       ARTIFACT_ROOT: /tmp/artifacts
       FALCO_SOURCE: /tmp/source/falco
       FALCO_GIT_REPO:  "https://github.com/falcosecurity/falco.git"
       FALCO_PLUGINS_SOURCE: /tmp/source/plugins
       FALCO_PLUGINS_GIT_REPO:  "https://github.com/falcosecurity/plugins.git"
+      FALCOCTL_SOURCE: /tmp/source/falcoctl
+      FALCOCTL_GIT_REPO:  "https://github.com/falcosecurity/falcoctl.git"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
 
-      - name: Extract Falco and Falco plugin version
+      - name: Extract Falco, falcoctl, and plugin versions
         id: version
         run: |
           # Read versions from .versions file
           source .versions
           echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
           echo "falco_version=${FALCO_VERSION}" >> $GITHUB_OUTPUT
+          echo "falcoctl_version=${FALCOCTL_VERSION}" >> $GITHUB_OUTPUT
           echo "json_plugin_version=${FALCO_JSON_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
           echo "k8saudit_plugin_version=${FALCO_K8SAUDIT_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
 
           echo "Build information:"
           echo "Architecture: $(uname -m)"
           echo "Building Falco version: ${FALCO_VERSION}"
+          echo "Building falcoctl version: ${FALCOCTL_VERSION}"
           echo "Building Falco json plugin version: ${FALCO_JSON_PLUGIN_VERSION}"
           echo "Building Falco k8saudit plugin version: ${FALCO_K8SAUDIT_PLUGIN_VERSION}"
 
-      - name: Clone Falco and plugins source
+      - name: Clone Falco, plugins, and falcoctl source
         run: |
           git clone \
             --depth 1 \
@@ -68,6 +72,13 @@ jobs:
             $FALCO_PLUGINS_GIT_REPO \
             $FALCO_PLUGINS_SOURCE/k8saudit
           echo "Plugins source cloned at $FALCO_PLUGINS_SOURCE/k8saudit with tag: plugins/k8saudit/v${{ steps.version.outputs.k8saudit_plugin_version }}"
+
+          git clone \
+            --depth 1 \
+            --branch "v${{ steps.version.outputs.falcoctl_version }}" \
+            $FALCOCTL_GIT_REPO \
+            $FALCOCTL_SOURCE
+          echo "falcoctl source cloned at $FALCOCTL_SOURCE with tag: v${{ steps.version.outputs.falcoctl_version }}"
 
       - name: Setup Go
         uses: actions/setup-go@v7.1.0
@@ -117,6 +128,25 @@ jobs:
           ls -lrh  $FALCO_PLUGINS_SOURCE/json/plugins/json/libjson.so
           ls -lrh  $FALCO_PLUGINS_SOURCE/k8saudit/plugins/k8saudit/libk8saudit.so
 
+      - name: Build falcoctl binary
+        run: |
+          cd $FALCOCTL_SOURCE
+
+          VERSION="${{ steps.version.outputs.falcoctl_version }}"
+          COMMIT="$(git rev-parse HEAD)"
+          BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w \
+              -X github.com/falcosecurity/falcoctl/cmd/version.semVersion=${VERSION} \
+              -X github.com/falcosecurity/falcoctl/cmd/version.gitCommit=${COMMIT} \
+              -X github.com/falcosecurity/falcoctl/cmd/version.buildDate=${BUILD_DATE}" \
+            -o falcoctl .
+
+          # Verify the binary was built and reports the expected version
+          ./falcoctl version
+          ls -lrh ./falcoctl
+
       - name: Prepare artifacts
         run: |
           mkdir -p \
@@ -127,11 +157,15 @@ jobs:
 
           cp $FALCO_SOURCE/rules/falco_rules.yaml $ARTIFACT_ROOT/etc/falco/default_rules/
           cp $FALCO_SOURCE/build/userspace/falco/falco $ARTIFACT_ROOT/usr/bin/falco
+          cp $FALCOCTL_SOURCE/falcoctl $ARTIFACT_ROOT/usr/bin/falcoctl
+          chmod +x $ARTIFACT_ROOT/usr/bin/falco $ARTIFACT_ROOT/usr/bin/falcoctl
           cp $FALCO_SOURCE/build/container_plugin-prefix/src/container_plugin/libcontainer.so $ARTIFACT_ROOT/usr/share/falco/plugins
 
           cp $FALCO_PLUGINS_SOURCE/k8saudit/plugins/k8saudit/rules/*.yaml $ARTIFACT_ROOT/etc/falco/default_rules
           cp $FALCO_PLUGINS_SOURCE/json/plugins/json/libjson.so $ARTIFACT_ROOT/usr/share/falco/plugins
           cp $FALCO_PLUGINS_SOURCE/k8saudit/plugins/k8saudit/libk8saudit.so $ARTIFACT_ROOT/usr/share/falco/plugins
+
+          $ARTIFACT_ROOT/usr/bin/falcoctl version
 
       - name: Create tarball
         run: |
@@ -139,6 +173,11 @@ jobs:
 
           cd $ARTIFACT_ROOT
           tar -czf $TARBALL *
+
+          # Ensure both binaries are present in the released tarball
+          tar -tzf $TARBALL | sort
+          tar -tzf $TARBALL | grep -q '^usr/bin/falco$'
+          tar -tzf $TARBALL | grep -q '^usr/bin/falcoctl$'
 
           # Move to back to workspace for upload
           mv $TARBALL ${{ github.workspace }}/

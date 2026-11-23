@@ -1,7 +1,7 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-name: Release Falco Binary
+name: Release Falco and falcoctl Binaries
 
 on:
   push:
@@ -22,19 +22,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
 
-      - name: Extract Falco and Falco plugin version
+      - name: Extract Falco, falcoctl, and plugin versions
         id: version
         run: |
           # Read versions from .versions file
           source .versions
           echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
           echo "falco_version=${FALCO_VERSION}" >> $GITHUB_OUTPUT
+          echo "falcoctl_version=${FALCOCTL_VERSION}" >> $GITHUB_OUTPUT
           echo "json_plugin_version=${FALCO_JSON_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
           echo "k8saudit_plugin_version=${FALCO_K8SAUDIT_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
 
           echo "Build information:"
           echo "Architecture: $(uname -m)"
           echo "Building Falco version: ${FALCO_VERSION}"
+          echo "Building falcoctl version: ${FALCOCTL_VERSION}"
           echo "Building Falco json plugin version: ${FALCO_JSON_PLUGIN_VERSION}"
           echo "Building Falco k8saudit plugin version: ${FALCO_K8SAUDIT_PLUGIN_VERSION}"
 
@@ -66,13 +68,14 @@ jobs:
           name: ${{ steps.version.outputs.falco_version }}
           tag_name: falco/${{ steps.version.outputs.falco_version }}
           body: |
-            # Falco binary release for Falco Operator
+            # Falco and falcoctl binary release for Falco Operator
 
-            This release contains the Falco binary for Falco Operator.
+            This release contains the Falco and falcoctl binaries for Falco Operator.
 
             ## What's Included
 
             - Falco binary at version: **${{ steps.version.outputs.falco_version }}**
+            - Falcoctl binary at version: **${{ steps.version.outputs.falcoctl_version }}**
             - Falco json at plugin version: **${{ steps.version.outputs.json_plugin_version }}**
             - Falco k8saudit at plugin version: **${{ steps.version.outputs.k8saudit_plugin_version }}**
             - Default rules for Falco
