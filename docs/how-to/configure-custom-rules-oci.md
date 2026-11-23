@@ -46,25 +46,27 @@ juju grant-secret custom-rules-secret falco  # returns the secret ID
 juju config falco custom-rules-secret="secret:d5dn431kohtcgpn8ou4g"
 ```
 
-The charm downloads the artifact into a staging directory under the Falco charm directory and
-atomically copies the rule files into the managed rules directory. It checks the registry again on
-subsequent `update-status` hooks and installs the new rules if the artifact content has changed.
+The charm starts a `falcoctl-rules-follow` systemd service that runs `falcoctl artifact follow`
+against a staging directory under the Falco charm directory. On each `update-status` reconciliation,
+the charm atomically copies changed rule files from staging into the managed rules directory.
 
 ## Verify the configuration
 
 ```bash
 juju status
+juju ssh falco/0 -- systemctl status falcoctl-rules-follow
 juju ssh falco/0 -- ls -la /var/lib/juju/agents/unit-falco-0/charm/falco/etc/falco/rules.d
 juju ssh falco/0 -- ls -la /var/lib/juju/agents/unit-falco-0/charm/falco/etc/falco/oci-rules
 ```
 
-The unit should be active, the rules should be present in `rules.d`, and the staging directory
-should contain the downloaded artifact state and `falcoctl` configuration.
+The unit should be active, the follow service should be running, the rules should be present in
+`rules.d`, and the staging directory should contain the followed rules, state, and `falcoctl`
+configuration.
 
 ## Update the rules
 
-Push a new artifact to the registry using the same tag. The next `update-status` hook downloads the
-artifact and installs the new rules if the content changed.
+Push a new artifact to the registry using the same tag. The follow service checks for updates every
+5 minutes, and the next `update-status` reconciliation installs the changed rules.
 
 ## Troubleshooting
 
@@ -74,3 +76,5 @@ artifact and installs the new rules if the content changed.
   a valid JSON object and that the object contains `username`, `password`, and `oci_ref`.
 - The unit is blocked with `Failed configuring Falco`: check the registry credentials, the artifact
   reference, and the unit logs for the `falcoctl` error.
+- `falcoctl-rules-follow` is not running: check `systemctl status falcoctl-rules-follow` and the
+  service logs. The service needs Falco's version endpoint on `127.0.0.1:8765` to be available.

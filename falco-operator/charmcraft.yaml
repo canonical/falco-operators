@@ -126,9 +126,10 @@ config:
         juju grant-secret custom-rules-secret falco
         ```
 
-        The rules are downloaded to a staging directory and atomically installed into Falco's managed rules
-        directory. The charm periodically checks the registry for a newer version of the referenced artifact.
-        This option cannot be used together with `custom-config-repository`; configure only one custom rules source.
+        A `falcoctl-rules-follow` systemd service uses `falcoctl artifact follow` to track the referenced
+        artifact and download updates into a staging directory. During reconciliation the charm atomically
+        installs changed rules into Falco's managed rules directory. This option cannot be used together with
+        `custom-config-repository`; configure only one custom rules source.
 
 requires:
   general-info:
