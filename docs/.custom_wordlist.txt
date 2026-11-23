@@ -8,3 +8,5 @@ Pydantic
 systemd
 Systemd
 Opentelemetry
+falcoctl
+Falcoctl
