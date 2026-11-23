@@ -160,9 +160,12 @@ def test_systemd_values_are_not_html_escaped(mock_topology, mock_falco_layout, t
     assert "&amp;" not in content
 
 
-def test_no_proxy_environment_when_unset(mock_falco_layout, tmp_path):
-    """Test no proxy environment file is created when the values are unset."""
+@pytest.mark.parametrize("existing_file", [False, True])
+def test_no_proxy_environment_when_unset(mock_falco_layout, tmp_path, existing_file):
+    """Test unset proxy values leave no environment file, even if one existed."""
     proxy_env_file = tmp_path / "proxy.env"
+    if existing_file:
+        proxy_env_file.write_text("HTTP_PROXY=http://old-proxy:3128\n", encoding="utf-8")
     proxy_env = FalcoProxyEnvFile(
         mock_falco_layout,
         http_proxy="",
