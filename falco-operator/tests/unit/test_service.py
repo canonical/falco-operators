@@ -218,6 +218,9 @@ class TestFalcoOciRules:
         assert "artifact follow" in service_content
         assert "--every 5m" in service_content
         assert "--falco-versions http://127.0.0.1:8765/versions" in service_content
+        assert "--no-verify" not in service_content
+        assert "--plugins-dir" not in service_content
+        assert "--assets-dir" not in service_content
         assert "quay.io/org/falco-rules:latest" in service_content
         mock_systemd.service_enable.assert_called_with(oci_rules.service_name)
         mock_systemd.service_restart.assert_called_with(oci_rules.service_name)

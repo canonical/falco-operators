@@ -372,16 +372,6 @@ class FalcoOciRules:
         return self.staging_dir / "follow-state"
 
     @property
-    def plugins_dir(self) -> Path:
-        """Get the staging directory for plugin dependencies."""
-        return self.staging_dir / "plugins"
-
-    @property
-    def assets_dir(self) -> Path:
-        """Get the staging directory for asset dependencies."""
-        return self.staging_dir / "assets"
-
-    @property
     def state_file(self) -> Path:
         """Get the file used to track the last installed OCI rules."""
         return self.staging_dir / "installed.json"
@@ -418,8 +408,6 @@ class FalcoOciRules:
             os.chmod(self.staging_dir, 0o700)
             self.rules_dir.mkdir(parents=True, exist_ok=True)
             self.state_dir.mkdir(parents=True, exist_ok=True)
-            self.plugins_dir.mkdir(parents=True, exist_ok=True)
-            self.assets_dir.mkdir(parents=True, exist_ok=True)
             config_changed = self._write_config(registry, username, password)
             service_changed = self._render_service_file(oci_ref)
         except OSError as e:
@@ -535,8 +523,6 @@ class FalcoOciRules:
                 "falcoctl": str(self.falco_layout.falcoctl_cmd),
                 "config_file": str(self.config_file),
                 "rules_dir": str(self.rules_dir),
-                "plugins_dir": str(self.plugins_dir),
-                "assets_dir": str(self.assets_dir),
                 "state_dir": str(self.state_dir),
                 "falco_versions": "http://127.0.0.1:8765/versions",
                 "every": self.follow_interval,

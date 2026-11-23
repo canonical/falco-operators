@@ -9,7 +9,7 @@ Wants=falco.service
 
 [Service]
 Type=simple
-ExecStart={{ falcoctl }} --config {{ config_file }} artifact follow --allowed-types rulesfile --no-verify --rulesfiles-dir {{ rules_dir }} --plugins-dir {{ plugins_dir }} --assets-dir {{ assets_dir }} --state-dir {{ state_dir }} --falco-versions {{ falco_versions }} --every {{ every }} --startup-behavior immediate {{ oci_ref }}
+ExecStart={{ falcoctl }} --config {{ config_file }} artifact follow --allowed-types rulesfile --rulesfiles-dir {{ rules_dir }} --state-dir {{ state_dir }} --falco-versions {{ falco_versions }} --every {{ every }} --startup-behavior immediate {{ oci_ref }}
 Restart=on-failure
 RestartSec=15s
 User=root
