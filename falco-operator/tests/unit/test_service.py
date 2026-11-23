@@ -9,6 +9,7 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
+from ops.model import ProxyConfig
 from pydantic import AnyUrl
 
 import service
@@ -103,9 +104,11 @@ def test_proxy_environment_file(mock_falco_layout, tmp_path):
     proxy_env_file = tmp_path / "proxy.env"
     proxy_env = FalcoProxyEnvFile(
         mock_falco_layout,
-        http_proxy="http://egress.ps7.internal:3128",
-        https_proxy="http://egress.ps7.internal:3128",
-        no_proxy="127.0.0.1,localhost,10.0.0.0/8",
+        ProxyConfig(
+            http="http://egress.ps7.internal:3128",
+            https="http://egress.ps7.internal:3128",
+            no=("127.0.0.1", "localhost", "10.0.0.0/8"),
+        ),
     )
     proxy_env.destination = proxy_env_file
     proxy_env.install()
@@ -126,9 +129,7 @@ def test_proxy_environment_is_not_html_escaped(mock_falco_layout, tmp_path):
     proxy_env_file = tmp_path / "proxy.env"
     proxy_env = FalcoProxyEnvFile(
         mock_falco_layout,
-        http_proxy=proxy_url,
-        https_proxy="",
-        no_proxy="",
+        ProxyConfig(http=proxy_url),
     )
     proxy_env.destination = proxy_env_file
     proxy_env.install()
@@ -166,12 +167,7 @@ def test_no_proxy_environment_when_unset(mock_falco_layout, tmp_path, existing_f
     proxy_env_file = tmp_path / "proxy.env"
     if existing_file:
         proxy_env_file.write_text("HTTP_PROXY=http://old-proxy:3128\n", encoding="utf-8")
-    proxy_env = FalcoProxyEnvFile(
-        mock_falco_layout,
-        http_proxy="",
-        https_proxy="",
-        no_proxy="",
-    )
+    proxy_env = FalcoProxyEnvFile(mock_falco_layout, ProxyConfig())
     proxy_env.destination = proxy_env_file
     proxy_env.install()
 

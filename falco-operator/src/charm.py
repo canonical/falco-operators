@@ -56,7 +56,7 @@ class Falco(CharmBaseWithState):
 
         self.falco_layout = FalcoLayout(base_dir=self.charm_dir / "falco")
         self.falco_service_file = FalcoServiceFile(self.falco_layout, self)
-        self.falco_proxy_env_file = FalcoProxyEnvFile(self.falco_layout)
+        self.falco_proxy_env_file = FalcoProxyEnvFile(self.falco_layout, self.model.proxy_config)
         self.managed_falco_config = FalcoConfigFile(self.falco_layout)
         self.custom_falco_setting = FalcoCustomSetting(self.falco_layout)
         self.falco_service = FalcoService(
