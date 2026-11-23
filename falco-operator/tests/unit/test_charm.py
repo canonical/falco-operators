@@ -373,7 +373,5 @@ def test_install_writes_proxy_environment_file(
 
     service_content = service_file_path.read_text()
     assert f"EnvironmentFile=-{proxy_env_file}" in service_content
-    assert "Environment=HTTP_PROXY" not in service_content
-    assert "Environment=HTTPS_PROXY" not in service_content
-    assert "Environment=NO_PROXY" not in service_content
+    assert proxy_url not in service_content
     assert state_out.unit_status == ops.testing.MaintenanceStatus("Installing Falco service")
