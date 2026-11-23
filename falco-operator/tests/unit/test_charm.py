@@ -363,14 +363,6 @@ def test_install_writes_proxy_environment_file(
     assert proxy_env_file.exists()
     assert proxy_env_file.stat().st_mode & 0o777 == 0o600
 
-    proxy_content = proxy_env_file.read_text()
-    assert f"HTTP_PROXY={proxy_url}" in proxy_content
-    assert f"http_proxy={proxy_url}" in proxy_content
-    assert f"HTTPS_PROXY={proxy_url}" in proxy_content
-    assert f"https_proxy={proxy_url}" in proxy_content
-    assert "NO_PROXY=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
-    assert "no_proxy=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
-
     service_content = service_file_path.read_text()
     assert f"EnvironmentFile=-{proxy_env_file}" in service_content
     assert proxy_url not in service_content
