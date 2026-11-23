@@ -100,16 +100,15 @@ class TestTemplate:
 
 def test_proxy_environment_file(mock_falco_layout, tmp_path):
     """Test proxy values are written to a root-only environment file."""
-    env = {
-        "JUJU_CHARM_HTTP_PROXY": "http://egress.ps7.internal:3128",
-        "JUJU_CHARM_HTTPS_PROXY": "http://egress.ps7.internal:3128",
-        "JUJU_CHARM_NO_PROXY": "127.0.0.1,localhost,10.0.0.0/8",
-    }
     proxy_env_file = tmp_path / "proxy.env"
-    with patch.dict(os.environ, env):
-        proxy_env = FalcoProxyEnvFile(mock_falco_layout)
-        proxy_env.destination = proxy_env_file
-        proxy_env.install()
+    proxy_env = FalcoProxyEnvFile(
+        mock_falco_layout,
+        http_proxy="http://egress.ps7.internal:3128",
+        https_proxy="http://egress.ps7.internal:3128",
+        no_proxy="127.0.0.1,localhost,10.0.0.0/8",
+    )
+    proxy_env.destination = proxy_env_file
+    proxy_env.install()
 
     proxy_content = proxy_env_file.read_text()
     assert "HTTP_PROXY=http://egress.ps7.internal:3128" in proxy_content
@@ -124,16 +123,15 @@ def test_proxy_environment_file(mock_falco_layout, tmp_path):
 def test_proxy_environment_is_not_html_escaped(mock_falco_layout, tmp_path):
     """Test ampersands in proxy values are preserved in the environment file."""
     proxy_url = "http://egress.ps7.internal:3128/?x=1&y=2"
-    env = {
-        "JUJU_CHARM_HTTP_PROXY": proxy_url,
-        "JUJU_CHARM_HTTPS_PROXY": "",
-        "JUJU_CHARM_NO_PROXY": "",
-    }
     proxy_env_file = tmp_path / "proxy.env"
-    with patch.dict(os.environ, env):
-        proxy_env = FalcoProxyEnvFile(mock_falco_layout)
-        proxy_env.destination = proxy_env_file
-        proxy_env.install()
+    proxy_env = FalcoProxyEnvFile(
+        mock_falco_layout,
+        http_proxy=proxy_url,
+        https_proxy="",
+        no_proxy="",
+    )
+    proxy_env.destination = proxy_env_file
+    proxy_env.install()
 
     proxy_content = proxy_env_file.read_text()
     assert f"HTTP_PROXY={proxy_url}" in proxy_content
@@ -164,16 +162,15 @@ def test_systemd_values_are_not_html_escaped(mock_topology, mock_falco_layout, t
 
 def test_no_proxy_environment_when_unset(mock_falco_layout, tmp_path):
     """Test no proxy environment file is created when the values are unset."""
-    env = {
-        "JUJU_CHARM_HTTP_PROXY": "",
-        "JUJU_CHARM_HTTPS_PROXY": "",
-        "JUJU_CHARM_NO_PROXY": "",
-    }
     proxy_env_file = tmp_path / "proxy.env"
-    with patch.dict(os.environ, env):
-        proxy_env = FalcoProxyEnvFile(mock_falco_layout)
-        proxy_env.destination = proxy_env_file
-        proxy_env.install()
+    proxy_env = FalcoProxyEnvFile(
+        mock_falco_layout,
+        http_proxy="",
+        https_proxy="",
+        no_proxy="",
+    )
+    proxy_env.destination = proxy_env_file
+    proxy_env.install()
 
     assert not proxy_env_file.exists()
 

@@ -236,15 +236,27 @@ class FalcoProxyEnvFile(Template):
 
     template: str = "proxy.env.j2"
 
-    def __init__(self, falco_layout: FalcoLayout) -> None:
+    def __init__(
+        self,
+        falco_layout: FalcoLayout,
+        http_proxy: Optional[str] = None,
+        https_proxy: Optional[str] = None,
+        no_proxy: Optional[str] = None,
+    ) -> None:
         """Initialize the Falco proxy environment file manager.
 
         Args:
             falco_layout: The Falco file layout.
+            http_proxy: The HTTP proxy. Defaults to JUJU_CHARM_HTTP_PROXY.
+            https_proxy: The HTTPS proxy. Defaults to JUJU_CHARM_HTTPS_PROXY.
+            no_proxy: The no-proxy list. Defaults to JUJU_CHARM_NO_PROXY.
         """
-        http_proxy = os.environ.get("JUJU_CHARM_HTTP_PROXY", "")
-        https_proxy = os.environ.get("JUJU_CHARM_HTTPS_PROXY", "")
-        no_proxy = os.environ.get("JUJU_CHARM_NO_PROXY", "")
+        if http_proxy is None:
+            http_proxy = os.environ.get("JUJU_CHARM_HTTP_PROXY", "")
+        if https_proxy is None:
+            https_proxy = os.environ.get("JUJU_CHARM_HTTPS_PROXY", "")
+        if no_proxy is None:
+            no_proxy = os.environ.get("JUJU_CHARM_NO_PROXY", "")
         proxy_values = [
             ("HTTP_PROXY", http_proxy),
             ("http_proxy", http_proxy),
