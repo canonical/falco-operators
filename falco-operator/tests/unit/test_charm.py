@@ -28,6 +28,7 @@ class TestCharm:
             charm = manager.charm
             assert charm.falco_layout is not None
             assert charm.falco_service_file is not None
+            assert charm.falco_proxy_env_file is not None
             assert charm.managed_falco_config is not None
 
     def test_charm_initialization_missing_falco_directory(self, mock_charm_dir, mock_falco_layout):
@@ -332,3 +333,37 @@ class TestCharmWithHttpEndpointRelation:
             # Verify charm does notretrieved http endpoint data from relation
             assert charm_state.http_output == {}
             assert state_out.unit_status == ops.testing.ActiveStatus()
+
+
+def test_install_writes_proxy_environment_file(
+    monkeypatch, mock_charm_dir, mock_falco_layout, tmp_path
+):
+    """Test the install event writes proxy settings to a root-only env file."""
+    proxy_url = "http://egress.ps7.internal:3128"
+    service_file_path = tmp_path / "falco.service"
+    monkeypatch.setattr("service.FalcoServiceFile.service_file", service_file_path)
+    monkeypatch.setattr("service.systemd.service_enable", MagicMock())
+
+    context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+    state_in = ops.testing.State(
+        model=ops.testing.Model(
+            proxy_config=ops.testing.ProxyConfig(
+                http=proxy_url,
+                https=proxy_url,
+                no=("127.0.0.1", "localhost", "10.0.0.0/8"),
+            )
+        )
+    )
+
+    with context(context.on.install(), state_in) as manager:
+        state_out = manager.run()
+        charm = manager.charm
+
+    proxy_env_file = charm.falco_proxy_env_file.destination
+    assert proxy_env_file.exists()
+    assert proxy_env_file.stat().st_mode & 0o777 == 0o600
+
+    service_content = service_file_path.read_text()
+    assert f"EnvironmentFile=-{proxy_env_file}" in service_content
+    assert proxy_url not in service_content
+    assert state_out.unit_status == ops.testing.MaintenanceStatus("Installing Falco service")
