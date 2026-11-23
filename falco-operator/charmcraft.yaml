@@ -105,6 +105,30 @@ config:
         command. and use the secret ID output to configure this option.
 
         `juju add-secret custom-config-repo-ssh-key value=<ssh-key> && juju grant-secret custom-config-repo-ssh-key <falco-operator>`
+    custom-rules-secret:
+      type: secret
+      description: |
+        The Juju secret ID containing a single key, `value`, whose value is a JSON object with the
+        OCI registry credentials and rules reference:
+
+        ```json
+        {
+          "username": "my-robot-account",
+          "password": "my-robot-token",
+          "oci_ref": "quay.io/my-org/falco-rules:latest"
+        }
+        ```
+
+        To create the secret:
+
+        ```
+        juju add-secret custom-rules-secret value='{"username":"my-robot-account","password":"my-robot-token","oci_ref":"quay.io/my-org/falco-rules:latest"}'
+        juju grant-secret custom-rules-secret falco
+        ```
+
+        The rules are downloaded to a staging directory and atomically installed into Falco's managed rules
+        directory. The charm periodically checks the registry for a newer version of the referenced artifact.
+        This option cannot be used together with `custom-config-repository`; configure only one custom rules source.
 
 requires:
   general-info:

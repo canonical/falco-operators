@@ -3,6 +3,7 @@
 
 """Unit tests for Falco charm."""
 
+import json
 import shutil
 from unittest.mock import MagicMock, patch
 
@@ -278,6 +279,52 @@ class TestCharmConfigHandling:
         state_out = context.run(context.on.config_changed(), state_in)
 
         assert state_out.unit_status == ops.testing.BlockedStatus("Failed configuring Falco")
+
+    @patch("charm.FalcoService")
+    def test_config_changed_conflicting_rules_sources(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout
+    ):
+        """Test config_changed when git and OCI rules sources are both configured."""
+        secret_id = "secret:d5dn431kohtcgpn8ou4g"
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        state_in = ops.testing.State(
+            config={
+                "custom-config-repository": "git+ssh://git@github.com/owner/repo.git",
+                "custom-rules-secret": secret_id,
+            },
+            secrets=[
+                ops.testing.Secret(
+                    id=secret_id,
+                    tracked_content={
+                        "value": json.dumps(
+                            {
+                                "username": "robot",
+                                "password": "token",
+                                "oci_ref": "quay.io/canonical/falco-rules:latest",
+                            }
+                        )
+                    },
+                )
+            ],
+        )
+        state_out = context.run(context.on.config_changed(), state_in)
+
+        assert state_out.unit_status == ops.testing.BlockedStatus(
+            "Only one of custom-config-repository and custom-rules-secret can be configured"
+        )
+
+    @patch("charm.FalcoService")
+    def test_update_status_reconciles(self, mock_service_class, mock_charm_dir, mock_falco_layout):
+        """Test update_status triggers reconciliation."""
+        mock_service = MagicMock()
+        mock_service.check_active.return_value = True
+        mock_service_class.return_value = mock_service
+
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        state_out = context.run(context.on.update_status(), ops.testing.State())
+
+        mock_service.configure.assert_called_once()
+        assert state_out.unit_status == ops.testing.ActiveStatus()
 
 
 class TestCharmWithHttpEndpointRelation:

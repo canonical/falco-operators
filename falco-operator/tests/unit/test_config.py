@@ -17,6 +17,7 @@ class TestCharmConfig:
         config = CharmConfig()
         assert config.custom_config_repository is None
         assert config.custom_config_repo_ssh_key is None
+        assert config.custom_rules_secret is None
 
     def test_init_with_values(self):
         """Test initialization with values."""
@@ -25,6 +26,7 @@ class TestCharmConfig:
         )
         assert str(config.custom_config_repository) == "git+ssh://git@github.com/user/repo.git"
         assert config.custom_config_repo_ssh_key is None
+        assert config.custom_rules_secret is None
 
     def test_init_with_valid_url_with_tag(self):
         """Test initialization with valid URL and tags."""

@@ -12,7 +12,7 @@ import ops
 from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
 
-from config import InvalidCharmConfigError
+from config import ConflictingRulesSourceError, InvalidCharmConfigError
 from service import (
     FalcoConfigFile,
     FalcoConfigurationError,
@@ -72,6 +72,7 @@ class Falco(CharmBaseWithState):
 
         self.framework.observe(self.on.config_changed, self.reconcile)
         self.framework.observe(self.on.secret_changed, self.reconcile)
+        self.framework.observe(self.on.update_status, self.reconcile)
 
         # Observe http-endpoint relation evnents to trigger reconciliation
         self.framework.observe(
@@ -102,6 +103,9 @@ class Falco(CharmBaseWithState):
         """Reconcile the charm state."""
         try:
             self.falco_service.configure(self.state)
+        except ConflictingRulesSourceError as e:
+            self.unit.status = ops.BlockedStatus(str(e))
+            return
         except InvalidCharmConfigError:
             self.unit.status = ops.BlockedStatus("Invalid charm config")
             return

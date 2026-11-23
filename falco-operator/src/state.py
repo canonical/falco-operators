@@ -4,6 +4,7 @@
 """Charm state module."""
 
 import itertools
+import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -12,7 +13,7 @@ import ops
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
 from pydantic import AnyUrl, BaseModel, ValidationError
 
-from config import CharmConfig, InvalidCharmConfigError
+from config import CharmConfig, ConflictingRulesSourceError, InvalidCharmConfigError
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +25,18 @@ class CharmState(BaseModel):
         custom_config_repo: Optional URL to a custom configuration repository.
         custom_config_repo_ref: Optional branch or tag to a custom configuration repository.
         custom_config_repo_ssh_key: Optional SSH key for custom configuration repository.
+        custom_rules_username: Optional OCI registry username for custom rules.
+        custom_rules_password: Optional OCI registry password for custom rules.
+        custom_rules_oci_ref: Optional OCI artifact reference for custom rules.
         http_output: Optional HTTP output data from http-output relation.
     """
 
     custom_config_repo: Optional[AnyUrl] = None
     custom_config_repo_ref: Optional[str] = None
     custom_config_repo_ssh_key: Optional[str] = None
+    custom_rules_username: Optional[str] = None
+    custom_rules_password: Optional[str] = None
+    custom_rules_oci_ref: Optional[str] = None
     http_output: Optional[dict[str, str]] = None
 
     @classmethod
@@ -66,6 +73,12 @@ class CharmState(BaseModel):
             custom_config_repo_ref = ref_string[0] if ref_string else ""
 
         custom_config_repo_ssh_key = _fetch_custom_ssh_key(charm.model, charm_config)
+        custom_rules = _fetch_custom_rules_secret(charm.model, charm_config)
+
+        if custom_config_repo and custom_rules:
+            raise ConflictingRulesSourceError(
+                "Only one of custom-config-repository and custom-rules-secret can be configured"
+            )
 
         http_output = {}
         app_urls = http_endpoint_requirer.get_app_urls()
@@ -79,6 +92,9 @@ class CharmState(BaseModel):
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
+            custom_rules_username=custom_rules[0] if custom_rules else None,
+            custom_rules_password=custom_rules[1] if custom_rules else None,
+            custom_rules_oci_ref=custom_rules[2] if custom_rules else None,
             http_output=http_output,
         )
 
@@ -125,3 +141,66 @@ def _fetch_custom_ssh_key(model: ops.Model, config: CharmConfig) -> Optional[str
             "Repository secret is empty or does not contain the expected key 'value'."
         )
     return ssh_key_content
+
+
+def _fetch_custom_rules_secret(
+    model: ops.Model, config: CharmConfig
+) -> Optional[tuple[str, str, str]]:
+    """Fetch OCI registry credentials and artifact reference from the charm config.
+
+    Args:
+        model: The Juju model.
+        config: The charm config.
+
+    Returns:
+        A tuple with the username, password, and OCI reference, or None if not configured.
+
+    Raises:
+        InvalidCharmConfigError: If the secret cannot be accessed or is missing required keys.
+    """
+    if not config.custom_rules_secret:
+        return None
+
+    try:
+        secret = model.get_secret(id=config.custom_rules_secret.id)
+        content = secret.get_content(refresh=True)
+    except ops.SecretNotFoundError as exc:
+        raise InvalidCharmConfigError("Custom rules secret not found.") from exc
+
+    raw_value = content.get("value")
+    if not raw_value:
+        raise InvalidCharmConfigError(
+            "Custom rules secret must contain a 'value' key with a JSON object."
+        )
+
+    try:
+        rules_config = json.loads(raw_value)
+    except json.JSONDecodeError as exc:
+        raise InvalidCharmConfigError(
+            "Custom rules secret 'value' must be a valid JSON object."
+        ) from exc
+
+    if not isinstance(rules_config, dict):
+        raise InvalidCharmConfigError("Custom rules secret 'value' must be a JSON object.")
+
+    required_keys = ("username", "password", "oci_ref")
+    missing_keys = [key for key in required_keys if not rules_config.get(key)]
+    if missing_keys:
+        raise InvalidCharmConfigError(
+            "Custom rules secret JSON is missing required keys: " + ", ".join(missing_keys)
+        )
+    if not all(isinstance(rules_config[key], str) for key in required_keys):
+        raise InvalidCharmConfigError(
+            "Custom rules secret JSON values for username, password, and oci_ref must be strings"
+        )
+
+    username = rules_config["username"]
+    password = rules_config["password"]
+    oci_ref = rules_config["oci_ref"]
+
+    if "://" in oci_ref or "/" not in oci_ref:
+        raise InvalidCharmConfigError(
+            "Custom rules secret key 'oci_ref' must be a full OCI reference without a URL scheme"
+        )
+
+    return username, password, oci_ref

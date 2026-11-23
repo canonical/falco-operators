@@ -17,6 +17,10 @@ class InvalidCharmConfigError(Exception):
     """Exception raised when the charm configuration is invalid."""
 
 
+class ConflictingRulesSourceError(InvalidCharmConfigError):
+    """Exception raised when more than one custom rules source is configured."""
+
+
 class CharmConfig(BaseModel):
     """The pydantic model for charm config.
 
@@ -25,6 +29,7 @@ class CharmConfig(BaseModel):
     Attributes:
         custom_config_ssh_key (Secret): Optional SSH key for custom configuration repository.
         custom_config_repository (AnyUrl): Optional URL to a custom configuration repository.
+        custom_rules_secret (Secret): Optional secret with OCI registry credentials and rules reference.
     """
 
     # Pydantic model config
@@ -33,6 +38,7 @@ class CharmConfig(BaseModel):
     # Charm Configs
     custom_config_repository: Optional[AnyUrl] = None
     custom_config_repo_ssh_key: Optional[Secret] = None
+    custom_rules_secret: Optional[Secret] = None
 
     @field_validator("custom_config_repository")
     @classmethod
