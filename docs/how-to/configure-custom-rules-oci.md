@@ -26,7 +26,7 @@ with your registry values:
 juju add-secret custom-rules-secret \
   username="<your-robot>" \
   password="<your-token>" \
-  oci_ref="<quay.io/your-org/falco-rules:1.0.0>"
+  oci-ref="<quay.io/your-org/falco-rules:1.0.0>"
 juju grant-secret custom-rules-secret falco
 ```
 
@@ -36,7 +36,7 @@ Quote values that contain spaces or shell characters. For example:
 juju add-secret custom-rules-secret \
   username="robot user" \
   password='p@ss&word' \
-  oci_ref="quay.io/your-org/falco-rules:1.0.0"
+  oci-ref="quay.io/your-org/falco-rules:1.0.0"
 ```
 
 The `grant-secret` command returns the secret ID to use in the next step.
@@ -50,8 +50,8 @@ juju config falco custom-rules-secret="<secret-id>"
 ```
 
 By default, the charm checks the registry every hour. To change the interval, replace `<duration>`
-with a Go duration using seconds (`s`), minutes (`m`), or hours (`h`), such as `30s`, `5m`, `1h`, or
-`1h30m`:
+with a positive Go duration using seconds (`s`), minutes (`m`), or hours (`h`), such as `30s`, `5m`,
+`1h`, or `1h30m`:
 
 ```bash
 juju config falco custom-rules-follow-interval="<duration>"
@@ -81,7 +81,7 @@ ubuntu/0* active    idle   0        10.0.0.1
 - The unit is blocked with `Only one of custom-config-repository and custom-rules-secret can be
   configured`: remove one of the two custom rules sources.
 - The unit is blocked with `Invalid charm config`: check that the secret contains non-empty
-  `username`, `password`, and `oci_ref` keys. The charm logs the specific validation error; inspect
+  `username`, `password`, and `oci-ref` keys. The charm logs the specific validation error; inspect
   it with `juju debug-log`.
 - The unit is blocked with `Failed configuring Falco`: check the registry credentials, the artifact
   reference, and the unit logs for the `falcoctl` error.

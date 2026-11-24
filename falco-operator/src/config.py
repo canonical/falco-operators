@@ -5,6 +5,7 @@
 
 import logging
 import re
+from decimal import Decimal
 from typing import Optional
 
 from ops import Secret
@@ -13,6 +14,9 @@ from pydantic import AnyUrl, BaseModel, ConfigDict, field_validator
 SUPPORTED_SCHEMES = "git+ssh"
 DEFAULT_FOLLOW_INTERVAL = "1h"
 FOLLOW_INTERVAL_PATTERN = re.compile(r"^(?:\d+(?:\.\d+)?(?:s|m|h))+$")
+FOLLOW_INTERVAL_PART_PATTERN = re.compile(r"(\d+(?:\.\d+)?)([smh])")
+DURATION_UNIT_SECONDS = {"s": 1, "m": 60, "h": 3600}
+MAX_GO_DURATION_NS = Decimal(2**63 - 1)
 logger = logging.getLogger(__name__)
 
 
@@ -76,7 +80,7 @@ class CharmConfig(BaseModel):
             The validated interval, or the default interval for an empty value.
 
         Raises:
-            ValueError: If the interval is not a valid Go duration.
+            ValueError: If the interval is not a positive Go duration within range.
         """
         if value == "":
             return DEFAULT_FOLLOW_INTERVAL
@@ -84,6 +88,15 @@ class CharmConfig(BaseModel):
             raise ValueError(
                 "custom_rules_follow_interval must be a Go duration such as '30m' or '1h'"
             )
+
+        total_ns = sum(
+            Decimal(number) * DURATION_UNIT_SECONDS[unit] * 1_000_000_000
+            for number, unit in FOLLOW_INTERVAL_PART_PATTERN.findall(value)
+        )
+        if total_ns <= 0:
+            raise ValueError("custom_rules_follow_interval must be greater than zero")
+        if total_ns > MAX_GO_DURATION_NS:
+            raise ValueError("custom_rules_follow_interval is too large for a Go duration")
         return value
 
     @field_validator("custom_config_repository")

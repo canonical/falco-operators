@@ -54,7 +54,7 @@ class TestCharmConfig:
         with pytest.raises(InvalidCharmConfigError):
             CharmConfig(custom_config_repository="git+ssh://github.com/owner/repo.git")
 
-    @pytest.mark.parametrize("interval", ["30s", "5m", "1h", "6h", "1h30m"])
+    @pytest.mark.parametrize("interval", ["30s", "5m", "1h", "6h", "1h30m", "1.5h"])
     def test_init_with_valid_follow_interval(self, interval):
         """Test valid Go duration follow intervals."""
         config = CharmConfig(custom_rules_follow_interval=interval)
@@ -64,6 +64,20 @@ class TestCharmConfig:
         """Test that an empty follow interval falls back to the default."""
         config = CharmConfig(custom_rules_follow_interval="")
         assert config.custom_rules_follow_interval == "1h"
+
+    @pytest.mark.parametrize(
+        "interval",
+        ["5", "five minutes", "1d", "-1h", "500ms", "0s", "0m0h", "0.0h"],
+    )
+    def test_init_with_zero_follow_interval(self, interval):
+        """Test that zero follow intervals are rejected."""
+        with pytest.raises(ValidationError):
+            CharmConfig(custom_rules_follow_interval=interval)
+
+    def test_init_with_too_large_follow_interval(self):
+        """Test that follow intervals beyond Go's duration range are rejected."""
+        with pytest.raises(ValidationError):
+            CharmConfig(custom_rules_follow_interval="999999999999999999999h")
 
     @pytest.mark.parametrize("interval", ["5", "five minutes", "1d", "-1h", "500ms"])
     def test_init_with_invalid_follow_interval(self, interval):

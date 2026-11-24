@@ -270,7 +270,7 @@ class TestCharmConfigHandling:
         secret = ops.testing.Secret(
             tracked_content={
                 "username": "robot",
-                "oci_ref": "quay.io/org/rules:latest",
+                "oci-ref": "quay.io/org/rules:latest",
             }
         )
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
@@ -297,7 +297,7 @@ class TestCharmConfigHandling:
             tracked_content={
                 "username": username,
                 "password": password,
-                "oci_ref": oci_ref,
+                "oci-ref": oci_ref,
             }
         )
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
@@ -314,6 +314,51 @@ class TestCharmConfigHandling:
         assert username not in caplog.text
         assert password not in caplog.text
         assert oci_ref not in caplog.text
+
+    @patch("charm.FalcoService")
+    def test_secret_changed_reads_rotated_secret(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout
+    ):
+        """Test that secret-changed reconciliation uses the rotated secret values."""
+        old_secret = ops.testing.Secret(
+            tracked_content={
+                "username": "robot",
+                "password": "old-token",
+                "oci-ref": "quay.io/org/rules:latest",
+            }
+        )
+        new_secret = ops.testing.Secret(
+            id=old_secret.id,
+            tracked_content={
+                "username": "robot",
+                "password": "new-token",
+                "oci-ref": "quay.io/org/rules:latest",
+            },
+        )
+        config = {"custom-rules-secret": old_secret.id}
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        mock_service = MagicMock()
+        mock_service.check_active.return_value = True
+        mock_service_class.return_value = mock_service
+
+        context.run(
+            context.on.config_changed(),
+            ops.testing.State(config=config, secrets=[old_secret]),
+        )
+        old_state = mock_service.configure.call_args.args[0]
+        assert old_state.custom_rules is not None
+        assert old_state.custom_rules.password == "old-token"  # nosec B105 - test credential
+
+        mock_service.reset_mock()
+        state_out = context.run(
+            context.on.secret_changed(new_secret),
+            ops.testing.State(config=config, secrets=[new_secret]),
+        )
+
+        new_state = mock_service.configure.call_args.args[0]
+        assert new_state.custom_rules is not None
+        assert new_state.custom_rules.password == "new-token"  # nosec B105 - test credential
+        assert state_out.unit_status == ops.testing.ActiveStatus()
 
     @patch("charm.FalcoService")
     def test_config_changed_git_clone_error(
@@ -341,7 +386,7 @@ class TestCharmConfigHandling:
             tracked_content={
                 "username": "robot",
                 "password": "token",
-                "oci_ref": "quay.io/canonical/falco-rules:latest",
+                "oci-ref": "quay.io/canonical/falco-rules:latest",
             }
         )
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)

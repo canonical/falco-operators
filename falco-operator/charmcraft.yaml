@@ -109,14 +109,14 @@ config:
       type: secret
       description: |
         The Juju secret ID containing the OCI registry credentials and rules reference. The secret
-        must contain the keys `username`, `password`, and `oci_ref`.
+        must contain the keys `username`, `password`, and `oci-ref`.
     custom-rules-follow-interval:
       type: string
       default: "1h"
       description: |
         How often the falcoctl follow service checks the OCI registry for a newer rules artifact.
-        Accepts Go duration strings such as `30s`, `5m`, `1h`, or `6h`. An empty value uses the
-        default interval of one hour.
+        Accepts positive Go duration strings such as `30s`, `5m`, `1h`, or `6h`. An empty value
+        uses the default interval of one hour.
 
 requires:
   general-info:

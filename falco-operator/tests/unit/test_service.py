@@ -113,7 +113,7 @@ def test_proxy_environment_file(mock_falco_layout, tmp_path):
         ),
     )
     proxy_env.destination = proxy_env_file
-    proxy_env.install()
+    assert proxy_env.update() is True
 
     proxy_content = proxy_env_file.read_text()
     assert "HTTP_PROXY=http://egress.ps7.internal:3128" in proxy_content
@@ -123,6 +123,7 @@ def test_proxy_environment_file(mock_falco_layout, tmp_path):
     assert "NO_PROXY=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
     assert "no_proxy=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
     assert stat.S_IMODE(proxy_env_file.stat().st_mode) == 0o600
+    assert proxy_env.update() is False
 
 
 def test_proxy_environment_is_not_html_escaped(mock_falco_layout, tmp_path):
@@ -171,7 +172,7 @@ def test_no_proxy_environment_when_unset(mock_falco_layout, tmp_path, existing_f
         proxy_env_file.write_text("HTTP_PROXY=http://old-proxy:3128\n", encoding="utf-8")
     proxy_env = FalcoProxyEnvFile(mock_falco_layout, ProxyConfig())
     proxy_env.destination = proxy_env_file
-    proxy_env.install()
+    assert proxy_env.update() is existing_file
 
     assert not proxy_env_file.exists()
 
@@ -205,6 +206,7 @@ def test_configure_creates_service_and_installs_rules(mock_systemd, mock_falco_l
     assert "--rulesfiles-dir" in service_content
     assert str(mock_falco_layout.rules_dir) in service_content
     assert "--tmp-dir" in service_content
+    assert f"EnvironmentFile=-{mock_falco_layout.proxy_env_file}" in service_content
     assert "--every 1h" in service_content
     assert "--falco-versions http://127.0.0.1:8765/versions" in service_content
     assert "quay.io/org/falco-rules:latest" in service_content
@@ -225,6 +227,27 @@ def test_configure_unchanged_does_not_restart_service(mock_systemd, mock_falco_l
     mock_systemd.service_running.return_value = True
     oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
     mock_systemd.service_restart.assert_not_called()
+
+
+@patch("service.systemd")
+def test_configure_force_restart_restarts_unchanged_service(
+    mock_systemd, mock_falco_layout, tmp_path
+):
+    """Test that a forced restart restarts the follower without a unit change."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    mock_systemd.reset_mock()
+    mock_systemd.service_running.return_value = True
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest", force_restart=True)
+
+    mock_systemd.service_stop.assert_not_called()
+    mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
 
 
 @patch("service.systemd")
@@ -300,6 +323,41 @@ def test_configure_rejects_invalid_reference(mock_falco_layout, tmp_path):
         oci_rules.configure("robot", "token", "not-a-reference")
 
 
+@patch("service.systemd")
+def test_configure_fails_when_rules_do_not_appear(mock_systemd, mock_falco_layout, tmp_path):
+    """Test that a follower which installs no rules fails configuration."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+
+    with pytest.raises(OciRulesError, match="No OCI rules appeared"):
+        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+
+@patch("service.systemd")
+def test_configure_credentials_change_updates_config_and_restarts(
+    mock_systemd, mock_falco_layout, tmp_path
+):
+    """Test that rotated credentials reach the config and restart the follower."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+
+    oci_rules.configure("robot", "old-token", "quay.io/org/falco-rules:latest")
+    assert "old-token" in oci_rules.config_file.read_text(encoding="utf-8")
+
+    mock_systemd.reset_mock()
+    mock_systemd.service_running.return_value = True
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+
+    oci_rules.configure("robot", "new-token", "quay.io/org/falco-rules:latest")
+
+    config_content = oci_rules.config_file.read_text(encoding="utf-8")
+    assert "new-token" in config_content
+    assert "old-token" not in config_content
+    mock_systemd.service_stop.assert_called_with(oci_rules.service_name)
+    mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
+
+
 def test_configure_uses_configured_oci_rules(mock_falco_layout):
     """Test that FalcoCustomSetting uses the OCI rules manager when configured."""
     custom_setting = FalcoCustomSetting(mock_falco_layout)
@@ -320,6 +378,7 @@ def test_configure_uses_configured_oci_rules(mock_falco_layout):
         password="token",  # nosec B106 - test credential
         oci_ref="quay.io/org/falco-rules:latest",
         follow_interval="1h",
+        force_restart=False,
     )
 
 
@@ -512,6 +571,7 @@ class TestFalcoService:
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_service_file.context = {}
         mock_custom_setting = MagicMock()
+        mock_proxy_env_file.update.return_value = False
 
         service = FalcoService(
             mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
@@ -519,11 +579,31 @@ class TestFalcoService:
         charm_state = CharmState()
         service.configure(charm_state)
 
-        mock_custom_setting.configure.assert_called_once_with(charm_state)
+        mock_custom_setting.configure.assert_called_once_with(charm_state, force_restart=False)
         mock_service_file.install.assert_not_called()
         mock_service_file.update.assert_called_once()
-        mock_proxy_env_file.install.assert_called_once()
+        mock_proxy_env_file.update.assert_called_once()
         mock_systemd.daemon_reload.assert_called_once()
+        mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
+
+    @patch("service.systemd")
+    def test_configure_restarts_follower_on_proxy_change(self, mock_systemd):
+        """Test that a proxy change forces the OCI follower to restart."""
+        mock_config = MagicMock()
+        mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
+        mock_service_file.service_name = FALCO_SERVICE_NAME
+        mock_service_file.context = {}
+        mock_custom_setting = MagicMock()
+        mock_proxy_env_file.update.return_value = True
+
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
+        charm_state = CharmState()
+        service.configure(charm_state)
+
+        mock_custom_setting.configure.assert_called_once_with(charm_state, force_restart=True)
         mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
 
     @patch("service.systemd")

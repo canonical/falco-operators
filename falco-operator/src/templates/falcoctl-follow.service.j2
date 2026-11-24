@@ -9,6 +9,7 @@ Wants=falco.service
 
 [Service]
 Type=simple
+EnvironmentFile=-{{ proxy_env_file }}
 ExecStart={{ falcoctl }} --config {{ config_file }} artifact follow --allowed-types rulesfile --rulesfiles-dir {{ rules_dir }} --state-dir {{ state_dir }} --tmp-dir {{ tmp_dir }} --falco-versions {{ falco_versions }} --every {{ every }} --startup-behavior immediate {{ oci_ref }}
 Restart=on-failure
 RestartSec=15s

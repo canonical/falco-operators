@@ -10,7 +10,14 @@ from typing import Annotated, Optional
 
 import ops
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
-from pydantic import AfterValidator, AnyUrl, BaseModel, Field, ValidationError
+from pydantic import (
+    AfterValidator,
+    AnyUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+)
 
 from config import (
     DEFAULT_FOLLOW_INTERVAL,
@@ -26,11 +33,13 @@ logger = logging.getLogger(__name__)
 class CustomRulesSecret(BaseModel):
     """Validated OCI rules secret payload."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     username: str = Field(min_length=1, repr=False)
     password: str = Field(min_length=1, repr=False)
     oci_ref: Annotated[
         str,
-        Field(min_length=1, repr=False),
+        Field(min_length=1, repr=False, alias="oci-ref"),
         AfterValidator(validate_oci_reference),
     ]
 

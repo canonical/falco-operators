@@ -78,7 +78,7 @@ class TestCharmState:
             tracked_content={
                 "username": "robot",
                 "password": "token",
-                "oci_ref": oci_ref,
+                "oci-ref": oci_ref,
             }
         )
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
@@ -98,24 +98,24 @@ class TestCharmState:
         ("secret_content", "error"),
         [
             ({"other": "value"}, "username: Field required"),
-            ({"username": "robot", "password": "token"}, "oci_ref: Field required"),
+            ({"username": "robot", "password": "token"}, "oci-ref: Field required"),
             (
-                {"password": "token", "oci_ref": "quay.io/org/rules:latest"},
+                {"password": "token", "oci-ref": "quay.io/org/rules:latest"},
                 "username: Field required",
             ),
             (
-                {"username": "robot", "oci_ref": "quay.io/org/rules:latest"},
+                {"username": "robot", "oci-ref": "quay.io/org/rules:latest"},
                 "password: Field required",
             ),
             (
-                {"username": "robot", "password": "", "oci_ref": "quay.io/org/rules:latest"},
+                {"username": "robot", "password": "", "oci-ref": "quay.io/org/rules:latest"},
                 "at least 1 character",
             ),
             (
                 {
                     "username": "robot",
                     "password": "token",
-                    "oci_ref": "https://quay.io/org/rules:latest",
+                    "oci-ref": "https://quay.io/org/rules:latest",
                 },
                 "must not include a URL scheme",
             ),
@@ -162,7 +162,7 @@ class TestCharmState:
             tracked_content={
                 "username": "robot",
                 "password": password,
-                "oci_ref": oci_ref,
+                "oci-ref": oci_ref,
             }
         )
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
