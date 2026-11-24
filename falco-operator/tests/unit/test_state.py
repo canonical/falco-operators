@@ -90,8 +90,7 @@ class TestCharmState:
         )
 
         with context(context.on.install(), state) as manager:
-            charm = manager.charm
-            charm_state = charm.state
+            charm_state = manager.charm.state
             assert charm_state.custom_rules is not None
             assert charm_state.custom_rules.username == "robot"
             assert charm_state.custom_rules.password == "token"  # nosec B105 - test credential
