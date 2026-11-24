@@ -11,6 +11,7 @@ from ops import Secret
 from pydantic import AnyUrl, BaseModel, ConfigDict, field_validator
 
 SUPPORTED_SCHEMES = "git+ssh"
+DEFAULT_FOLLOW_INTERVAL = "1h"
 FOLLOW_INTERVAL_PATTERN = re.compile(r"^(?:\d+(?:\.\d+)?(?:s|m|h))+$")
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class CharmConfig(BaseModel):
     custom_config_repository: Optional[AnyUrl] = None
     custom_config_repo_ssh_key: Optional[Secret] = None
     custom_rules_secret: Optional[Secret] = None
-    custom_rules_follow_interval: str = "1h"
+    custom_rules_follow_interval: str = DEFAULT_FOLLOW_INTERVAL
 
     @field_validator("custom_rules_follow_interval")
     @classmethod
@@ -53,17 +54,16 @@ class CharmConfig(BaseModel):
             value: The configured follow interval.
 
         Returns:
-            The validated interval, or an empty string to disable following.
+            The validated interval, or the default interval for an empty value.
 
         Raises:
             ValueError: If the interval is not a valid Go duration.
         """
         if value == "":
-            return value
+            return DEFAULT_FOLLOW_INTERVAL
         if not FOLLOW_INTERVAL_PATTERN.fullmatch(value):
             raise ValueError(
-                "custom_rules_follow_interval must be a Go duration such as '30m' or '1h', "
-                "or an empty string to disable following"
+                "custom_rules_follow_interval must be a Go duration such as '30m' or '1h'"
             )
         return value
 

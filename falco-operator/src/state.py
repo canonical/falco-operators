@@ -13,7 +13,12 @@ import ops
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
 from pydantic import AnyUrl, BaseModel, ValidationError
 
-from config import CharmConfig, ConflictingRulesSourceError, InvalidCharmConfigError
+from config import (
+    DEFAULT_FOLLOW_INTERVAL,
+    CharmConfig,
+    ConflictingRulesSourceError,
+    InvalidCharmConfigError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +43,7 @@ class CharmState(BaseModel):
     custom_rules_username: Optional[str] = None
     custom_rules_password: Optional[str] = None
     custom_rules_oci_ref: Optional[str] = None
-    custom_rules_follow_interval: str = "1h"
+    custom_rules_follow_interval: str = DEFAULT_FOLLOW_INTERVAL
     http_output: Optional[dict[str, str]] = None
 
     @classmethod

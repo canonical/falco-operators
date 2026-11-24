@@ -58,12 +58,7 @@ By default, the follower checks every hour. To change the interval:
 juju config falco custom-rules-follow-interval=6h
 ```
 
-To disable periodic following and install the artifact only when the configuration or secret
-changes, set the interval to an empty string:
-
-```bash
-juju config falco custom-rules-follow-interval=""
-```
+An empty value uses the default interval of one hour.
 
 ## Verify the configuration
 
@@ -81,8 +76,7 @@ enabled, `falcoctl-rules-follow` should be running. The `oci-rules` directory co
 ## Update the rules
 
 Push a new artifact to the registry using the same tag. The follow service checks for updates at the
-configured interval and installs changed files directly; Falco reloads automatically. If periodic
-following is disabled, change the configuration or secret to trigger a fresh install. If the new
+configured interval and installs changed files directly; Falco reloads automatically. If the new
 artifact removes a file, the old file may remain until the next fresh reset.
 
 ## Troubleshooting

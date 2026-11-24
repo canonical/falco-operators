@@ -60,10 +60,10 @@ class TestCharmConfig:
         config = CharmConfig(custom_rules_follow_interval=interval)
         assert config.custom_rules_follow_interval == interval
 
-    def test_init_with_disabled_follow_interval(self):
-        """Test that an empty follow interval disables following."""
+    def test_init_with_empty_follow_interval_uses_default(self):
+        """Test that an empty follow interval falls back to the default."""
         config = CharmConfig(custom_rules_follow_interval="")
-        assert config.custom_rules_follow_interval == ""
+        assert config.custom_rules_follow_interval == "1h"
 
     @pytest.mark.parametrize("interval", ["5", "five minutes", "1d", "-1h", "500ms"])
     def test_init_with_invalid_follow_interval(self, interval):

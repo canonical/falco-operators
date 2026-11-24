@@ -19,6 +19,7 @@ from ops.charm import CharmBase
 from ops.model import ProxyConfig
 
 import state
+from config import DEFAULT_FOLLOW_INTERVAL
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,6 @@ CLONE_OUTPUT_DIR = Path.home() / "custom-falco-config-repository"
 
 FALCO_SERVICE_NAME = "falco"
 FALCOCTL_FOLLOW_SERVICE_NAME = "falcoctl-rules-follow"
-OCI_RULES_FOLLOW_INTERVAL = "1h"
 OCI_RULES_STARTUP_TIMEOUT = 60
 
 TEMPLATE_DIR = "src/templates"
@@ -318,10 +318,6 @@ class FalcoOciRules:
     A systemd service runs `falcoctl artifact follow` directly against Falco's managed rules
     directory. On configuration or secret changes, the charm clears the managed rules and
     restarts the follower so the current artifact is installed from scratch.
-
-    Setting the follow interval to an empty string disables the follower. In that mode the
-    artifact is installed once with `falcoctl artifact install` and is only refreshed when the
-    configuration or secret changes.
     """
 
     service_name = FALCOCTL_FOLLOW_SERVICE_NAME
@@ -379,19 +375,18 @@ class FalcoOciRules:
         username: str,
         password: str,
         oci_ref: str,
-        follow_interval: str = OCI_RULES_FOLLOW_INTERVAL,
+        follow_interval: str = DEFAULT_FOLLOW_INTERVAL,
     ) -> None:
         """Configure OCI rules and the falcoctl follow service.
 
         On configuration changes, existing managed rules are removed and the artifact is
-        installed from scratch. An empty follow interval disables periodic following and
-        installs the artifact once.
+        installed from scratch.
 
         Args:
             username: OCI registry username.
             password: OCI registry password or token.
             oci_ref: Full OCI artifact reference.
-            follow_interval: Go duration for registry checks, or an empty string to disable.
+            follow_interval: Go duration for registry checks.
 
         Raises:
             OciRulesError: If the rules cannot be configured or installed.
@@ -399,6 +394,7 @@ class FalcoOciRules:
         if not self.falco_layout.falcoctl_cmd.exists():
             raise OciRulesError(f"falcoctl binary not found at {self.falco_layout.falcoctl_cmd}")
 
+        follow_interval = follow_interval or DEFAULT_FOLLOW_INTERVAL
         registry = _registry_from_oci_ref(oci_ref)
         state_missing = not self.oci_rules_dir.exists()
         try:
@@ -406,16 +402,10 @@ class FalcoOciRules:
             os.chmod(self.oci_rules_dir, 0o700)
             self.state_dir.mkdir(parents=True, exist_ok=True)
             self.tmp_dir.mkdir(parents=True, exist_ok=True)
-            config_changed = self._write_config(registry, username, password, oci_ref)
-            service_changed = False
-            if follow_interval:
-                service_changed = self._render_service_file(oci_ref, follow_interval)
+            config_changed = self._write_config(registry, username, password)
+            service_changed = self._render_service_file(oci_ref, follow_interval)
         except OSError as e:
             raise OciRulesError(f"Unable to prepare OCI rules directory: {e}") from e
-
-        if not follow_interval:
-            self._configure_without_follow(oci_ref, config_changed, state_missing)
-            return
 
         service_running = systemd.service_running(self.service_name)
         reset_required = service_changed or config_changed or state_missing or not service_running
@@ -461,79 +451,6 @@ class FalcoOciRules:
 
         return removed
 
-    def _configure_without_follow(
-        self, oci_ref: str, config_changed: bool, state_missing: bool
-    ) -> None:
-        """Install rules once and leave periodic following disabled.
-
-        Args:
-            oci_ref: Full OCI artifact reference.
-            config_changed: Whether the falcoctl config changed.
-            state_missing: Whether the OCI rules state directory was missing.
-        """
-        service_was_configured = self.service_file.exists()
-        if service_was_configured:
-            systemd.service_stop(self.service_name)
-            systemd.service_disable(self.service_name)
-            self.service_file.unlink()
-            systemd.daemon_reload()
-
-        shutil.rmtree(self.state_dir, ignore_errors=True)
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        shutil.rmtree(self.tmp_dir, ignore_errors=True)
-        self.tmp_dir.mkdir(parents=True, exist_ok=True)
-
-        install_required = (
-            service_was_configured or config_changed or state_missing or not self._rule_files()
-        )
-        if not install_required:
-            return
-
-        self._clear_rules()
-        self._install_once(oci_ref)
-
-    def _install_once(self, oci_ref: str) -> None:
-        """Install an OCI rules artifact without starting a follower.
-
-        Args:
-            oci_ref: Full OCI artifact reference.
-
-        Raises:
-            OciRulesError: If the artifact cannot be installed.
-        """
-        install_state_dir = self.oci_rules_dir / "install-state"
-        install_state_dir.mkdir(parents=True, exist_ok=True)
-        self.rules_dir.mkdir(parents=True, exist_ok=True)
-        cmd = [
-            str(self.falco_layout.falcoctl_cmd),
-            "--config",
-            str(self.config_file),
-            "artifact",
-            "install",
-            "--allowed-types",
-            "rulesfile",
-            "--resolve-deps=false",
-            "--rulesfiles-dir",
-            str(self.rules_dir),
-            "--state-dir",
-            str(install_state_dir),
-            oci_ref,
-        ]
-        try:
-            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=300)
-        except subprocess.TimeoutExpired as e:
-            raise OciRulesError(f"Timed out installing OCI rules from {oci_ref}") from e
-        except subprocess.CalledProcessError as e:
-            reason = (e.stderr or e.stdout or "").strip()
-            raise OciRulesError(
-                f"falcoctl failed to install rules from {oci_ref}: {reason}"
-            ) from e
-        except OSError as e:
-            raise OciRulesError(f"Unable to run falcoctl: {e}") from e
-
-        if not self._rule_files():
-            raise OciRulesError(f"No rules found after installing {oci_ref}")
-
     def _clear_rules(self) -> bool:
         """Remove all YAML rules from Falco's managed rules directory.
 
@@ -577,22 +494,19 @@ class FalcoOciRules:
         current_content = self.service_file.read_text(encoding="utf-8")
         return current_content != previous_content
 
-    def _write_config(self, registry: str, username: str, password: str, oci_ref: str) -> bool:
+    def _write_config(self, registry: str, username: str, password: str) -> bool:
         """Write a mode-0600 falcoctl config with registry credentials.
 
         Args:
             registry: OCI registry hostname.
             username: OCI registry username.
             password: OCI registry password or token.
-            oci_ref: OCI artifact reference, stored for change detection.
 
         Returns:
             True if the configuration file changed.
         """
         credentials_file = self.oci_rules_dir / "credentials.json"
-        # Include the reference so a tag change is detected when following is disabled.
         config = (
-            f"# oci-ref: {json.dumps(oci_ref)}\n"
             "indexes: []\n"
             "registry:\n"
             "  creds:\n"
