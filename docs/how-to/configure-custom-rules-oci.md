@@ -81,7 +81,8 @@ ubuntu/0* active    idle   0        10.0.0.1
 - The unit is blocked with `Only one of custom-config-repository and custom-rules-secret can be
   configured`: remove one of the two custom rules sources.
 - The unit is blocked with `Invalid charm config`: check that the secret contains non-empty
-  `username`, `password`, and `oci_ref` keys.
+  `username`, `password`, and `oci_ref` keys. The charm logs the specific validation error; inspect
+  it with `juju debug-log`.
 - The unit is blocked with `Failed configuring Falco`: check the registry credentials, the artifact
   reference, and the unit logs for the `falcoctl` error.
 - `falcoctl-rules-follow` is not running: check `systemctl status falcoctl-rules-follow` and the

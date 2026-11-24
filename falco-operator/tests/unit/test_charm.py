@@ -263,6 +263,32 @@ class TestCharmConfigHandling:
         assert state_out.unit_status == ops.testing.BlockedStatus("Invalid charm config")
 
     @patch("charm.FalcoService")
+    def test_config_changed_invalid_custom_rules_secret_logs_reason(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout, caplog
+    ):
+        """Test that the specific secret validation error is logged."""
+        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        state_in = ops.testing.State(
+            config={"custom-rules-secret": secret_id},
+            secrets=[
+                ops.testing.Secret(
+                    id=secret_id,
+                    tracked_content={
+                        "username": "robot",
+                        "oci_ref": "quay.io/org/rules:latest",
+                    },
+                )
+            ],
+        )
+
+        with caplog.at_level("WARNING", logger="charm"):
+            state_out = context.run(context.on.config_changed(), state_in)
+
+        assert state_out.unit_status == ops.testing.BlockedStatus("Invalid charm config")
+        assert "Invalid custom rules secret: password: Field required" in caplog.text
+
+    @patch("charm.FalcoService")
     def test_config_changed_git_clone_error(
         self, mock_service_class, mock_charm_dir, mock_falco_layout
     ):

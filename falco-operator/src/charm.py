@@ -105,7 +105,8 @@ class Falco(CharmBaseWithState):
         except ConflictingRulesSourceError as e:
             self.unit.status = ops.BlockedStatus(str(e))
             return
-        except InvalidCharmConfigError:
+        except InvalidCharmConfigError as e:
+            logger.warning("Invalid charm config: %s", e)
             self.unit.status = ops.BlockedStatus("Invalid charm config")
             return
         except FalcoConfigurationError:
