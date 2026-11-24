@@ -69,14 +69,14 @@ jobs:
           name: ${{ steps.version.outputs.falco_version }}
           tag_name: falco/${{ steps.version.outputs.falco_version }}
           body: |
-            # Falco and falcoctl binary release for Falco Operator
+            # Falco and `falcoctl` binary release for Falco Operator
 
-            This release contains the Falco and falcoctl binaries for Falco Operator.
+            This release contains the Falco and `falcoctl` binaries for Falco Operator.
 
             ## What's Included
 
-            - Falco binary at version: **${{ steps.version.outputs.falco_version }}**
-            - Falcoctl binary at version: **${{ steps.version.outputs.falcoctl_version }}**
+            - falco binary at version: **${{ steps.version.outputs.falco_version }}**
+            - `falcoctl` binary at version: **${{ steps.version.outputs.falcoctl_version }}**
             - Falco json at plugin version: **${{ steps.version.outputs.json_plugin_version }}**
             - Falco k8saudit at plugin version: **${{ steps.version.outputs.k8saudit_plugin_version }}**
             - Default rules for Falco

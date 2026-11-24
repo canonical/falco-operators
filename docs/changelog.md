@@ -12,7 +12,7 @@ Each revision is versioned by the date of the revision.
 
 ### Added
 
-- Build and package `falcoctl` alongside Falco in the release artifact, making the pinned falcoctl binary available to the charm and to standalone consumers of the release tarball.
+- Build and package `falcoctl` alongside Falco in the release artifact, making the pinned `falcoctl` binary available to the charm and to standalone consumers of the release tarball.
 
 ## 2026-11-18
 

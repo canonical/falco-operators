@@ -3,5 +3,3 @@ Falco
 falcosidekick
 Falcosidekick
 monorepo
-falcoctl
-Falcoctl
