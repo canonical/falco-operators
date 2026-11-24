@@ -76,6 +76,16 @@ ubuntu/0* active    idle   0        10.0.0.1
   falco/0* active   idle
 ```
 
+## Retry the fetch
+
+The charm retries a failed rule installation before blocking. To retry immediately:
+
+```bash
+juju run falco/0 retry-oci-rules
+```
+
+The action fails if no custom rules secret is configured.
+
 ## Troubleshooting
 
 - The unit is blocked with `Only one of custom-config-repository and custom-rules-secret can be
@@ -84,7 +94,9 @@ ubuntu/0* active    idle   0        10.0.0.1
   `username`, `password`, and `oci-ref` keys. The charm logs the specific validation error; inspect
   it with `juju debug-log`.
 - The unit is blocked with `Failed configuring Falco`: check the registry credentials, the artifact
-  reference, and the unit logs for the `falcoctl` error. If no rules were installed, reconciliation
-  retries on the next event, and the follower keeps checking at the configured interval.
+  reference, and the unit logs for the `falcoctl` error. The charm retries a failed installation
+  before blocking; use the `retry-oci-rules` action to retry immediately.
+- If `falcoctl-rules-follow` fails but managed rules are already present, the charm keeps the
+  existing rules and logs a warning instead of blocking.
 - `falcoctl-rules-follow` is not running: check `systemctl status falcoctl-rules-follow` and the
   service logs. The service needs Falco's version endpoint on `127.0.0.1:8765` to be available.

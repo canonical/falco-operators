@@ -316,6 +316,41 @@ class TestCharmConfigHandling:
         assert oci_ref not in caplog.text
 
     @patch("charm.FalcoService")
+    def test_retry_oci_rules_action_forces_retry(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout
+    ):
+        """Test that the retry action forces OCI reconfiguration."""
+        secret = ops.testing.Secret(
+            tracked_content={
+                "username": "robot",
+                "password": "token",
+                "oci-ref": "quay.io/org/rules:latest",
+            }
+        )
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        mock_service = MagicMock()
+        mock_service.check_active.return_value = True
+        mock_service_class.return_value = mock_service
+        state = ops.testing.State(config={"custom-rules-secret": secret.id}, secrets=[secret])
+
+        state_out = context.run(context.on.action("retry-oci-rules"), state)
+
+        assert context.action_results == {"result": "OCI rules retry completed"}
+        assert state_out.unit_status == ops.testing.ActiveStatus()
+        mock_service.configure.assert_called_once()
+        assert mock_service.configure.call_args.kwargs["force_restart"] is True
+
+    @patch("charm.FalcoService")
+    def test_retry_oci_rules_action_requires_secret(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout
+    ):
+        """Test that the retry action fails without an OCI rules secret."""
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+
+        with pytest.raises(ops.testing.ActionFailed, match="No custom rules secret is configured"):
+            context.run(context.on.action("retry-oci-rules"), ops.testing.State())
+
+    @patch("charm.FalcoService")
     def test_secret_changed_reads_rotated_secret(
         self, mock_service_class, mock_charm_dir, mock_falco_layout
     ):

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 from charmlibs import systemd
+from charmlibs.systemd import SystemdError
 from cosl import JujuTopology
 from jinja2 import Environment, FileSystemLoader
 from ops.charm import CharmBase
@@ -45,6 +46,8 @@ CLONE_OUTPUT_DIR = Path.home() / "custom-falco-config-repository"
 FALCO_SERVICE_NAME = "falco"
 FALCOCTL_FOLLOW_SERVICE_NAME = "falcoctl-rules-follow"
 OCI_RULES_STARTUP_TIMEOUT = 60
+OCI_RULES_FETCH_ATTEMPTS = 3
+OCI_RULES_RETRY_DELAY = 10
 
 TEMPLATE_DIR = "src/templates"
 SYSTEMD_SERVICE_DIR = Path("/etc/systemd/system")
@@ -339,6 +342,8 @@ class FalcoOciRules:
 
     service_name = FALCOCTL_FOLLOW_SERVICE_NAME
     startup_timeout = OCI_RULES_STARTUP_TIMEOUT
+    fetch_attempts = OCI_RULES_FETCH_ATTEMPTS
+    retry_delay = OCI_RULES_RETRY_DELAY
 
     def __init__(
         self,
@@ -433,18 +438,12 @@ class FalcoOciRules:
             raise OciRulesError(f"Unable to prepare OCI rules directory: {e}") from e
 
         # Reinstall from scratch when the unit or credentials changed, the state directory
-        # disappeared, no managed rules are present, or the follower is not running.
+        # disappeared, or no managed rules are present.
         service_running = systemd.service_running(self.service_name)
         rules_missing = not self._rule_files()
-        reset_required = (
-            service_changed
-            or config_changed
-            or state_missing
-            or rules_missing
-            or not service_running
-        )
-        # A proxy change only needs a restart; keep the existing rules and follow state.
-        restart_required = reset_required or force_restart
+        reset_required = service_changed or config_changed or state_missing or rules_missing
+        # A stopped follower or proxy change only needs a restart; keep existing rules.
+        restart_required = reset_required or force_restart or not service_running
 
         if reset_required:
             if service_running:
@@ -467,8 +466,7 @@ class FalcoOciRules:
 
         systemd.service_enable(self.service_name)
         if restart_required:
-            systemd.service_restart(self.service_name)
-            self._wait_for_rules()
+            self._restart_and_wait_for_rules()
 
     def remove(self) -> None:
         """Stop the follow service and remove OCI rules state."""
@@ -554,6 +552,34 @@ class FalcoOciRules:
             config_file.write(config)
         os.chmod(self.config_file, 0o600)
         return True
+
+    def _restart_and_wait_for_rules(self) -> None:
+        """Restart the follower and retry before giving up on a rule install."""
+        for attempt in range(1, self.fetch_attempts + 1):
+            try:
+                systemd.service_restart(self.service_name)
+                self._wait_for_rules()
+            except (OciRulesError, SystemdError) as e:
+                if self._rule_files():
+                    logger.warning("OCI follower failed but existing rules are retained: %s", e)
+                    return
+                if attempt == self.fetch_attempts:
+                    if isinstance(e, OciRulesError):
+                        raise
+                    raise OciRulesError(f"Unable to start the OCI follower: {e}") from e
+                logger.warning(
+                    "OCI rules installation attempt %s/%s failed: %s; retrying in %s seconds",
+                    attempt,
+                    self.fetch_attempts,
+                    e,
+                    self.retry_delay,
+                )
+                time.sleep(self.retry_delay)
+                continue
+
+            if not systemd.service_running(self.service_name):
+                logger.warning("OCI follower is not running; existing rules are retained")
+            return
 
     def _wait_for_rules(self) -> None:
         """Wait briefly for the follow service to populate the managed rules directory."""
@@ -763,11 +789,13 @@ class FalcoService:
 
         logger.info("Falco service removed")
 
-    def configure(self, charm_state: state.CharmState) -> None:
+    def configure(self, charm_state: state.CharmState, force_restart: bool = False) -> None:
         """Configure the Falco service.
 
         Args:
             charm_state (CharmState): The charm state
+            force_restart: Whether to force the OCI follower to retry immediately.
+
         Raises:
             FalcoConfigurationError: If configuration validation fails
         """
@@ -775,7 +803,9 @@ class FalcoService:
 
         try:
             proxy_env_changed = self.proxy_env_file.update()
-            self.custom_setting.configure(charm_state, force_restart=proxy_env_changed)
+            self.custom_setting.configure(
+                charm_state, force_restart=force_restart or proxy_env_changed
+            )
             self.service_file.update(context={"http_output": charm_state.http_output})
         except (GitCloneError, SshKeyScanError, RsyncError, OciRulesError) as e:
             logger.error("Failed to configure Falco custom settings: %s", e)

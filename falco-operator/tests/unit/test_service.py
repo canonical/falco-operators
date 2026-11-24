@@ -181,6 +181,8 @@ def _manager(falco_layout, systemd_service_dir):
     """Create a manager with a service file in a temporary directory."""
     manager = FalcoOciRules(falco_layout, systemd_service_dir=systemd_service_dir)
     manager.startup_timeout = 0
+    manager.fetch_attempts = 1
+    manager.retry_delay = 0
     return manager
 
 
@@ -325,12 +327,55 @@ def test_configure_rejects_invalid_reference(mock_falco_layout, tmp_path):
 
 @patch("service.systemd")
 def test_configure_fails_when_rules_do_not_appear(mock_systemd, mock_falco_layout, tmp_path):
-    """Test that a follower which installs no rules fails configuration."""
+    """Test that a follower which installs no rules fails after all retries."""
     oci_rules = _manager(mock_falco_layout, tmp_path)
     mock_systemd.service_running.return_value = False
 
     with pytest.raises(OciRulesError, match="No OCI rules appeared"):
         oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+
+@patch("service.systemd")
+def test_configure_retries_until_rules_appear(mock_systemd, mock_falco_layout, tmp_path):
+    """Test that rule installation is retried before configuration fails."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    oci_rules.fetch_attempts = 3
+    mock_systemd.service_running.return_value = False
+    attempts = 0
+
+    def restart(_):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 3:
+            _simulate_follow_rule(oci_rules)
+
+    mock_systemd.service_restart.side_effect = restart
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    assert attempts == 3
+    assert (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
+
+
+@patch("service.systemd")
+def test_configure_keeps_existing_rules_when_follower_fails(
+    mock_systemd, mock_falco_layout, tmp_path, caplog
+):
+    """Test that existing rules are kept when the follower cannot run."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    mock_systemd.reset_mock()
+    mock_systemd.service_running.return_value = False
+
+    with caplog.at_level("WARNING", logger="service"):
+        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    mock_systemd.service_stop.assert_not_called()
+    assert (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
+    assert "existing rules are retained" in caplog.text
 
 
 @patch("service.systemd")
