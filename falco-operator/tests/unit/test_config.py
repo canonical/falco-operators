@@ -65,7 +65,7 @@ class TestCharmConfig:
         config = CharmConfig(custom_rules_follow_interval="")
         assert config.custom_rules_follow_interval == ""
 
-    @pytest.mark.parametrize("interval", ["5", "five minutes", "1d", "-1h"])
+    @pytest.mark.parametrize("interval", ["5", "five minutes", "1d", "-1h", "500ms"])
     def test_init_with_invalid_follow_interval(self, interval):
         """Test invalid follow intervals."""
         with pytest.raises(ValidationError):

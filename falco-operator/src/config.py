@@ -11,7 +11,7 @@ from ops import Secret
 from pydantic import AnyUrl, BaseModel, ConfigDict, field_validator
 
 SUPPORTED_SCHEMES = "git+ssh"
-FOLLOW_INTERVAL_PATTERN = re.compile(r"^(?:\d+(?:\.\d+)?(?:ns|us|µs|ms|s|m|h))+$")
+FOLLOW_INTERVAL_PATTERN = re.compile(r"^(?:\d+(?:\.\d+)?(?:s|m|h))+$")
 logger = logging.getLogger(__name__)
 
 
