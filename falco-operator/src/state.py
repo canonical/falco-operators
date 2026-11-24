@@ -10,7 +10,7 @@ from typing import Optional
 
 import ops
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
-from pydantic import AnyUrl, BaseModel, ValidationError
+from pydantic import AnyUrl, BaseModel, ValidationError, model_validator
 
 from config import (
     DEFAULT_FOLLOW_INTERVAL,
@@ -157,6 +157,24 @@ class CustomRulesSecret(BaseModel):
     password: Optional[str] = None
     oci_ref: Optional[str] = None
 
+    @model_validator(mode="after")
+    def validate_payload(self) -> "CustomRulesSecret":
+        """Validate the secret fields when any value is provided."""
+        values = {
+            "username": self.username,
+            "password": self.password,
+            "oci_ref": self.oci_ref,
+        }
+        if not any(values.values()):
+            return self
+        missing_keys = [key for key, value in values.items() if not value]
+        if missing_keys:
+            raise ValueError("missing or has empty required keys: " + ", ".join(missing_keys))
+        oci_ref = self.oci_ref or ""
+        if "://" in oci_ref or "/" not in oci_ref:
+            raise ValueError("key 'oci_ref' must be a full OCI reference without a URL scheme")
+        return self
+
     @property
     def is_configured(self) -> bool:
         """Return whether an OCI rules secret was configured."""
@@ -185,20 +203,16 @@ def _fetch_custom_rules_secret(model: ops.Model, config: CharmConfig) -> CustomR
     except ops.SecretNotFoundError as exc:
         raise InvalidCharmConfigError("Custom rules secret not found.") from exc
 
-    required_keys = ("username", "password", "oci_ref")
-    missing_keys = [key for key in required_keys if not content.get(key)]
-    if missing_keys:
+    try:
+        custom_rules = CustomRulesSecret.model_validate(content)
+    except ValidationError as e:
+        messages = "; ".join(error["msg"].removeprefix("Value error, ") for error in e.errors())
+        raise InvalidCharmConfigError(f"Invalid custom rules secret: {messages}") from e
+
+    if not custom_rules.is_configured:
         raise InvalidCharmConfigError(
-            "Custom rules secret is missing or has empty required keys: " + ", ".join(missing_keys)
+            "Custom rules secret is missing or has empty required keys: "
+            "username, password, oci_ref"
         )
 
-    username = content["username"]
-    password = content["password"]
-    oci_ref = content["oci_ref"]
-
-    if "://" in oci_ref or "/" not in oci_ref:
-        raise InvalidCharmConfigError(
-            "Custom rules secret key 'oci_ref' must be a full OCI reference without a URL scheme"
-        )
-
-    return CustomRulesSecret(username=username, password=password, oci_ref=oci_ref)
+    return custom_rules
