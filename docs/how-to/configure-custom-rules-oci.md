@@ -43,7 +43,7 @@ The `grant-secret` command returns the secret ID to use in the next step.
 
 ## Configure the charm
 
-Set `custom-rules-secret` to the secret ID returned by `juju grant-secret`. Replace `<secret-id>`:
+Set `custom-rules-secret` to the secret ID returned by `juju grant-secret`:
 
 ```bash
 juju config falco custom-rules-secret="<secret-id>"
