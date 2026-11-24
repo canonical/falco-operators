@@ -159,14 +159,12 @@ class CustomRulesSecret(BaseModel):
 
     @model_validator(mode="after")
     def validate_payload(self) -> "CustomRulesSecret":
-        """Validate the secret fields when any value is provided."""
+        """Validate the secret fields."""
         values = {
             "username": self.username,
             "password": self.password,
             "oci_ref": self.oci_ref,
         }
-        if not any(values.values()):
-            return self
         missing_keys = [key for key, value in values.items() if not value]
         if missing_keys:
             raise ValueError("missing or has empty required keys: " + ", ".join(missing_keys))
@@ -174,6 +172,11 @@ class CustomRulesSecret(BaseModel):
         if "://" in oci_ref or "/" not in oci_ref:
             raise ValueError("key 'oci_ref' must be a full OCI reference without a URL scheme")
         return self
+
+    @classmethod
+    def empty(cls) -> "CustomRulesSecret":
+        """Return an empty payload for an unset secret."""
+        return cls.model_construct(username=None, password=None, oci_ref=None)
 
     @property
     def is_configured(self) -> bool:
@@ -195,7 +198,7 @@ def _fetch_custom_rules_secret(model: ops.Model, config: CharmConfig) -> CustomR
         InvalidCharmConfigError: If the secret cannot be accessed or is missing required keys.
     """
     if not config.custom_rules_secret:
-        return CustomRulesSecret()
+        return CustomRulesSecret.empty()
 
     try:
         secret = model.get_secret(id=config.custom_rules_secret.id)
@@ -204,15 +207,7 @@ def _fetch_custom_rules_secret(model: ops.Model, config: CharmConfig) -> CustomR
         raise InvalidCharmConfigError("Custom rules secret not found.") from exc
 
     try:
-        custom_rules = CustomRulesSecret.model_validate(content)
+        return CustomRulesSecret.model_validate(content)
     except ValidationError as e:
         messages = "; ".join(error["msg"].removeprefix("Value error, ") for error in e.errors())
         raise InvalidCharmConfigError(f"Invalid custom rules secret: {messages}") from e
-
-    if not custom_rules.is_configured:
-        raise InvalidCharmConfigError(
-            "Custom rules secret is missing or has empty required keys: "
-            "username, password, oci_ref"
-        )
-
-    return custom_rules
