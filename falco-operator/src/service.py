@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 GIT = "/usr/bin/git"
 RSYNC = "/usr/bin/rsync"
 SSH_KEYSCAN = "/usr/bin/ssh-keyscan"
-JOURNALCTL = "/usr/bin/journalctl"
 
 # Ssh related paths
 SSH_DIR = Path.home() / ".ssh"
@@ -47,15 +46,6 @@ CLONE_OUTPUT_DIR = Path.home() / "custom-falco-config-repository"
 FALCO_SERVICE_NAME = "falco"
 FALCOCTL_FOLLOW_SERVICE_NAME = "falcoctl-rules-follow"
 OCI_RULES_STARTUP_TIMEOUT = 60
-OCI_RULES_FETCH_ATTEMPTS = 3
-OCI_RULES_RETRY_DELAY = 10
-FOLLOWER_ERROR_MARKERS = (
-    "Unable to pull artifact",
-    "Unable to pull config layer",
-    "Unmet requirements",
-    "error occurred while fetching descriptor",
-    "Invalid destination",
-)
 
 TEMPLATE_DIR = "src/templates"
 SYSTEMD_SERVICE_DIR = Path("/etc/systemd/system")
@@ -358,8 +348,6 @@ class FalcoOciRules:
 
     service_name = FALCOCTL_FOLLOW_SERVICE_NAME
     startup_timeout = OCI_RULES_STARTUP_TIMEOUT
-    fetch_attempts = OCI_RULES_FETCH_ATTEMPTS
-    retry_delay = OCI_RULES_RETRY_DELAY
 
     def __init__(
         self,
@@ -399,11 +387,6 @@ class FalcoOciRules:
     def rules_dir(self) -> Path:
         """Get Falco's managed rules directory."""
         return self.falco_layout.rules_dir
-
-    @property
-    def log_cursor_file(self) -> Path:
-        """Get the journal cursor used to detect new follower errors."""
-        return self.oci_rules_dir / "follow-log-cursor"
 
     def is_configured(self) -> bool:
         """Return whether the OCI rules source has been configured."""
@@ -595,77 +578,21 @@ class FalcoOciRules:
         os.chmod(self.config_file, 0o600)
         return True
 
-    def _write_log_cursor(self, timestamp: float) -> None:
-        """Persist the journal cursor used for follower checks."""
-        try:
-            self.log_cursor_file.write_text(str(int(timestamp)), encoding="utf-8")
-        except OSError:
-            logger.debug("Unable to write the OCI follower log cursor")
-
-    def check_follower_logs(self) -> None:
-        """Log follower errors that appeared since the previous check."""
-        now = time.time()
-        if not self.log_cursor_file.exists():
-            self._write_log_cursor(now)
-            return
-
-        try:
-            since = int(self.log_cursor_file.read_text(encoding="utf-8").strip())
-        except (OSError, ValueError):
-            self._write_log_cursor(now)
-            return
-
-        cmd = [
-            JOURNALCTL,
-            "-u",
-            self.service_name,
-            "--since",
-            f"@{since}",
-            "--no-pager",
-            "-o",
-            "cat",
-        ]
-        try:
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=10)
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
-            logger.debug("Unable to read follower logs from journald")
-            return
-
-        if any(marker in result.stdout for marker in FOLLOWER_ERROR_MARKERS):
-            logger.warning(
-                "falcoctl-rules-follow reported registry fetch errors since the last check; "
-                "existing rules are retained"
-            )
-
-        self._write_log_cursor(now)
-
     def _restart_and_wait_for_rules(self) -> None:
-        """Restart the follower and retry before giving up on a rule install."""
-        for attempt in range(1, self.fetch_attempts + 1):
-            try:
-                systemd.service_restart(self.service_name)
-                self._wait_for_rules()
-            except (OciRulesError, SystemdError) as e:
-                if self._rule_files():
-                    logger.warning("OCI follower failed but existing rules are retained: %s", e)
-                    return
-                if attempt == self.fetch_attempts:
-                    if isinstance(e, OciRulesError):
-                        raise
-                    raise OciRulesError(f"Unable to start the OCI follower: {e}") from e
-                logger.warning(
-                    "OCI rules installation attempt %s/%s failed: %s; retrying in %s seconds",
-                    attempt,
-                    self.fetch_attempts,
-                    e,
-                    self.retry_delay,
-                )
-                time.sleep(self.retry_delay)
-                continue
+        """Restart the follower and wait for it to install rules."""
+        try:
+            systemd.service_restart(self.service_name)
+            self._wait_for_rules()
+        except (OciRulesError, SystemdError) as e:
+            if self._rule_files():
+                logger.warning("OCI follower failed but existing rules are retained: %s", e)
+                return
+            if isinstance(e, OciRulesError):
+                raise
+            raise OciRulesError(f"Unable to start the OCI follower: {e}") from e
 
-            if not systemd.service_running(self.service_name):
-                logger.warning("OCI follower is not running; existing rules are retained")
-            return
+        if not systemd.service_running(self.service_name):
+            logger.warning("OCI follower is not running; existing rules are retained")
 
     def _wait_for_rules(self) -> None:
         """Wait briefly for the follow service to populate the managed rules directory."""
@@ -814,10 +741,6 @@ class FalcoCustomSetting:
         logger.info("Falco custom settings configured")
         return git_changed or oci_rules_removed
 
-    def check_follower_logs(self) -> None:
-        """Log new errors reported by the OCI follower."""
-        self.oci_rules.check_follower_logs()
-
     def _configure_oci_rules(
         self,
         custom_rules: state.CustomRulesSecret,
@@ -908,8 +831,6 @@ class FalcoService:
             service_file_changed = self.service_file.update(
                 context={"http_output": charm_state.http_output}
             )
-            if charm_state.custom_rules:
-                self.custom_setting.check_follower_logs()
         except OciRulesError as e:
             logger.error("Failed to configure OCI rules: %s", e)
             raise

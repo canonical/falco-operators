@@ -181,8 +181,6 @@ def _manager(falco_layout, systemd_service_dir):
     """Create a manager with a service file in a temporary directory."""
     manager = FalcoOciRules(falco_layout, systemd_service_dir=systemd_service_dir)
     manager.startup_timeout = 0
-    manager.fetch_attempts = 1
-    manager.retry_delay = 0
     return manager
 
 
@@ -336,28 +334,6 @@ def test_configure_fails_when_rules_do_not_appear(mock_systemd, mock_falco_layou
 
 
 @patch("service.systemd")
-def test_configure_retries_until_rules_appear(mock_systemd, mock_falco_layout, tmp_path):
-    """Test that rule installation is retried before configuration fails."""
-    oci_rules = _manager(mock_falco_layout, tmp_path)
-    oci_rules.fetch_attempts = 3
-    mock_systemd.service_running.return_value = False
-    attempts = 0
-
-    def restart(_):
-        nonlocal attempts
-        attempts += 1
-        if attempts == 3:
-            _simulate_follow_rule(oci_rules)
-
-    mock_systemd.service_restart.side_effect = restart
-
-    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
-
-    assert attempts == 3
-    assert (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
-
-
-@patch("service.systemd")
 def test_configure_keeps_existing_rules_when_follower_fails(
     mock_systemd, mock_falco_layout, tmp_path, caplog
 ):
@@ -422,34 +398,6 @@ def test_configure_credentials_change_updates_config_and_restarts(
     assert "old-token" not in config_content
     mock_systemd.service_stop.assert_called_with(oci_rules.service_name)
     mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
-
-
-@patch("service.subprocess.run")
-def test_check_follower_logs_starts_at_current_position(mock_run, mock_falco_layout, tmp_path):
-    """Test that the first follower log check only stores a cursor."""
-    oci_rules = _manager(mock_falco_layout, tmp_path)
-    oci_rules.oci_rules_dir.mkdir(parents=True, exist_ok=True)
-
-    oci_rules.check_follower_logs()
-
-    mock_run.assert_not_called()
-    assert oci_rules.log_cursor_file.exists()
-
-
-@patch("service.subprocess.run")
-def test_check_follower_logs_warns_on_fetch_errors(mock_run, mock_falco_layout, tmp_path, caplog):
-    """Test that follower fetch errors are logged without raw journal lines."""
-    oci_rules = _manager(mock_falco_layout, tmp_path)
-    oci_rules.oci_rules_dir.mkdir(parents=True, exist_ok=True)
-    oci_rules.log_cursor_file.write_text("1", encoding="utf-8")
-    mock_run.return_value = MagicMock(stdout="Unable to pull artifact: registry unavailable\n")
-
-    with caplog.at_level("WARNING", logger="service"):
-        oci_rules.check_follower_logs()
-
-    assert "reported registry fetch errors" in caplog.text
-    assert "registry unavailable" not in caplog.text
-    assert oci_rules.log_cursor_file.read_text(encoding="utf-8") != "1"
 
 
 def test_configure_uses_configured_oci_rules(mock_falco_layout):
@@ -719,32 +667,6 @@ class TestFalcoService:
 
         mock_systemd.daemon_reload.assert_called_once()
         mock_systemd.service_restart.assert_not_called()
-
-    @patch("service.systemd")
-    def test_configure_checks_follower_logs_for_oci_rules(self, mock_systemd):
-        """Test that OCI reconciliation checks the follower journal."""
-        mock_config = MagicMock()
-        mock_service_file = MagicMock()
-        mock_proxy_env_file = MagicMock()
-        mock_service_file.service_name = FALCO_SERVICE_NAME
-        mock_service_file.context = {}
-        mock_custom_setting = MagicMock()
-        mock_proxy_env_file.install.return_value = False
-        mock_systemd.service_running.return_value = True
-
-        service = FalcoService(
-            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
-        )
-        charm_state = CharmState(
-            custom_rules=CustomRulesSecret(
-                username="robot",
-                password="token",  # nosec B106 - test credential
-                oci_ref="quay.io/org/falco-rules:latest",
-            )
-        )
-        service.configure(charm_state)
-
-        mock_custom_setting.check_follower_logs.assert_called_once()
 
     @patch("service.systemd")
     def test_configure_restarts_follower_on_proxy_change(self, mock_systemd):

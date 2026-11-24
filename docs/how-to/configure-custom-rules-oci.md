@@ -78,11 +78,9 @@ ubuntu/0* active    idle   0        10.0.0.1
 
 ## Retry the fetch
 
-The charm retries a failed rule installation before blocking. If all retries fail, the unit is
-blocked with `Failed to fetch OCI rules`.
-
-The `update-status` hook reconciles the unit every five minutes by default. If the rules are
-installed during a later attempt, the unit returns to active automatically.
+If rule installation fails, the unit is blocked with `Failed to fetch OCI rules`. The
+`update-status` hook reconciles the unit every five minutes by default, so the next reconcile retries
+the installation. If the rules are installed, the unit returns to active automatically.
 
 There is no supported command to run `update-status` immediately. To trigger reconciliation
 manually, change the custom rules secret or change `custom-rules-follow-interval` to another valid
@@ -96,13 +94,12 @@ value and back.
   `username`, `password`, and `oci-ref` keys. The charm logs the specific validation error; inspect
   it with `juju debug-log`.
 - The unit is blocked with `Failed to fetch OCI rules`: check the registry credentials, the artifact
-  reference, and the unit logs for the `falcoctl` error. The charm retries automatically on the next
-  `update-status` hook.
+  reference, and the unit logs for the `falcoctl` error. Reconciliation retries automatically on the
+  next `update-status` hook.
 - The unit is blocked with `Failed configuring Falco`: check the unit logs for the configuration
   error.
 - If `falcoctl-rules-follow` fails but managed rules are already present, the charm keeps the
-  existing rules and logs a warning instead of blocking. The charm reads new follower errors from
-  the systemd journal on each reconciliation; raw errors remain available with
+  existing rules and logs a warning instead of blocking. Registry update errors remain available with
   `journalctl -u falcoctl-rules-follow`.
 - `falcoctl-rules-follow` is not running: check `systemctl status falcoctl-rules-follow` and the
   service logs. The service needs Falco's version endpoint on `127.0.0.1:8765` to be available.
