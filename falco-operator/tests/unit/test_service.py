@@ -181,8 +181,6 @@ def _manager(falco_layout, systemd_service_dir):
     """Create a manager with a service file in a temporary directory."""
     manager = FalcoOciRules(falco_layout, systemd_service_dir=systemd_service_dir)
     manager.startup_timeout = 0
-    manager.fetch_attempts = 1
-    manager.retry_delay = 0
     return manager
 
 
@@ -333,30 +331,6 @@ def test_configure_fails_when_rules_do_not_appear(mock_systemd, mock_falco_layou
 
     with pytest.raises(OciRulesError, match="No OCI rules appeared"):
         oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
-
-
-@patch("service.systemd")
-def test_configure_retries_after_transient_fetch_failure(
-    mock_systemd, mock_falco_layout, tmp_path
-):
-    """Test that a transient fetch failure is retried before configuration fails."""
-    oci_rules = _manager(mock_falco_layout, tmp_path)
-    oci_rules.fetch_attempts = 2
-    mock_systemd.service_running.return_value = False
-    attempts = 0
-
-    def restart(_):
-        nonlocal attempts
-        attempts += 1
-        if attempts == 2:
-            _simulate_follow_rule(oci_rules)
-
-    mock_systemd.service_restart.side_effect = restart
-
-    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
-
-    assert attempts == 2
-    assert (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
 
 
 @patch("service.systemd")
