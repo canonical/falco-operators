@@ -26,9 +26,13 @@ logger = logging.getLogger(__name__)
 class CustomRulesSecret(BaseModel):
     """Validated OCI rules secret payload."""
 
-    username: str = Field(min_length=1)
-    password: str = Field(min_length=1)
-    oci_ref: Annotated[str, Field(min_length=1), AfterValidator(validate_oci_reference)]
+    username: str = Field(min_length=1, repr=False)
+    password: str = Field(min_length=1, repr=False)
+    oci_ref: Annotated[
+        str,
+        Field(min_length=1, repr=False),
+        AfterValidator(validate_oci_reference),
+    ]
 
 
 class CharmState(BaseModel):
@@ -185,4 +189,5 @@ def _fetch_custom_rules_secret(
             f"{error['msg'].removeprefix('Value error, ')}"
             for error in e.errors()
         )
-        raise InvalidCharmConfigError(f"Invalid custom rules secret: {messages}") from e
+        # Do not chain the Pydantic error: its traceback includes the raw secret values.
+        raise InvalidCharmConfigError(f"Invalid custom rules secret: {messages}") from None

@@ -12,6 +12,7 @@ from pydantic import AnyUrl
 
 from charm import Falco
 from config import InvalidCharmConfigError
+from state import CustomRulesSecret
 
 
 class TestCharmState:
@@ -139,3 +140,52 @@ class TestCharmState:
             charm = manager.charm
             with pytest.raises(InvalidCharmConfigError, match=error):
                 _ = charm.state
+
+    def test_custom_rules_secret_repr_hides_values(self):
+        """Test that the secret representation does not expose its values."""
+        secret = CustomRulesSecret(
+            username="robot",
+            password="token",  # nosec B106 - test credential
+            oci_ref="quay.io/private/rules:latest",
+        )
+
+        representation = repr(secret)
+        assert "robot" not in representation
+        assert "token" not in representation
+        assert "quay.io" not in representation
+
+    @patch("charm.FalcoService")
+    def test_invalid_custom_rules_secret_does_not_expose_values(
+        self, mock_service, mock_charm_dir, mock_falco_layout
+    ):
+        """Test that validation errors do not include secret values."""
+        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
+        password = "super-secret-token"  # nosec B105 - test credential
+        oci_ref = "https://quay.io/private/rules:latest"
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        state = ops.testing.State(
+            config={"custom-rules-secret": secret_id},
+            secrets=[
+                ops.testing.Secret(
+                    id=secret_id,
+                    tracked_content={
+                        "username": "robot",
+                        "password": password,
+                        "oci_ref": oci_ref,
+                    },
+                )
+            ],
+        )
+
+        with (
+            context(context.on.install(), state) as manager,
+            pytest.raises(InvalidCharmConfigError) as exc_info,
+        ):
+            _ = manager.charm.state
+
+        message = str(exc_info.value)
+        assert "robot" not in message
+        assert password not in message
+        assert oci_ref not in message
+        assert exc_info.value.__cause__ is None
+        assert exc_info.value.__suppress_context__
