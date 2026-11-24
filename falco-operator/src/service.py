@@ -367,7 +367,11 @@ class FalcoOciRules:
         return self.service_file.exists() or self.config_file.exists()
 
     def has_oci_state(self) -> bool:
-        """Return whether OCI rules state or the follow service is present."""
+        """Return whether any OCI rules state or the follow service is present.
+
+        The unit file and the state directory live in different locations and can be left
+        behind independently, so either one means the OCI source still needs cleanup.
+        """
         return self.service_file.exists() or self.oci_rules_dir.exists()
 
     def configure(
@@ -399,6 +403,8 @@ class FalcoOciRules:
         state_missing = not self.oci_rules_dir.exists()
         try:
             self.oci_rules_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            # mkdir applies the umask and does not change an existing directory, so enforce
+            # the mode explicitly. The directory holds registry credentials and follow state.
             os.chmod(self.oci_rules_dir, 0o700)
             self.state_dir.mkdir(parents=True, exist_ok=True)
             self.tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -407,15 +413,24 @@ class FalcoOciRules:
         except OSError as e:
             raise OciRulesError(f"Unable to prepare OCI rules directory: {e}") from e
 
+        # Reinstall from scratch when the unit or credentials changed, the state directory
+        # disappeared, or the follower is not running.
         service_running = systemd.service_running(self.service_name)
         reset_required = service_changed or config_changed or state_missing or not service_running
 
         if reset_required:
             if service_running:
+                # Stop the follower before deleting rules so it cannot write while we clear them.
                 systemd.service_stop(self.service_name)
+            # falcoctl follow does not delete destination files that are absent from the new
+            # artifact, so clear the managed rules before a fresh install.
             self._clear_rules()
+            # The follow state caches the last artifact digest. If it survives the rule reset,
+            # falcoctl may consider the artifact installed and skip copying the files.
             shutil.rmtree(self.state_dir, ignore_errors=True)
             self.state_dir.mkdir(parents=True, exist_ok=True)
+            # Remove leftovers from an interrupted run; this directory is used for the
+            # temporary files that falcoctl atomically moves into rules.d.
             shutil.rmtree(self.tmp_dir, ignore_errors=True)
             self.tmp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -434,6 +449,8 @@ class FalcoOciRules:
             True if anything was removed.
         """
         removed = False
+        # Only clear managed rules when OCI rules may have been installed, so removing the
+        # OCI source does not delete rules managed by the git source.
         oci_configured = self.has_oci_state()
         if self.service_file.exists():
             systemd.service_stop(self.service_name)
