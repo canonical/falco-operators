@@ -316,6 +316,8 @@ class FalcoOciRules:
     """Manage Falco rules fetched from an OCI registry with falcoctl.
 
     A systemd service runs `falcoctl artifact follow` directly against Falco's managed rules
+    directory. falcoctl pulls the rulesfile artifact, extracts its tar.gz layer under the
+    configured temporary directory, and moves the individual files into the managed rules
     directory. On configuration or secret changes, the charm clears the managed rules and
     restarts the follower so the current artifact is installed from scratch.
     """
