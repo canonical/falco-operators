@@ -72,7 +72,6 @@ class Falco(CharmBaseWithState):
 
         self.framework.observe(self.on.config_changed, self.reconcile)
         self.framework.observe(self.on.secret_changed, self.reconcile)
-        self.framework.observe(self.on.update_status, self.reconcile)
 
         # Observe http-endpoint relation evnents to trigger reconciliation
         self.framework.observe(

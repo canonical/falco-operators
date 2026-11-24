@@ -313,19 +313,6 @@ class TestCharmConfigHandling:
             "Only one of custom-config-repository and custom-rules-secret can be configured"
         )
 
-    @patch("charm.FalcoService")
-    def test_update_status_reconciles(self, mock_service_class, mock_charm_dir, mock_falco_layout):
-        """Test update_status triggers reconciliation."""
-        mock_service = MagicMock()
-        mock_service.check_active.return_value = True
-        mock_service_class.return_value = mock_service
-
-        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
-        state_out = context.run(context.on.update_status(), ops.testing.State())
-
-        mock_service.configure.assert_called_once()
-        assert state_out.unit_status == ops.testing.ActiveStatus()
-
 
 class TestCharmWithHttpEndpointRelation:
     """Test Charm behavior with HTTP endpoint relation."""

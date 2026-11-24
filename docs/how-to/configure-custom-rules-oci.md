@@ -49,8 +49,8 @@ juju config falco custom-rules-secret="secret:d5dn431kohtcgpn8ou4g"
 ```
 
 The charm starts a `falcoctl-rules-follow` systemd service that runs `falcoctl artifact follow`
-against a staging directory under the Falco charm directory. On each `update-status` reconciliation,
-the charm atomically copies changed rule files from staging into the managed rules directory.
+and writes rules directly into Falco's managed rules directory. When the configuration or secret
+changes, the charm clears the managed rules and restarts the follower for a fresh install.
 
 ## Verify the configuration
 
@@ -61,14 +61,15 @@ juju ssh falco/0 -- ls -la /var/lib/juju/agents/unit-falco-0/charm/falco/etc/fal
 juju ssh falco/0 -- ls -la /var/lib/juju/agents/unit-falco-0/charm/falco/etc/falco/oci-rules
 ```
 
-The unit should be active, the follow service should be running, the rules should be present in
-`rules.d`, and the staging directory should contain the followed rules, state, and `falcoctl`
-configuration.
+The unit should be active, the follow service should be running, and the rules should be present in
+`rules.d`. The `oci-rules` directory contains the `falcoctl` configuration and follow state.
 
 ## Update the rules
 
 Push a new artifact to the registry using the same tag. The follow service checks for updates every
-five minutes, and the next `update-status` reconciliation installs the changed rules.
+five minutes and installs changed files directly; Falco reloads automatically. If the new artifact
+removes a file, the old file may remain until the next configuration or secret change triggers a
+fresh reset.
 
 ## Troubleshooting
 

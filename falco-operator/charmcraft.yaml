@@ -127,9 +127,10 @@ config:
         ```
 
         A `falcoctl-rules-follow` systemd service uses `falcoctl artifact follow` to track the referenced
-        artifact and download updates into a staging directory. During reconciliation the charm atomically
-        installs changed rules into Falco's managed rules directory. This option cannot be used together with
-        `custom-config-repository`; configure only one custom rules source.
+        artifact and write its rules directly into Falco's managed rules directory. When the configuration
+        or secret changes, the charm clears the managed rules and restarts the follower for a fresh install.
+        This option cannot be used together with `custom-config-repository`; configure only one custom rules
+        source.
 
 requires:
   general-info:

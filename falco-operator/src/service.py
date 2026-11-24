@@ -3,13 +3,11 @@
 
 """Falco workload management module."""
 
-import hashlib
 import json
 import logging
 import os
 import shutil
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 from typing import Optional
@@ -116,7 +114,7 @@ class FalcoLayout:
 
     @property
     def oci_rules_dir(self) -> Path:
-        """Get the staging directory for rules downloaded from OCI registries."""
+        """Get the directory for OCI rules configuration and follow state."""
         return self.home / "etc/falco/oci-rules"
 
     @property
@@ -333,9 +331,9 @@ class FalcoConfigFile(Template):
 class FalcoOciRules:
     """Manage Falco rules fetched from an OCI registry with falcoctl.
 
-    A systemd service runs `falcoctl artifact follow` against a staging directory. The follow
-    process checks the registry for changes and updates the staging directory. The charm then
-    atomically copies changed rules into Falco's managed rules directory.
+    A systemd service runs `falcoctl artifact follow` directly against Falco's managed rules
+    directory. On configuration or secret changes, the charm clears the managed rules and
+    restarts the follower so the current artifact is installed from scratch.
     """
 
     service_name = FALCOCTL_FOLLOW_SERVICE_NAME
@@ -358,7 +356,7 @@ class FalcoOciRules:
 
     @property
     def staging_dir(self) -> Path:
-        """Get the directory used to stage OCI downloads and state."""
+        """Get the directory used to store falcoctl configuration and state."""
         return self.falco_layout.oci_rules_dir
 
     @property
@@ -367,30 +365,33 @@ class FalcoOciRules:
         return self.staging_dir / "falcoctl.yaml"
 
     @property
-    def rules_dir(self) -> Path:
-        """Get the directory where falcoctl writes followed rules."""
-        return self.staging_dir / "rules"
-
-    @property
     def state_dir(self) -> Path:
         """Get the directory where falcoctl persists follow state."""
         return self.staging_dir / "follow-state"
 
     @property
-    def state_file(self) -> Path:
-        """Get the file used to track the last installed OCI rules."""
-        return self.staging_dir / "installed.json"
+    def tmp_dir(self) -> Path:
+        """Get the temporary directory used by falcoctl for atomic file moves."""
+        return self.staging_dir / "tmp"
+
+    @property
+    def rules_dir(self) -> Path:
+        """Get Falco's managed rules directory."""
+        return self.falco_layout.rules_dir
 
     def is_configured(self) -> bool:
         """Return whether the follow service has been configured."""
         return self.service_file.exists()
 
     def has_staging(self) -> bool:
-        """Return whether an OCI staging directory is present."""
+        """Return whether an OCI configuration directory is present."""
         return self.staging_dir.exists()
 
     def configure(self, username: str, password: str, oci_ref: str) -> bool:
-        """Configure the falcoctl follow service and install any staged rules.
+        """Configure the falcoctl follow service.
+
+        On configuration changes, existing managed rules are removed and the follower is
+        restarted so the artifact is installed from scratch.
 
         Args:
             username: OCI registry username.
@@ -398,10 +399,10 @@ class FalcoOciRules:
             oci_ref: Full OCI artifact reference.
 
         Returns:
-            True if the follow service or installed rules changed.
+            True if the service or installed rules changed.
 
         Raises:
-            OciRulesError: If the service cannot be configured or rules installed.
+            OciRulesError: If the service cannot be configured.
         """
         if not self.falco_layout.falcoctl_cmd.exists():
             raise OciRulesError(f"falcoctl binary not found at {self.falco_layout.falcoctl_cmd}")
@@ -411,87 +412,45 @@ class FalcoOciRules:
         try:
             self.staging_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
             os.chmod(self.staging_dir, 0o700)
-            self.rules_dir.mkdir(parents=True, exist_ok=True)
             self.state_dir.mkdir(parents=True, exist_ok=True)
+            self.tmp_dir.mkdir(parents=True, exist_ok=True)
             config_changed = self._write_config(registry, username, password)
             service_changed = self._render_service_file(oci_ref)
         except OSError as e:
-            raise OciRulesError(f"Unable to prepare OCI rules staging directory: {e}") from e
+            raise OciRulesError(f"Unable to prepare OCI rules directory: {e}") from e
 
-        if service_changed or config_changed or staging_missing:
-            if systemd.service_running(self.service_name):
+        service_running = systemd.service_running(self.service_name)
+        reset_required = (
+            service_changed or config_changed or staging_missing or not service_running
+        )
+
+        if reset_required:
+            if service_running:
                 systemd.service_stop(self.service_name)
-            shutil.rmtree(self.rules_dir, ignore_errors=True)
-            self.rules_dir.mkdir(parents=True, exist_ok=True)
+            self._clear_rules()
             shutil.rmtree(self.state_dir, ignore_errors=True)
             self.state_dir.mkdir(parents=True, exist_ok=True)
+            shutil.rmtree(self.tmp_dir, ignore_errors=True)
+            self.tmp_dir.mkdir(parents=True, exist_ok=True)
 
         if service_changed:
             systemd.daemon_reload()
 
         systemd.service_enable(self.service_name)
-        service_running = systemd.service_running(self.service_name)
-        if service_changed or config_changed or staging_missing or not service_running:
+        if reset_required:
             systemd.service_restart(self.service_name)
+            self._wait_for_rules()
 
-        self._wait_for_staged_rules()
-        rules_changed = self.sync_staged_rules(oci_ref)
-        return (
-            service_changed
-            or config_changed
-            or staging_missing
-            or not service_running
-            or rules_changed
-        )
-
-    def sync_staged_rules(self, oci_ref: str) -> bool:
-        """Atomically install staged rules when they changed.
-
-        Args:
-            oci_ref: Full OCI artifact reference associated with the staged rules.
-
-        Returns:
-            True if the installed rules changed.
-        """
-        rule_files = self._staged_rule_files()
-        if not rule_files:
-            logger.warning("No staged OCI rules available to install")
-            return False
-
-        digest = _digest_rule_files(rule_files)
-        previous_state = self._read_state()
-        previous_files = previous_state.get("files", [])
-        if (
-            previous_state.get("ref") == oci_ref
-            and previous_state.get("digest") == digest
-            and all((self.falco_layout.rules_dir / name).exists() for name in previous_files)
-        ):
-            logger.debug("OCI rules from %s are already up to date", oci_ref)
-            return False
-
-        try:
-            self._install_rules(rule_files)
-            self._remove_stale_rules(previous_files, [rule_file.name for rule_file in rule_files])
-            self._write_state(
-                {
-                    "ref": oci_ref,
-                    "digest": digest,
-                    "files": [rule_file.name for rule_file in rule_files],
-                }
-            )
-        except OSError as e:
-            raise OciRulesError(f"Unable to install OCI rules: {e}") from e
-
-        logger.info("Installed %d rule file(s) from %s", len(rule_files), oci_ref)
-        return True
+        return reset_required
 
     def remove(self) -> bool:
-        """Stop the follow service and remove OCI rules, state, and staging files.
+        """Stop the follow service and remove OCI rules and staging state.
 
         Returns:
             True if anything was removed.
         """
         removed = False
+        oci_configured = self.service_file.exists() or self.staging_dir.exists()
         if self.service_file.exists():
             systemd.service_stop(self.service_name)
             systemd.service_disable(self.service_name)
@@ -499,17 +458,25 @@ class FalcoOciRules:
             systemd.daemon_reload()
             removed = True
 
-        state = self._read_state()
-        for name in state.get("files", []):
-            path = self.falco_layout.rules_dir / name
-            if path.exists():
-                path.unlink()
-                removed = True
+        if oci_configured:
+            removed = self._clear_rules() or removed
 
         if self.staging_dir.exists():
             shutil.rmtree(self.staging_dir, ignore_errors=True)
             removed = True
 
+        return removed
+
+    def _clear_rules(self) -> bool:
+        """Remove all YAML rules from Falco's managed rules directory.
+
+        Returns:
+            True if any rule files were removed.
+        """
+        removed = False
+        for rule_file in self._rule_files():
+            rule_file.unlink()
+            removed = True
         return removed
 
     def _render_service_file(self, oci_ref: str) -> bool:
@@ -529,6 +496,7 @@ class FalcoOciRules:
                 "config_file": str(self.config_file),
                 "rules_dir": str(self.rules_dir),
                 "state_dir": str(self.state_dir),
+                "tmp_dir": str(self.tmp_dir),
                 "falco_versions": "http://127.0.0.1:8765/versions",
                 "every": self.follow_interval,
                 "oci_ref": oci_ref,
@@ -566,85 +534,21 @@ class FalcoOciRules:
         os.chmod(self.config_file, 0o600)
         return True
 
-    def _wait_for_staged_rules(self) -> None:
-        """Wait briefly for the follow service to populate the staging directory."""
+    def _wait_for_rules(self) -> None:
+        """Wait briefly for the follow service to populate the managed rules directory."""
         deadline = time.monotonic() + self.startup_timeout
         while time.monotonic() < deadline:
-            if self._staged_rule_files():
+            if self._rule_files():
                 return
             time.sleep(1)
-        logger.warning("No staged OCI rules appeared within %s seconds", self.startup_timeout)
+        logger.warning("No OCI rules appeared within %s seconds", self.startup_timeout)
 
-    def _staged_rule_files(self) -> list[Path]:
-        """Return YAML rule files currently present in staging."""
+    def _rule_files(self) -> list[Path]:
+        """Return YAML rule files currently present in the managed rules directory."""
         return sorted(
             list(self.rules_dir.glob("*.yaml")) + list(self.rules_dir.glob("*.yml")),
             key=lambda path: path.name,
         )
-
-    def _install_rules(self, rule_files: list[Path]) -> None:
-        """Atomically copy staged rules into Falco's managed rules directory.
-
-        Args:
-            rule_files: Rule files read from the staging directory.
-        """
-        self.falco_layout.rules_dir.mkdir(parents=True, exist_ok=True)
-        for rule_file in rule_files:
-            data = rule_file.read_bytes()
-            temp_path = None
-            try:
-                with tempfile.NamedTemporaryFile(
-                    dir=self.falco_layout.rules_dir,
-                    prefix=f".{rule_file.name}.",
-                    suffix=".tmp",
-                    delete=False,
-                ) as temp_file:
-                    temp_file.write(data)
-                    temp_path = Path(temp_file.name)
-                os.chmod(temp_path, 0o644)
-                os.replace(temp_path, self.falco_layout.rules_dir / rule_file.name)
-            finally:
-                if temp_path and temp_path.exists():
-                    temp_path.unlink()
-
-    def _remove_stale_rules(self, previous_files: list[str], current_files: list[str]) -> None:
-        """Remove files that were part of the previous artifact but are no longer present.
-
-        Args:
-            previous_files: File names installed by the previous OCI artifact.
-            current_files: File names installed by the current OCI artifact.
-        """
-        for name in set(previous_files) - set(current_files):
-            path = self.falco_layout.rules_dir / name
-            if path.exists():
-                path.unlink()
-
-    def _read_state(self) -> dict:
-        """Read the OCI rules state.
-
-        Returns:
-            The state mapping, or an empty mapping if it is missing or invalid.
-        """
-        if not self.state_file.exists():
-            return {}
-        try:
-            return json.loads(self.state_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as e:
-            logger.warning("Unable to read OCI rules state from %s: %s", self.state_file, e)
-            return {}
-
-    def _write_state(self, state: dict) -> None:
-        """Write the OCI rules state.
-
-        Args:
-            state: State mapping to persist.
-        """
-        temp_path = self.state_file.with_name(self.state_file.name + ".tmp")
-        fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as state_file:
-            json.dump(state, state_file, indent=2)
-            state_file.write("\n")
-        os.replace(temp_path, self.state_file)
 
 
 def _registry_from_oci_ref(oci_ref: str) -> str:
@@ -665,24 +569,6 @@ def _registry_from_oci_ref(oci_ref: str) -> str:
     if not separator or not registry:
         raise OciRulesError("OCI reference must include a registry and repository")
     return registry
-
-
-def _digest_rule_files(rule_files: list[Path]) -> str:
-    """Compute a stable digest of the extracted rule files.
-
-    Args:
-        rule_files: Rule files to hash.
-
-    Returns:
-        Hex-encoded SHA256 digest.
-    """
-    digest = hashlib.sha256()
-    for rule_file in sorted(rule_files, key=lambda path: path.name):
-        digest.update(rule_file.name.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(rule_file.read_bytes())
-        digest.update(b"\0")
-    return digest.hexdigest()
 
 
 class FalcoCustomSetting:
@@ -720,7 +606,9 @@ class FalcoCustomSetting:
             True if any rule, config, or OCI staging state was removed.
         """
         logger.info("Removing Falco custom settings")
-        removed = False
+
+        # Stop the OCI follower before changing the managed rules directory.
+        removed = self.oci_rules.remove()
 
         # Remove all custom rules files
         for rule_file in [
@@ -729,9 +617,6 @@ class FalcoCustomSetting:
         ]:
             rule_file.unlink()
             removed = True
-
-        # Remove OCI staging state
-        removed = self.oci_rules.remove() or removed
 
         # Remove all custom config files
         for config_file in self.falco_layout.configs_dir.glob("*.yaml"):
