@@ -67,7 +67,17 @@ class TestCharmConfig:
 
     @pytest.mark.parametrize(
         "interval",
-        ["5", "five minutes", "1d", "-1h", "500ms", "0s", "0m0h", "0.0h"],
+        [
+            "5",
+            "five minutes",
+            "1d",
+            "-1h",
+            "500ms",
+            "0s",
+            "0m0h",
+            "0.0h",
+            "0.0000000001s",
+        ],
     )
     def test_init_with_zero_follow_interval(self, interval):
         """Test that zero follow intervals are rejected."""

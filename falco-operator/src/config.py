@@ -93,8 +93,8 @@ class CharmConfig(BaseModel):
             Decimal(number) * DURATION_UNIT_SECONDS[unit] * 1_000_000_000
             for number, unit in FOLLOW_INTERVAL_PART_PATTERN.findall(value)
         )
-        if total_ns <= 0:
-            raise ValueError("custom_rules_follow_interval must be greater than zero")
+        if total_ns < 1:
+            raise ValueError("custom_rules_follow_interval must be at least 1ns")
         if total_ns > MAX_GO_DURATION_NS:
             raise ValueError("custom_rules_follow_interval is too large for a Go duration")
         return value
