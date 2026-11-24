@@ -73,7 +73,7 @@ class TestCharmState:
         self, mock_service, mock_charm_dir, mock_falco_layout
     ):
         """Test loading state from a JSON custom rules secret."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"
+        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
         oci_ref = "quay.io/canonical/falco-rules:latest"
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state = ops.testing.State(
@@ -98,7 +98,7 @@ class TestCharmState:
             charm = manager.charm
             charm_state = charm.state
             assert charm_state.custom_rules_username == "robot"
-            assert charm_state.custom_rules_password == "token"
+            assert charm_state.custom_rules_password == "token"  # nosec B105 - test credential
             assert charm_state.custom_rules_oci_ref == oci_ref
 
     @patch("charm.FalcoService")
@@ -106,7 +106,7 @@ class TestCharmState:
         self, mock_service, mock_charm_dir, mock_falco_layout
     ):
         """Test that configuring both custom rules sources is rejected."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"
+        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state = ops.testing.State(
             config={
@@ -163,7 +163,7 @@ class TestCharmState:
         self, mock_service, secret_content, error, mock_charm_dir, mock_falco_layout
     ):
         """Test validation of the custom rules secret payload."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"
+        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state = ops.testing.State(
             config={"custom-rules-secret": secret_id},

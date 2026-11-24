@@ -336,14 +336,14 @@ class TestFalcoOciRules:
         custom_setting.oci_rules.configure.return_value = True
         charm_state = CharmState(
             custom_rules_username="robot",
-            custom_rules_password="token",
+            custom_rules_password="token",  # nosec B106 - test credential
             custom_rules_oci_ref="quay.io/org/falco-rules:latest",
         )
 
         custom_setting.configure(charm_state)
         custom_setting.oci_rules.configure.assert_called_once_with(
             username="robot",
-            password="token",
+            password="token",  # nosec B106 - test credential
             oci_ref="quay.io/org/falco-rules:latest",
             follow_interval="1h",
         )
@@ -358,7 +358,7 @@ class TestFalcoOciRules:
         custom_setting.oci_rules.configure.return_value = True
         charm_state = CharmState(
             custom_rules_username="robot",
-            custom_rules_password="token",
+            custom_rules_password="token",  # nosec B106 - test credential
             custom_rules_oci_ref="quay.io/org/falco-rules:latest",
         )
 

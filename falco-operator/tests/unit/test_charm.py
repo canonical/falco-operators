@@ -285,7 +285,7 @@ class TestCharmConfigHandling:
         self, mock_service_class, mock_charm_dir, mock_falco_layout
     ):
         """Test config_changed when git and OCI rules sources are both configured."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"
+        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state_in = ops.testing.State(
             config={
