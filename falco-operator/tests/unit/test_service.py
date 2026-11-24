@@ -269,7 +269,7 @@ class TestFalcoOciRules:
         mock_systemd.service_restart.side_effect = lambda _: self._write_rule(oci_rules)
         oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
 
-        assert oci_rules.remove() is True
+        oci_rules.remove()
         mock_systemd.service_stop.assert_called_with(oci_rules.service_name)
         mock_systemd.service_disable.assert_called_with(oci_rules.service_name)
         assert not (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()

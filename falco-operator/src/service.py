@@ -442,13 +442,8 @@ class FalcoOciRules:
             systemd.service_restart(self.service_name)
             self._wait_for_rules()
 
-    def remove(self) -> bool:
-        """Stop the follow service and remove OCI rules state.
-
-        Returns:
-            True if anything was removed.
-        """
-        removed = False
+    def remove(self) -> None:
+        """Stop the follow service and remove OCI rules state."""
         # Only clear managed rules when OCI rules may have been installed, so removing the
         # OCI source does not delete rules managed by the git source.
         oci_configured = self.has_oci_state()
@@ -457,28 +452,17 @@ class FalcoOciRules:
             systemd.service_disable(self.service_name)
             self.service_file.unlink()
             systemd.daemon_reload()
-            removed = True
 
         if oci_configured:
-            removed = self._clear_rules() or removed
+            self._clear_rules()
 
         if self.oci_rules_dir.exists():
             shutil.rmtree(self.oci_rules_dir, ignore_errors=True)
-            removed = True
 
-        return removed
-
-    def _clear_rules(self) -> bool:
-        """Remove all YAML rules from Falco's managed rules directory.
-
-        Returns:
-            True if any rule files were removed.
-        """
-        removed = False
+    def _clear_rules(self) -> None:
+        """Remove all YAML rules from Falco's managed rules directory."""
         for rule_file in self._rule_files():
             rule_file.unlink()
-            removed = True
-        return removed
 
     def _render_service_file(self, oci_ref: str, follow_interval: str) -> bool:
         """Render the falcoctl follow systemd unit.
@@ -607,16 +591,12 @@ class FalcoCustomSetting:
 
         logger.info("Falco custom settings installed")
 
-    def remove(self) -> bool:
-        """Remove the Falco custom settings.
-
-        Returns:
-            True if any rule, config, or OCI rules state was removed.
-        """
+    def remove(self) -> None:
+        """Remove the Falco custom settings."""
         logger.info("Removing Falco custom settings")
 
         # Stop the OCI follower before changing the managed rules directory.
-        removed = self.oci_rules.remove()
+        self.oci_rules.remove()
 
         # Remove all custom rules files
         for rule_file in [
@@ -624,15 +604,12 @@ class FalcoCustomSetting:
             *self.falco_layout.rules_dir.glob("*.yml"),
         ]:
             rule_file.unlink()
-            removed = True
 
         # Remove all custom config files
         for config_file in self.falco_layout.configs_dir.glob("*.yaml"):
             config_file.unlink()
-            removed = True
 
         logger.info("Falco custom settings removed")
-        return removed
 
     def configure(self, charm_state: state.CharmState) -> None:
         """Configure the Falco custom settings.
