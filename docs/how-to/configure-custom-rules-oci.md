@@ -7,7 +7,8 @@ This guide shows how to configure the Falco charm to fetch custom rules from an 
 
 ```{note}
 OCI rules and Git-based custom configuration are mutually exclusive. Configure only one of
-`custom-rules-secret` or `custom-config-repository`.
+`custom-rules-secret` or `custom-config-repository`. Configuring both puts the unit in a blocked
+state.
 ```
 
 ## Prerequisites
@@ -16,23 +17,10 @@ OCI rules and Git-based custom configuration are mutually exclusive. Configure o
 - An OCI registry repository containing a Falco rulesfile artifact
 - A registry username and password or robot token with read access to the artifact
 
-## Push the rules artifact
-
-Package one or more rule files as a tarball and push it with `falcoctl`:
-
-```bash
-tar -czf /tmp/falco-rules.tar.gz -C rules.d .
-falcoctl registry push \
-  --config /dev/null \
-  --type rulesfile \
-  --version 1.0.0 \
-  quay.io/your-org/falco-rules:1.0.0 \
-  /tmp/falco-rules.tar.gz
-```
-
 ## Create the secret
 
-Create a Juju secret with the registry credentials and artifact reference:
+Create a Juju secret with the registry credentials and artifact reference. Replace the placeholder
+username, password, and OCI reference with your registry values:
 
 ```bash
 juju add-secret custom-rules-secret username=your-robot password=your-token oci_ref=quay.io/your-org/falco-rules:1.0.0
@@ -45,15 +33,14 @@ The `grant-secret` command returns the secret ID to use in the next step.
 
 ## Configure the charm
 
+Set the secret ID returned by `juju grant-secret`. Replace the placeholder ID in the example with
+your secret ID:
+
 ```bash
 juju config falco custom-rules-secret="secret:d5dn431kohtcgpn8ou4g"
 ```
 
-The charm starts a `falcoctl-rules-follow` systemd service that runs `falcoctl artifact follow`
-and writes rules directly into Falco's managed rules directory. When the configuration or secret
-changes, the charm clears the managed rules and restarts the follower for a fresh install.
-
-By default, the follower checks every hour. To change the interval:
+By default, the charm checks the registry every hour. To change the interval:
 
 ```bash
 juju config falco custom-rules-follow-interval=6h
@@ -63,16 +50,19 @@ An empty value uses the default interval of one hour.
 
 ## Verify the configuration
 
+Check that the unit is active:
+
 ```bash
 juju status
-juju ssh falco/0 -- systemctl status falcoctl-rules-follow
-juju ssh falco/0 -- ls -la /var/lib/juju/agents/unit-falco-0/charm/falco/etc/falco/rules.d
-juju ssh falco/0 -- ls -la /var/lib/juju/agents/unit-falco-0/charm/falco/etc/falco/oci-rules
 ```
 
-The unit should be active and the rules should be present in `rules.d`. When periodic following is
-enabled, `falcoctl-rules-follow` should be running. The `oci-rules` directory contains the
-`falcoctl` configuration and follow state.
+The `Workload` column for the Falco unit should show `active`:
+
+```text
+Unit      Workload  Agent  Machine  Public address  Ports  Message
+ubuntu/0* active    idle   0        10.0.0.1
+  falco/0* active   idle
+```
 
 ## Update the rules
 
