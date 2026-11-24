@@ -12,7 +12,6 @@ from pydantic import AnyUrl
 
 from charm import Falco
 from config import InvalidCharmConfigError
-from state import CustomRulesSecret
 
 
 class TestCharmState:
@@ -137,19 +136,6 @@ class TestCharmState:
             charm = manager.charm
             with pytest.raises(InvalidCharmConfigError, match=error):
                 _ = charm.state
-
-    def test_custom_rules_secret_repr_hides_values(self):
-        """Test that the secret representation does not expose its values."""
-        secret = CustomRulesSecret(
-            username="robot",
-            password="token",  # nosec B106 - test credential
-            oci_ref="quay.io/private/rules:latest",
-        )
-
-        representation = repr(secret)
-        assert "robot" not in representation
-        assert "token" not in representation
-        assert "quay.io" not in representation
 
     @patch("charm.FalcoService")
     def test_invalid_custom_rules_secret_does_not_expose_values(

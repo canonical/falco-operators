@@ -82,10 +82,6 @@ If rule installation fails, the unit is blocked with `Failed to fetch OCI rules`
 `update-status` hook reconciles the unit every five minutes by default, so the next reconcile retries
 the installation. If the rules are installed, the unit returns to active automatically.
 
-There is no supported command to run `update-status` immediately. To trigger reconciliation
-manually, change the custom rules secret or change `custom-rules-follow-interval` to another valid
-value and back.
-
 ## Troubleshooting
 
 - The unit is blocked with `Only one of custom-config-repository and custom-rules-secret can be
