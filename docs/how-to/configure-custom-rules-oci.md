@@ -50,8 +50,8 @@ juju config falco custom-rules-secret="<secret-id>"
 ```
 
 By default, the charm checks the registry every hour. To change the interval, replace `<duration>`
-with a positive Go duration using seconds (`s`), minutes (`m`), or hours (`h`), such as `30s`, `5m`,
-`1h`, or `1h30m`:
+with a Go duration of at least `5m`, using seconds (`s`), minutes (`m`), or hours (`h`), such as
+`5m`, `1h`, or `1h30m`:
 
 ```bash
 juju config falco custom-rules-follow-interval="<duration>"

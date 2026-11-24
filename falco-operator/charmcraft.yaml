@@ -115,8 +115,8 @@ config:
       default: "1h"
       description: |
         How often the falcoctl follow service checks the OCI registry for a newer rules artifact.
-        Accepts positive Go duration strings such as `30s`, `5m`, `1h`, or `6h`. An empty value
-        uses the default interval of one hour.
+        Accepts Go durations of at least `5m`, such as `5m`, `1h`, or `6h`. An empty value uses
+        the default interval of one hour.
 
 requires:
   general-info:

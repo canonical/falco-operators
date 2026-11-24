@@ -54,7 +54,7 @@ class TestCharmConfig:
         with pytest.raises(InvalidCharmConfigError):
             CharmConfig(custom_config_repository="git+ssh://github.com/owner/repo.git")
 
-    @pytest.mark.parametrize("interval", ["30s", "5m", "1h", "6h", "1h30m", "1.5h"])
+    @pytest.mark.parametrize("interval", ["5m", "10m", "1h", "6h", "1h30m", "1.5h"])
     def test_init_with_valid_follow_interval(self, interval):
         """Test valid Go duration follow intervals."""
         config = CharmConfig(custom_rules_follow_interval=interval)
@@ -65,22 +65,18 @@ class TestCharmConfig:
         config = CharmConfig(custom_rules_follow_interval="")
         assert config.custom_rules_follow_interval == "1h"
 
+    @pytest.mark.parametrize("interval", ["5", "five minutes", "1d", "-1h", "500ms"])
+    def test_init_with_invalid_follow_interval(self, interval):
+        """Test invalid follow interval syntax."""
+        with pytest.raises(ValidationError):
+            CharmConfig(custom_rules_follow_interval=interval)
+
     @pytest.mark.parametrize(
         "interval",
-        [
-            "5",
-            "five minutes",
-            "1d",
-            "-1h",
-            "500ms",
-            "0s",
-            "0m0h",
-            "0.0h",
-            "0.0000000001s",
-        ],
+        ["0s", "0m0h", "0.0h", "0.0000000001s", "30s", "4m59s"],
     )
-    def test_init_with_zero_follow_interval(self, interval):
-        """Test that zero follow intervals are rejected."""
+    def test_init_with_too_small_follow_interval(self, interval):
+        """Test that intervals below the five-minute minimum are rejected."""
         with pytest.raises(ValidationError):
             CharmConfig(custom_rules_follow_interval=interval)
 
@@ -88,9 +84,3 @@ class TestCharmConfig:
         """Test that follow intervals beyond Go's duration range are rejected."""
         with pytest.raises(ValidationError):
             CharmConfig(custom_rules_follow_interval="999999999999999999999h")
-
-    @pytest.mark.parametrize("interval", ["5", "five minutes", "1d", "-1h", "500ms"])
-    def test_init_with_invalid_follow_interval(self, interval):
-        """Test invalid follow intervals."""
-        with pytest.raises(ValidationError):
-            CharmConfig(custom_rules_follow_interval=interval)
