@@ -6,11 +6,11 @@
 import itertools
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Annotated, Optional
 
 import ops
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
-from pydantic import AnyUrl, BaseModel, Field, ValidationError, field_validator
+from pydantic import AfterValidator, AnyUrl, BaseModel, Field, ValidationError
 
 from config import (
     DEFAULT_FOLLOW_INTERVAL,
@@ -28,14 +28,7 @@ class CustomRulesSecret(BaseModel):
 
     username: str = Field(min_length=1)
     password: str = Field(min_length=1)
-    oci_ref: str = Field(min_length=1)
-
-    @field_validator("oci_ref")
-    @classmethod
-    def validate_oci_ref(cls, value: str) -> str:
-        """Validate the OCI reference."""
-        validate_oci_reference(value)
-        return value
+    oci_ref: Annotated[str, Field(min_length=1), AfterValidator(validate_oci_reference)]
 
 
 class CharmState(BaseModel):
