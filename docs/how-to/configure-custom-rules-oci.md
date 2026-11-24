@@ -84,6 +84,7 @@ ubuntu/0* active    idle   0        10.0.0.1
   `username`, `password`, and `oci-ref` keys. The charm logs the specific validation error; inspect
   it with `juju debug-log`.
 - The unit is blocked with `Failed configuring Falco`: check the registry credentials, the artifact
-  reference, and the unit logs for the `falcoctl` error.
+  reference, and the unit logs for the `falcoctl` error. If no rules were installed, reconciliation
+  retries on the next event, and the follower keeps checking at the configured interval.
 - `falcoctl-rules-follow` is not running: check `systemctl status falcoctl-rules-follow` and the
   service logs. The service needs Falco's version endpoint on `127.0.0.1:8765` to be available.

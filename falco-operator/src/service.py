@@ -45,6 +45,8 @@ CLONE_OUTPUT_DIR = Path.home() / "custom-falco-config-repository"
 FALCO_SERVICE_NAME = "falco"
 FALCOCTL_FOLLOW_SERVICE_NAME = "falcoctl-rules-follow"
 OCI_RULES_STARTUP_TIMEOUT = 60
+OCI_RULES_FETCH_ATTEMPTS = 2
+OCI_RULES_RETRY_DELAY = 5
 
 TEMPLATE_DIR = "src/templates"
 SYSTEMD_SERVICE_DIR = Path("/etc/systemd/system")
@@ -339,6 +341,8 @@ class FalcoOciRules:
 
     service_name = FALCOCTL_FOLLOW_SERVICE_NAME
     startup_timeout = OCI_RULES_STARTUP_TIMEOUT
+    fetch_attempts = OCI_RULES_FETCH_ATTEMPTS
+    retry_delay = OCI_RULES_RETRY_DELAY
 
     def __init__(
         self,
@@ -433,9 +437,16 @@ class FalcoOciRules:
             raise OciRulesError(f"Unable to prepare OCI rules directory: {e}") from e
 
         # Reinstall from scratch when the unit or credentials changed, the state directory
-        # disappeared, or the follower is not running.
+        # disappeared, no managed rules are present, or the follower is not running.
         service_running = systemd.service_running(self.service_name)
-        reset_required = service_changed or config_changed or state_missing or not service_running
+        rules_missing = not self._rule_files()
+        reset_required = (
+            service_changed
+            or config_changed
+            or state_missing
+            or rules_missing
+            or not service_running
+        )
         # A proxy change only needs a restart; keep the existing rules and follow state.
         restart_required = reset_required or force_restart
 
@@ -460,8 +471,7 @@ class FalcoOciRules:
 
         systemd.service_enable(self.service_name)
         if restart_required:
-            systemd.service_restart(self.service_name)
-            self._wait_for_rules()
+            self._restart_and_wait_for_rules()
 
     def remove(self) -> None:
         """Stop the follow service and remove OCI rules state."""
@@ -547,6 +557,23 @@ class FalcoOciRules:
             config_file.write(config)
         os.chmod(self.config_file, 0o600)
         return True
+
+    def _restart_and_wait_for_rules(self) -> None:
+        """Restart the follower and retry transient fetch failures."""
+        for attempt in range(1, self.fetch_attempts + 1):
+            systemd.service_restart(self.service_name)
+            try:
+                self._wait_for_rules()
+                return
+            except OciRulesError:
+                if attempt == self.fetch_attempts:
+                    raise
+                logger.warning(
+                    "No OCI rules after attempt %s; retrying in %s seconds",
+                    attempt,
+                    self.retry_delay,
+                )
+                time.sleep(self.retry_delay)
 
     def _wait_for_rules(self) -> None:
         """Wait briefly for the follow service to populate the managed rules directory."""
