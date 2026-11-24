@@ -39,11 +39,11 @@ juju add-secret custom-rules-secret \
   oci-ref="quay.io/your-org/falco-rules:1.0.0"
 ```
 
-The `grant-secret` command returns the secret ID to use in the next step.
+The `add-secret` command returns the secret ID to use in the next step.
 
 ## Configure the charm
 
-Set `custom-rules-secret` to the secret ID returned by `juju grant-secret`:
+Set `custom-rules-secret` to the secret ID returned by `juju add-secret`:
 
 ```bash
 juju config falco custom-rules-secret="<secret-id>"

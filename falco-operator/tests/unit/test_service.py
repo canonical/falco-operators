@@ -783,6 +783,46 @@ class TestUtilityFunctions:
 
     @patch("service.subprocess.check_output")
     @patch("service.subprocess.run")
+    def test_git_sync_branch_unchanged(self, mock_run, mock_check_output, tmp_path):
+        """Test that an unchanged branch checkout reports no change."""
+        with patch("service.KNOWN_HOSTS_FILE", tmp_path / "known_hosts"):
+            mock_check_output.side_effect = [
+                b"git+ssh://git@github.com/user/repo.git\n",  # get_cloned_repo_url
+                subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_tag
+                b"same-commit\n",  # previous commit
+                b"github.com ssh-rsa AAAA...\n",  # add_known_hosts
+                b"same-commit\n",  # refreshed commit
+            ]
+
+            changed = service._git_sync(
+                "git+ssh://git@github.com/user/repo.git", "github.com", ref="main"
+            )
+
+        mock_run.assert_called_once()
+        assert changed is False
+
+    @patch("service.subprocess.check_output")
+    @patch("service.subprocess.run")
+    def test_git_sync_branch_changed(self, mock_run, mock_check_output, tmp_path):
+        """Test that a branch checkout with a new commit reports a change."""
+        with patch("service.KNOWN_HOSTS_FILE", tmp_path / "known_hosts"):
+            mock_check_output.side_effect = [
+                b"git+ssh://git@github.com/user/repo.git\n",  # get_cloned_repo_url
+                subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_tag
+                b"old-commit\n",  # previous commit
+                b"github.com ssh-rsa AAAA...\n",  # add_known_hosts
+                b"new-commit\n",  # refreshed commit
+            ]
+
+            changed = service._git_sync(
+                "git+ssh://git@github.com/user/repo.git", "github.com", ref="main"
+            )
+
+        mock_run.assert_called_once()
+        assert changed is True
+
+    @patch("service.subprocess.check_output")
+    @patch("service.subprocess.run")
     def test_git_sync_with_ssh_key(self, mock_run, mock_check_output, tmp_path):
         """Test _git_sync sets up SSH key when provided."""
         test_ssh_key_file = tmp_path / "id_rsa"
@@ -792,11 +832,9 @@ class TestUtilityFunctions:
             patch("service.SSH_KEY_FILE", test_ssh_key_file),
             patch("service.KNOWN_HOSTS_FILE", test_known_hosts),
         ):
-            # Mock check_output calls: repo URL check, tag check, and keyscan
-            # _git_sync calls _get_cloned_repo_url, _get_cloned_repo_tag, and _add_known_hosts
+            # _git_sync calls _get_cloned_repo_url and _add_known_hosts.
             mock_check_output.side_effect = [
                 subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_url
-                subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_tag
                 b"github.com ssh-rsa AAAA...\n",  # add_known_hosts
             ]
 
@@ -816,10 +854,9 @@ class TestUtilityFunctions:
         test_known_hosts = tmp_path / "known_hosts"
 
         with patch("service.KNOWN_HOSTS_FILE", test_known_hosts):
-            # Mock check_output calls
+            # _git_sync calls _get_cloned_repo_url and _add_known_hosts.
             mock_check_output.side_effect = [
                 subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_url
-                subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_tag
                 b"github.com ssh-rsa AAAA...\n",  # add_known_hosts
             ]
 

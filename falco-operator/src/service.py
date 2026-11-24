@@ -917,7 +917,7 @@ def _git_sync(
         ssh_private_key (str): The SSH private key content
 
     Returns:
-        True if the repository was cloned or updated, False if it was already synced.
+        True if the checkout changed, False if it was already up to date.
 
     Raises:
         GitCloneError: If git clone fails
@@ -925,16 +925,20 @@ def _git_sync(
         SshKeyWriteError: If writing the Ssh key fails
     """
     repo_cloned = repo == _get_cloned_repo_url()
-    repo_tag_matched = ref == _get_cloned_repo_tag()
-    if repo_cloned and repo_tag_matched:
+    if repo_cloned and (not ref or ref == _get_cloned_repo_tag()):
         logger.info("Custom config repository already synced")
         return False
+
+    previous_commit = _get_cloned_repo_commit() if repo_cloned else ""
 
     if ssh_private_key:
         _setup_ssh_key(ssh_private_key)
 
     _add_known_hosts(hostname)
     _git_clone(repo, ref=ref)
+
+    if repo_cloned:
+        return previous_commit != _get_cloned_repo_commit()
     return True
 
 
@@ -997,6 +1001,21 @@ def _git_clone(repo: str, ref: str = "") -> None:
     except subprocess.CalledProcessError as e:
         logging.error("Error cloning repository %s", repo)
         raise GitCloneError(f"Error cloning repository {repo}") from e
+
+
+def _get_cloned_repo_commit() -> str:
+    """Get the currently checked-out commit.
+
+    Returns:
+        The commit hash as a string, or an empty string if the repository is not cloned.
+    """
+    cmd = [GIT, "-C", str(CLONE_OUTPUT_DIR), "rev-parse", "HEAD"]
+    try:
+        commit = subprocess.check_output(cmd).decode()
+    except subprocess.CalledProcessError as e:
+        logger.debug(e)
+        return ""
+    return commit.strip()
 
 
 def _get_cloned_repo_url() -> str:
