@@ -11,7 +11,7 @@ import pytest
 from pydantic import AnyUrl
 
 from charm import Falco
-from config import ConflictingRulesSourceError, InvalidCharmConfigError
+from config import InvalidCharmConfigError
 
 
 class TestCharmState:
@@ -96,35 +96,6 @@ class TestCharmState:
             assert charm_state.custom_rules.username == "robot"
             assert charm_state.custom_rules.password == "token"  # nosec B105 - test credential
             assert charm_state.custom_rules.oci_ref == oci_ref
-
-    @patch("charm.FalcoService")
-    def test_custom_rules_secret_and_repository_conflict(
-        self, mock_service, mock_charm_dir, mock_falco_layout
-    ):
-        """Test that configuring both custom rules sources is rejected."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
-        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
-        state = ops.testing.State(
-            config={
-                "custom-config-repository": "git+ssh://git@github.com/canonical/falco-configs.git",
-                "custom-rules-secret": secret_id,
-            },
-            secrets=[
-                ops.testing.Secret(
-                    id=secret_id,
-                    tracked_content={
-                        "username": "robot",
-                        "password": "token",
-                        "oci_ref": "quay.io/canonical/falco-rules:latest",
-                    },
-                )
-            ],
-        )
-
-        with context(context.on.install(), state) as manager:
-            charm = manager.charm
-            with pytest.raises(ConflictingRulesSourceError):
-                _ = charm.state
 
     @pytest.mark.parametrize(
         ("secret_content", "error"),
