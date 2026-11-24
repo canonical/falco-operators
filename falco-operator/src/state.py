@@ -7,7 +7,7 @@ import itertools
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, TypedDict
 
 import ops
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
@@ -99,9 +99,9 @@ class CharmState(BaseModel):
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
-            custom_rules_username=custom_rules[0] if custom_rules else None,
-            custom_rules_password=custom_rules[1] if custom_rules else None,
-            custom_rules_oci_ref=custom_rules[2] if custom_rules else None,
+            custom_rules_username=custom_rules["username"] if custom_rules else None,
+            custom_rules_password=custom_rules["password"] if custom_rules else None,
+            custom_rules_oci_ref=custom_rules["oci_ref"] if custom_rules else None,
             custom_rules_follow_interval=charm_config.custom_rules_follow_interval,
             http_output=http_output,
         )
@@ -151,9 +151,17 @@ def _fetch_custom_ssh_key(model: ops.Model, config: CharmConfig) -> Optional[str
     return ssh_key_content
 
 
+class CustomRulesSecret(TypedDict):
+    """Validated OCI rules secret payload."""
+
+    username: str
+    password: str
+    oci_ref: str
+
+
 def _fetch_custom_rules_secret(
     model: ops.Model, config: CharmConfig
-) -> Optional[tuple[str, str, str]]:
+) -> Optional[CustomRulesSecret]:
     """Fetch OCI registry credentials and artifact reference from the charm config.
 
     Args:
@@ -161,7 +169,7 @@ def _fetch_custom_rules_secret(
         config: The charm config.
 
     Returns:
-        A tuple with the username, password, and OCI reference, or None if not configured.
+        A dict with the username, password, and OCI reference, or None if not configured.
 
     Raises:
         InvalidCharmConfigError: If the secret cannot be accessed or is missing required keys.
@@ -212,4 +220,4 @@ def _fetch_custom_rules_secret(
             "Custom rules secret key 'oci_ref' must be a full OCI reference without a URL scheme"
         )
 
-    return username, password, oci_ref
+    return {"username": username, "password": password, "oci_ref": oci_ref}
