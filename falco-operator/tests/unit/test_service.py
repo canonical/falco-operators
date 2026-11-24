@@ -201,9 +201,8 @@ class TestFalcoOciRules:
         mock_systemd.service_running.return_value = False
         mock_systemd.service_restart.side_effect = lambda _: self._write_rule(oci_rules)
 
-        changed = oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
 
-        assert changed is True
         assert (mock_falco_layout.rules_dir / "oci-rule.yaml").read_text() == "oci rule"
         assert oci_rules.service_file.exists()
         assert oci_rules.config_file.exists()
@@ -231,11 +230,11 @@ class TestFalcoOciRules:
         mock_systemd.service_running.return_value = False
         mock_systemd.service_restart.side_effect = lambda _: self._write_rule(oci_rules)
 
-        assert oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest") is True
+        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
 
         mock_systemd.reset_mock()
         mock_systemd.service_running.return_value = True
-        assert oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest") is False
+        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
         mock_systemd.service_restart.assert_not_called()
 
     @patch("service.systemd")
@@ -246,14 +245,14 @@ class TestFalcoOciRules:
         mock_systemd.service_restart.side_effect = lambda _: self._write_rule(
             oci_rules, "old-rule.yaml", "old rule"
         )
-        assert oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest") is True
+        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
 
         mock_systemd.reset_mock()
         mock_systemd.service_running.return_value = True
         mock_systemd.service_restart.side_effect = lambda _: self._write_rule(
             oci_rules, "new-rule.yaml", "new rule"
         )
-        assert oci_rules.configure("robot", "token", "quay.io/org/falco-rules:next") is True
+        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:next")
 
         assert not (mock_falco_layout.rules_dir / "old-rule.yaml").exists()
         assert (mock_falco_layout.rules_dir / "new-rule.yaml").read_text() == "new rule"
@@ -293,14 +292,11 @@ class TestFalcoOciRules:
 
         mock_run.side_effect = fake_install
 
-        assert (
-            oci_rules.configure(
-                "robot",
-                "token",
-                "quay.io/org/falco-rules:latest",
-                follow_interval="",
-            )
-            is True
+        oci_rules.configure(
+            "robot",
+            "token",
+            "quay.io/org/falco-rules:latest",
+            follow_interval="",
         )
         assert not oci_rules.service_file.exists()
         assert oci_rules.disabled_state_file.exists()
@@ -309,14 +305,11 @@ class TestFalcoOciRules:
         assert "install" in mock_run.call_args.args[0]
 
         mock_run.reset_mock()
-        assert (
-            oci_rules.configure(
-                "robot",
-                "token",
-                "quay.io/org/falco-rules:latest",
-                follow_interval="",
-            )
-            is False
+        oci_rules.configure(
+            "robot",
+            "token",
+            "quay.io/org/falco-rules:latest",
+            follow_interval="",
         )
         mock_run.assert_not_called()
 
@@ -347,7 +340,7 @@ class TestFalcoOciRules:
             custom_rules_oci_ref="quay.io/org/falco-rules:latest",
         )
 
-        assert custom_setting.configure(charm_state) is True
+        custom_setting.configure(charm_state)
         custom_setting.oci_rules.configure.assert_called_once_with(
             username="robot",
             password="token",
@@ -369,7 +362,7 @@ class TestFalcoOciRules:
             custom_rules_oci_ref="quay.io/org/falco-rules:latest",
         )
 
-        assert custom_setting.configure(charm_state) is True
+        custom_setting.configure(charm_state)
         assert not existing_rule.exists()
 
 
@@ -554,70 +547,6 @@ class TestFalcoService:
         mock_service_file.update.assert_called_once()
         mock_proxy_env_file.install.assert_called_once()
         mock_systemd.daemon_reload.assert_called_once()
-        mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
-
-    @patch("service.systemd")
-    def test_configure_unchanged_does_not_restart_running_service(self, mock_systemd):
-        """Test that an unchanged configuration does not restart an active service."""
-        mock_config = MagicMock()
-        mock_service_file = MagicMock()
-        mock_proxy_env_file = MagicMock()
-        mock_service_file.service_name = FALCO_SERVICE_NAME
-        mock_service_file.context = {}
-        mock_custom_setting = MagicMock()
-        mock_custom_setting.configure.return_value = False
-        mock_proxy_env_file.install.return_value = False
-        mock_service_file.update.return_value = False
-        mock_systemd.service_running.return_value = True
-
-        service = FalcoService(
-            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
-        )
-        service.configure(CharmState())
-
-        mock_systemd.daemon_reload.assert_called_once()
-        mock_systemd.service_restart.assert_not_called()
-
-    @patch("service.systemd")
-    def test_configure_service_file_change_restarts_service(self, mock_systemd):
-        """Test that a changed service file triggers a restart."""
-        mock_config = MagicMock()
-        mock_service_file = MagicMock()
-        mock_proxy_env_file = MagicMock()
-        mock_service_file.service_name = FALCO_SERVICE_NAME
-        mock_service_file.context = {}
-        mock_custom_setting = MagicMock()
-        mock_custom_setting.configure.return_value = False
-        mock_proxy_env_file.install.return_value = False
-        mock_service_file.update.return_value = True
-        mock_systemd.service_running.return_value = True
-
-        service = FalcoService(
-            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
-        )
-        service.configure(CharmState())
-
-        mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
-
-    @patch("service.systemd")
-    def test_configure_unchanged_restarts_inactive_service(self, mock_systemd):
-        """Test that an inactive service is restarted even when configuration is unchanged."""
-        mock_config = MagicMock()
-        mock_service_file = MagicMock()
-        mock_proxy_env_file = MagicMock()
-        mock_service_file.service_name = FALCO_SERVICE_NAME
-        mock_service_file.context = {}
-        mock_custom_setting = MagicMock()
-        mock_custom_setting.configure.return_value = False
-        mock_proxy_env_file.install.return_value = False
-        mock_service_file.update.return_value = False
-        mock_systemd.service_running.return_value = False
-
-        service = FalcoService(
-            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
-        )
-        service.configure(CharmState())
-
         mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
 
     @patch("service.systemd")
@@ -813,13 +742,10 @@ class TestUtilityFunctions:
 
         mock_subprocess.check_output.side_effect = check_output_side_effect
 
-        changed = service._git_sync(
-            "git+ssh://git@github.com/user/repo.git", "github.com", ref="v1.0"
-        )
+        service._git_sync("git+ssh://git@github.com/user/repo.git", "github.com", ref="v1.0")
 
         # Should not call run (git clone) if already synced
         mock_subprocess.run.assert_not_called()
-        assert changed is False
 
     @patch("service.subprocess.check_output")
     @patch("service.subprocess.run")
@@ -840,12 +766,11 @@ class TestUtilityFunctions:
                 b"github.com ssh-rsa AAAA...\n",  # add_known_hosts
             ]
 
-            changed = service._git_sync(
+            service._git_sync(
                 "git+ssh://git@github.com/user/repo.git", "github.com", ssh_private_key="test-key"
             )
 
             # Verify SSH key was written
-            assert changed is True
             assert test_ssh_key_file.exists()
             assert test_ssh_key_file.read_text() == "test-key"
 
