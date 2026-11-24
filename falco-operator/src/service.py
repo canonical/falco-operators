@@ -622,8 +622,10 @@ class FalcoCustomSetting:
         Raises:
             OciRulesError: If OCI rules cannot be fetched or installed.
         """
-        if charm_state.custom_rules_oci_ref:
-            self._configure_oci_rules(charm_state)
+        if charm_state.custom_rules:
+            self._configure_oci_rules(
+                charm_state.custom_rules, charm_state.custom_rules_follow_interval
+            )
             return
 
         oci_rules_configured = self.oci_rules.has_oci_state()
@@ -656,21 +658,24 @@ class FalcoCustomSetting:
 
         logger.info("Falco custom settings configured")
 
-    def _configure_oci_rules(self, charm_state: state.CharmState) -> None:
+    def _configure_oci_rules(
+        self, custom_rules: state.CustomRulesSecret, follow_interval: str
+    ) -> None:
         """Configure custom rules from an OCI registry.
 
         Args:
-            charm_state: The charm state.
+            custom_rules: Validated OCI registry credentials and artifact reference.
+            follow_interval: Go duration for registry checks.
         """
         # The first OCI reconciliation must remove rules installed by the git source.
         if not self.oci_rules.is_configured():
             self.remove()
 
         self.oci_rules.configure(
-            username=charm_state.custom_rules_username or "",
-            password=charm_state.custom_rules_password or "",
-            oci_ref=charm_state.custom_rules_oci_ref or "",
-            follow_interval=charm_state.custom_rules_follow_interval,
+            username=custom_rules.username,
+            password=custom_rules.password,
+            oci_ref=custom_rules.oci_ref,
+            follow_interval=follow_interval,
         )
 
 

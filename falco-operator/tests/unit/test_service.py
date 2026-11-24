@@ -32,7 +32,7 @@ from service import (
     Template,
     TemplateRenderError,
 )
-from state import CharmState
+from state import CharmState, CustomRulesSecret
 
 
 class TestTemplate:
@@ -316,9 +316,11 @@ class TestFalcoOciRules:
         custom_setting.oci_rules.is_configured.return_value = True
         custom_setting.oci_rules.configure.return_value = True
         charm_state = CharmState(
-            custom_rules_username="robot",
-            custom_rules_password="token",  # nosec B106 - test credential
-            custom_rules_oci_ref="quay.io/org/falco-rules:latest",
+            custom_rules=CustomRulesSecret(
+                username="robot",
+                password="token",  # nosec B106 - test credential
+                oci_ref="quay.io/org/falco-rules:latest",
+            )
         )
 
         custom_setting.configure(charm_state)
@@ -338,9 +340,11 @@ class TestFalcoOciRules:
         custom_setting.oci_rules.is_configured.return_value = False
         custom_setting.oci_rules.configure.return_value = True
         charm_state = CharmState(
-            custom_rules_username="robot",
-            custom_rules_password="token",  # nosec B106 - test credential
-            custom_rules_oci_ref="quay.io/org/falco-rules:latest",
+            custom_rules=CustomRulesSecret(
+                username="robot",
+                password="token",  # nosec B106 - test credential
+                oci_ref="quay.io/org/falco-rules:latest",
+            )
         )
 
         custom_setting.configure(charm_state)

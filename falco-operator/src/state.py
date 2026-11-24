@@ -10,7 +10,7 @@ from typing import Optional
 
 import ops
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
-from pydantic import AnyUrl, BaseModel, ValidationError, model_validator
+from pydantic import AnyUrl, BaseModel, Field, ValidationError, field_validator
 
 from config import (
     DEFAULT_FOLLOW_INTERVAL,
@@ -22,6 +22,22 @@ from config import (
 logger = logging.getLogger(__name__)
 
 
+class CustomRulesSecret(BaseModel):
+    """Validated OCI rules secret payload."""
+
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+    oci_ref: str = Field(min_length=1)
+
+    @field_validator("oci_ref")
+    @classmethod
+    def validate_oci_ref(cls, value: str) -> str:
+        """Validate the OCI reference."""
+        if "://" in value or "/" not in value:
+            raise ValueError("must be a full OCI reference without a URL scheme")
+        return value
+
+
 class CharmState(BaseModel):
     """The pydantic model for charm state.
 
@@ -29,9 +45,7 @@ class CharmState(BaseModel):
         custom_config_repo: Optional URL to a custom configuration repository.
         custom_config_repo_ref: Optional branch or tag to a custom configuration repository.
         custom_config_repo_ssh_key: Optional SSH key for custom configuration repository.
-        custom_rules_username: Optional OCI registry username for custom rules.
-        custom_rules_password: Optional OCI registry password for custom rules.
-        custom_rules_oci_ref: Optional OCI artifact reference for custom rules.
+        custom_rules: Optional validated OCI registry credentials and rules reference.
         custom_rules_follow_interval: How often falcoctl checks for OCI rules updates.
         http_output: Optional HTTP output data from http-output relation.
     """
@@ -39,9 +53,7 @@ class CharmState(BaseModel):
     custom_config_repo: Optional[AnyUrl] = None
     custom_config_repo_ref: Optional[str] = None
     custom_config_repo_ssh_key: Optional[str] = None
-    custom_rules_username: Optional[str] = None
-    custom_rules_password: Optional[str] = None
-    custom_rules_oci_ref: Optional[str] = None
+    custom_rules: Optional[CustomRulesSecret] = None
     custom_rules_follow_interval: str = DEFAULT_FOLLOW_INTERVAL
     http_output: Optional[dict[str, str]] = None
 
@@ -81,7 +93,7 @@ class CharmState(BaseModel):
         custom_config_repo_ssh_key = _fetch_custom_ssh_key(charm.model, charm_config)
         custom_rules = _fetch_custom_rules_secret(charm.model, charm_config)
 
-        if custom_config_repo and custom_rules.is_configured:
+        if custom_config_repo and custom_rules:
             raise ConflictingRulesSourceError(
                 "Only one of custom-config-repository and custom-rules-secret can be configured"
             )
@@ -98,9 +110,7 @@ class CharmState(BaseModel):
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
-            custom_rules_username=custom_rules.username,
-            custom_rules_password=custom_rules.password,
-            custom_rules_oci_ref=custom_rules.oci_ref,
+            custom_rules=custom_rules,
             custom_rules_follow_interval=charm_config.custom_rules_follow_interval,
             http_output=http_output,
         )
@@ -150,41 +160,9 @@ def _fetch_custom_ssh_key(model: ops.Model, config: CharmConfig) -> Optional[str
     return ssh_key_content
 
 
-class CustomRulesSecret(BaseModel):
-    """Validated OCI rules secret payload."""
-
-    username: Optional[str] = None
-    password: Optional[str] = None
-    oci_ref: Optional[str] = None
-
-    @model_validator(mode="after")
-    def validate_payload(self) -> "CustomRulesSecret":
-        """Validate the secret fields."""
-        values = {
-            "username": self.username,
-            "password": self.password,
-            "oci_ref": self.oci_ref,
-        }
-        missing_keys = [key for key, value in values.items() if not value]
-        if missing_keys:
-            raise ValueError("missing or has empty required keys: " + ", ".join(missing_keys))
-        oci_ref = self.oci_ref or ""
-        if "://" in oci_ref or "/" not in oci_ref:
-            raise ValueError("key 'oci_ref' must be a full OCI reference without a URL scheme")
-        return self
-
-    @classmethod
-    def empty(cls) -> "CustomRulesSecret":
-        """Return an empty payload for an unset secret."""
-        return cls.model_construct(username=None, password=None, oci_ref=None)
-
-    @property
-    def is_configured(self) -> bool:
-        """Return whether an OCI rules secret was configured."""
-        return self.oci_ref is not None
-
-
-def _fetch_custom_rules_secret(model: ops.Model, config: CharmConfig) -> CustomRulesSecret:
+def _fetch_custom_rules_secret(
+    model: ops.Model, config: CharmConfig
+) -> Optional[CustomRulesSecret]:
     """Fetch OCI registry credentials and artifact reference from the charm config.
 
     Args:
@@ -192,13 +170,13 @@ def _fetch_custom_rules_secret(model: ops.Model, config: CharmConfig) -> CustomR
         config: The charm config.
 
     Returns:
-        The validated secret payload, or an empty payload if not configured.
+        The validated secret payload, or None if not configured.
 
     Raises:
         InvalidCharmConfigError: If the secret cannot be accessed or is missing required keys.
     """
     if not config.custom_rules_secret:
-        return CustomRulesSecret.empty()
+        return None
 
     try:
         secret = model.get_secret(id=config.custom_rules_secret.id)
@@ -209,5 +187,9 @@ def _fetch_custom_rules_secret(model: ops.Model, config: CharmConfig) -> CustomR
     try:
         return CustomRulesSecret.model_validate(content)
     except ValidationError as e:
-        messages = "; ".join(error["msg"].removeprefix("Value error, ") for error in e.errors())
+        messages = "; ".join(
+            f"{'.'.join(str(part) for part in error['loc'])}: "
+            f"{error['msg'].removeprefix('Value error, ')}"
+            for error in e.errors()
+        )
         raise InvalidCharmConfigError(f"Invalid custom rules secret: {messages}") from e

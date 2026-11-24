@@ -92,9 +92,10 @@ class TestCharmState:
         with context(context.on.install(), state) as manager:
             charm = manager.charm
             charm_state = charm.state
-            assert charm_state.custom_rules_username == "robot"
-            assert charm_state.custom_rules_password == "token"  # nosec B105 - test credential
-            assert charm_state.custom_rules_oci_ref == oci_ref
+            assert charm_state.custom_rules is not None
+            assert charm_state.custom_rules.username == "robot"
+            assert charm_state.custom_rules.password == "token"  # nosec B105 - test credential
+            assert charm_state.custom_rules.oci_ref == oci_ref
 
     @patch("charm.FalcoService")
     def test_custom_rules_secret_and_repository_conflict(
@@ -128,25 +129,19 @@ class TestCharmState:
     @pytest.mark.parametrize(
         ("secret_content", "error"),
         [
-            (
-                {"other": "value"},
-                "missing or has empty required keys: username, password, oci_ref",
-            ),
-            (
-                {"username": "robot", "password": "token"},
-                "missing or has empty required keys: oci_ref",
-            ),
+            ({"other": "value"}, "username: Field required"),
+            ({"username": "robot", "password": "token"}, "oci_ref: Field required"),
             (
                 {"password": "token", "oci_ref": "quay.io/org/rules:latest"},
-                "missing or has empty required keys: username",
+                "username: Field required",
             ),
             (
                 {"username": "robot", "oci_ref": "quay.io/org/rules:latest"},
-                "missing or has empty required keys: password",
+                "password: Field required",
             ),
             (
                 {"username": "robot", "password": "", "oci_ref": "quay.io/org/rules:latest"},
-                "missing or has empty required keys: password",
+                "at least 1 character",
             ),
             (
                 {
