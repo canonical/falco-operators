@@ -11,6 +11,7 @@ import ops.testing
 import pytest
 from pydantic import AnyUrl
 
+import service
 from charm import Falco
 from service import FalcoConfigurationError
 
@@ -315,11 +316,8 @@ class TestCharmConfigHandling:
         assert password not in caplog.text
         assert oci_ref not in caplog.text
 
-    @patch("charm.FalcoService")
-    def test_secret_changed_reads_rotated_secret(
-        self, mock_service_class, mock_charm_dir, mock_falco_layout
-    ):
-        """Test that secret-changed reconciliation uses the rotated secret values."""
+    def test_secret_rotation_updates_falcoctl_credentials(self, mock_charm_dir, mock_falco_layout):
+        """Test that secret rotation updates the credentials used by falcoctl."""
         old_secret = ops.testing.Secret(
             tracked_content={
                 "username": "robot",
@@ -337,27 +335,48 @@ class TestCharmConfigHandling:
         )
         config = {"custom-rules-secret": old_secret.id}
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
-        mock_service = MagicMock()
-        mock_service.check_active.return_value = True
-        mock_service_class.return_value = mock_service
+        original_oci_init = service.FalcoOciRules.__init__
 
-        context.run(
-            context.on.config_changed(),
-            ops.testing.State(config=config, secrets=[old_secret]),
-        )
-        old_state = mock_service.configure.call_args.args[0]
-        assert old_state.custom_rules is not None
-        assert old_state.custom_rules.password == "old-token"  # nosec B105 - test credential
+        def oci_init(self, falco_layout, systemd_service_dir=mock_charm_dir / "systemd"):
+            original_oci_init(self, falco_layout, systemd_service_dir)
 
-        mock_service.reset_mock()
-        state_out = context.run(
-            context.on.secret_changed(new_secret),
-            ops.testing.State(config=config, secrets=[new_secret]),
-        )
+        with (
+            patch("service.systemd") as mock_systemd,
+            patch.object(service.FalcoOciRules, "__init__", oci_init),
+            patch.object(
+                service.FalcoServiceFile,
+                "service_file",
+                mock_charm_dir / "falco.service",
+            ),
+        ):
+            mock_systemd.service_running.return_value = True
 
-        new_state = mock_service.configure.call_args.args[0]
-        assert new_state.custom_rules is not None
-        assert new_state.custom_rules.password == "new-token"  # nosec B105 - test credential
+            def restart(name):
+                if name == service.FALCOCTL_FOLLOW_SERVICE_NAME:
+                    (mock_falco_layout.rules_dir / "oci-rule.yaml").write_text(
+                        "rule", encoding="utf-8"
+                    )
+
+            mock_systemd.service_restart.side_effect = restart
+
+            context.run(
+                context.on.config_changed(),
+                ops.testing.State(config=config, secrets=[old_secret]),
+            )
+            config_file = mock_falco_layout.oci_rules_dir / "falcoctl.yaml"
+            assert "old-token" in config_file.read_text(encoding="utf-8")
+
+            mock_systemd.reset_mock()
+            mock_systemd.service_running.return_value = True
+            mock_systemd.service_restart.side_effect = restart
+            state_out = context.run(
+                context.on.secret_changed(new_secret),
+                ops.testing.State(config=config, secrets=[new_secret]),
+            )
+
+        config_content = config_file.read_text(encoding="utf-8")
+        assert "new-token" in config_content
+        assert "old-token" not in config_content
         assert state_out.unit_status == ops.testing.ActiveStatus()
 
     @patch("charm.FalcoService")
