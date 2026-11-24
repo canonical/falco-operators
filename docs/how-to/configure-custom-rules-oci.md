@@ -19,8 +19,8 @@ state.
 
 ## Create the secret
 
-Create a Juju secret with the registry credentials and artifact reference. Replace the placeholders,
-including the angle brackets, with your registry values:
+Create a Juju secret with the registry credentials and artifact reference. Replace the placeholders
+with your registry values:
 
 ```bash
 juju add-secret custom-rules-secret \
