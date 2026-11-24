@@ -176,179 +176,176 @@ def test_no_proxy_environment_when_unset(mock_falco_layout, tmp_path, existing_f
     assert not proxy_env_file.exists()
 
 
-class TestFalcoOciRules:
-    """Test FalcoOciRules class."""
+def _manager(falco_layout, systemd_service_dir):
+    """Create a manager with a service file in a temporary directory."""
+    manager = FalcoOciRules(falco_layout, systemd_service_dir=systemd_service_dir)
+    manager.startup_timeout = 0
+    return manager
 
-    @staticmethod
-    def _manager(falco_layout, systemd_service_dir):
-        """Create a manager with a service file in a temporary directory."""
-        manager = FalcoOciRules(falco_layout, systemd_service_dir=systemd_service_dir)
-        manager.startup_timeout = 0
-        return manager
 
-    @staticmethod
-    def _write_rule(oci_rules, name="oci-rule.yaml", content="oci rule"):
-        """Write a rule as if falcoctl follow had populated the rules directory."""
-        oci_rules.rules_dir.mkdir(parents=True, exist_ok=True)
-        (oci_rules.rules_dir / name).write_text(content, encoding="utf-8")
+def _write_rule(oci_rules, name="oci-rule.yaml", content="oci rule"):
+    """Write a rule as if falcoctl follow had populated the rules directory."""
+    oci_rules.rules_dir.mkdir(parents=True, exist_ok=True)
+    (oci_rules.rules_dir / name).write_text(content, encoding="utf-8")
 
-    @patch("service.systemd")
-    def test_configure_creates_service_and_installs_rules(
-        self, mock_systemd, mock_falco_layout, tmp_path
-    ):
-        """Test configuring the follow service and installing rules directly."""
-        oci_rules = self._manager(mock_falco_layout, tmp_path)
-        mock_systemd.service_running.return_value = False
-        mock_systemd.service_restart.side_effect = lambda _: self._write_rule(oci_rules)
 
+@patch("service.systemd")
+def test_configure_creates_service_and_installs_rules(mock_systemd, mock_falco_layout, tmp_path):
+    """Test configuring the follow service and installing rules directly."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _write_rule(oci_rules)
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    assert (mock_falco_layout.rules_dir / "oci-rule.yaml").read_text() == "oci rule"
+    assert oci_rules.service_file.exists()
+    assert oci_rules.config_file.exists()
+    assert oct(oci_rules.config_file.stat().st_mode)[-3:] == "600"
+    service_content = oci_rules.service_file.read_text()
+    assert "artifact follow" in service_content
+    assert "--rulesfiles-dir" in service_content
+    assert str(mock_falco_layout.rules_dir) in service_content
+    assert "--tmp-dir" in service_content
+    assert "--every 1h" in service_content
+    assert "--falco-versions http://127.0.0.1:8765/versions" in service_content
+    assert "--no-verify" not in service_content
+    assert "--plugins-dir" not in service_content
+    assert "--assets-dir" not in service_content
+    assert "quay.io/org/falco-rules:latest" in service_content
+    mock_systemd.service_enable.assert_called_with(oci_rules.service_name)
+    mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
+
+
+@patch("service.systemd")
+def test_configure_unchanged_does_not_restart_service(mock_systemd, mock_falco_layout, tmp_path):
+    """Test that an unchanged follow configuration does not restart the service."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _write_rule(oci_rules)
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    mock_systemd.reset_mock()
+    mock_systemd.service_running.return_value = True
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+    mock_systemd.service_restart.assert_not_called()
+
+
+@patch("service.systemd")
+def test_configure_change_resets_rules(mock_systemd, mock_falco_layout, tmp_path):
+    """Test that a reference change clears old rules before the fresh install."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _write_rule(
+        oci_rules, "old-rule.yaml", "old rule"
+    )
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    mock_systemd.reset_mock()
+    mock_systemd.service_running.return_value = True
+    mock_systemd.service_restart.side_effect = lambda _: _write_rule(
+        oci_rules, "new-rule.yaml", "new rule"
+    )
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:next")
+
+    assert not (mock_falco_layout.rules_dir / "old-rule.yaml").exists()
+    assert (mock_falco_layout.rules_dir / "new-rule.yaml").read_text() == "new rule"
+    mock_systemd.service_stop.assert_called_with(oci_rules.service_name)
+    mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
+
+
+@patch("service.systemd")
+def test_remove_stops_service_and_deletes_rules(mock_systemd, mock_falco_layout, tmp_path):
+    """Test removing OCI rules, OCI rules state, and the follow service."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _write_rule(oci_rules)
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    oci_rules.remove()
+    mock_systemd.service_stop.assert_called_with(oci_rules.service_name)
+    mock_systemd.service_disable.assert_called_with(oci_rules.service_name)
+    assert not (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
+    assert not oci_rules.service_file.exists()
+    assert not oci_rules.oci_rules_dir.exists()
+
+
+@patch("service.systemd")
+def test_configure_empty_interval_uses_default(mock_systemd, mock_falco_layout, tmp_path):
+    """Test that an empty follow interval falls back to the default."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _write_rule(oci_rules)
+
+    oci_rules.configure(
+        "robot",
+        "token",
+        "quay.io/org/falco-rules:latest",
+        follow_interval="",
+    )
+
+    assert "--every 1h" in oci_rules.service_file.read_text()
+
+
+def test_configure_missing_falcoctl_fails(mock_falco_layout, tmp_path):
+    """Test that a missing falcoctl binary is reported clearly."""
+    mock_falco_layout.falcoctl_cmd.unlink()
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+
+    with pytest.raises(OciRulesError, match="falcoctl binary not found"):
         oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
 
-        assert (mock_falco_layout.rules_dir / "oci-rule.yaml").read_text() == "oci rule"
-        assert oci_rules.service_file.exists()
-        assert oci_rules.config_file.exists()
-        assert oct(oci_rules.config_file.stat().st_mode)[-3:] == "600"
-        service_content = oci_rules.service_file.read_text()
-        assert "artifact follow" in service_content
-        assert "--rulesfiles-dir" in service_content
-        assert str(mock_falco_layout.rules_dir) in service_content
-        assert "--tmp-dir" in service_content
-        assert "--every 1h" in service_content
-        assert "--falco-versions http://127.0.0.1:8765/versions" in service_content
-        assert "--no-verify" not in service_content
-        assert "--plugins-dir" not in service_content
-        assert "--assets-dir" not in service_content
-        assert "quay.io/org/falco-rules:latest" in service_content
-        mock_systemd.service_enable.assert_called_with(oci_rules.service_name)
-        mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
 
-    @patch("service.systemd")
-    def test_configure_unchanged_does_not_restart_service(
-        self, mock_systemd, mock_falco_layout, tmp_path
-    ):
-        """Test that an unchanged follow configuration does not restart the service."""
-        oci_rules = self._manager(mock_falco_layout, tmp_path)
-        mock_systemd.service_running.return_value = False
-        mock_systemd.service_restart.side_effect = lambda _: self._write_rule(oci_rules)
+def test_configure_rejects_invalid_reference(mock_falco_layout, tmp_path):
+    """Test that references without a registry or repository are rejected."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
 
-        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+    with pytest.raises(OciRulesError, match="registry and repository"):
+        oci_rules.configure("robot", "token", "not-a-reference")
 
-        mock_systemd.reset_mock()
-        mock_systemd.service_running.return_value = True
-        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
-        mock_systemd.service_restart.assert_not_called()
 
-    @patch("service.systemd")
-    def test_configure_change_resets_rules(self, mock_systemd, mock_falco_layout, tmp_path):
-        """Test that a reference change clears old rules before the fresh install."""
-        oci_rules = self._manager(mock_falco_layout, tmp_path)
-        mock_systemd.service_running.return_value = False
-        mock_systemd.service_restart.side_effect = lambda _: self._write_rule(
-            oci_rules, "old-rule.yaml", "old rule"
-        )
-        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
-
-        mock_systemd.reset_mock()
-        mock_systemd.service_running.return_value = True
-        mock_systemd.service_restart.side_effect = lambda _: self._write_rule(
-            oci_rules, "new-rule.yaml", "new rule"
-        )
-        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:next")
-
-        assert not (mock_falco_layout.rules_dir / "old-rule.yaml").exists()
-        assert (mock_falco_layout.rules_dir / "new-rule.yaml").read_text() == "new rule"
-        mock_systemd.service_stop.assert_called_with(oci_rules.service_name)
-        mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
-
-    @patch("service.systemd")
-    def test_remove_stops_service_and_deletes_rules(
-        self, mock_systemd, mock_falco_layout, tmp_path
-    ):
-        """Test removing OCI rules, OCI rules state, and the follow service."""
-        oci_rules = self._manager(mock_falco_layout, tmp_path)
-        mock_systemd.service_running.return_value = False
-        mock_systemd.service_restart.side_effect = lambda _: self._write_rule(oci_rules)
-        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
-
-        oci_rules.remove()
-        mock_systemd.service_stop.assert_called_with(oci_rules.service_name)
-        mock_systemd.service_disable.assert_called_with(oci_rules.service_name)
-        assert not (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
-        assert not oci_rules.service_file.exists()
-        assert not oci_rules.oci_rules_dir.exists()
-
-    @patch("service.systemd")
-    def test_configure_empty_interval_uses_default(
-        self, mock_systemd, mock_falco_layout, tmp_path
-    ):
-        """Test that an empty follow interval falls back to the default."""
-        oci_rules = self._manager(mock_falco_layout, tmp_path)
-        mock_systemd.service_running.return_value = False
-        mock_systemd.service_restart.side_effect = lambda _: self._write_rule(oci_rules)
-
-        oci_rules.configure(
-            "robot",
-            "token",
-            "quay.io/org/falco-rules:latest",
-            follow_interval="",
-        )
-
-        assert "--every 1h" in oci_rules.service_file.read_text()
-
-    def test_configure_missing_falcoctl_fails(self, mock_falco_layout, tmp_path):
-        """Test that a missing falcoctl binary is reported clearly."""
-        mock_falco_layout.falcoctl_cmd.unlink()
-        oci_rules = self._manager(mock_falco_layout, tmp_path)
-
-        with pytest.raises(OciRulesError, match="falcoctl binary not found"):
-            oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
-
-    def test_configure_rejects_invalid_reference(self, mock_falco_layout, tmp_path):
-        """Test that references without a registry or repository are rejected."""
-        oci_rules = self._manager(mock_falco_layout, tmp_path)
-
-        with pytest.raises(OciRulesError, match="registry and repository"):
-            oci_rules.configure("robot", "token", "not-a-reference")
-
-    def test_configure_uses_configured_oci_rules(self, mock_falco_layout):
-        """Test that FalcoCustomSetting uses the OCI rules manager when configured."""
-        custom_setting = FalcoCustomSetting(mock_falco_layout)
-        custom_setting.oci_rules = MagicMock()
-        custom_setting.oci_rules.is_configured.return_value = True
-        custom_setting.oci_rules.configure.return_value = True
-        charm_state = CharmState(
-            custom_rules=CustomRulesSecret(
-                username="robot",
-                password="token",  # nosec B106 - test credential
-                oci_ref="quay.io/org/falco-rules:latest",
-            )
-        )
-
-        custom_setting.configure(charm_state)
-        custom_setting.oci_rules.configure.assert_called_once_with(
+def test_configure_uses_configured_oci_rules(mock_falco_layout):
+    """Test that FalcoCustomSetting uses the OCI rules manager when configured."""
+    custom_setting = FalcoCustomSetting(mock_falco_layout)
+    custom_setting.oci_rules = MagicMock()
+    custom_setting.oci_rules.is_configured.return_value = True
+    custom_setting.oci_rules.configure.return_value = True
+    charm_state = CharmState(
+        custom_rules=CustomRulesSecret(
             username="robot",
             password="token",  # nosec B106 - test credential
             oci_ref="quay.io/org/falco-rules:latest",
-            follow_interval="1h",
         )
+    )
 
-    def test_first_oci_configuration_clears_git_rules(self, mock_falco_layout):
-        """Test that switching to OCI rules removes rules from the previous source."""
-        existing_rule = mock_falco_layout.rules_dir / "git-rule.yaml"
-        existing_rule.write_text("git rule", encoding="utf-8")
-        custom_setting = FalcoCustomSetting(mock_falco_layout)
-        custom_setting.oci_rules = MagicMock()
-        custom_setting.oci_rules.is_configured.return_value = False
-        custom_setting.oci_rules.configure.return_value = True
-        charm_state = CharmState(
-            custom_rules=CustomRulesSecret(
-                username="robot",
-                password="token",  # nosec B106 - test credential
-                oci_ref="quay.io/org/falco-rules:latest",
-            )
+    custom_setting.configure(charm_state)
+    custom_setting.oci_rules.configure.assert_called_once_with(
+        username="robot",
+        password="token",  # nosec B106 - test credential
+        oci_ref="quay.io/org/falco-rules:latest",
+        follow_interval="1h",
+    )
+
+
+def test_first_oci_configuration_clears_git_rules(mock_falco_layout):
+    """Test that switching to OCI rules removes rules from the previous source."""
+    existing_rule = mock_falco_layout.rules_dir / "git-rule.yaml"
+    existing_rule.write_text("git rule", encoding="utf-8")
+    custom_setting = FalcoCustomSetting(mock_falco_layout)
+    custom_setting.oci_rules = MagicMock()
+    custom_setting.oci_rules.is_configured.return_value = False
+    custom_setting.oci_rules.configure.return_value = True
+    charm_state = CharmState(
+        custom_rules=CustomRulesSecret(
+            username="robot",
+            password="token",  # nosec B106 - test credential
+            oci_ref="quay.io/org/falco-rules:latest",
         )
+    )
 
-        custom_setting.configure(charm_state)
-        assert not existing_rule.exists()
+    custom_setting.configure(charm_state)
+    assert not existing_rule.exists()
 
 
 class TestFalcoCustomSetting:
