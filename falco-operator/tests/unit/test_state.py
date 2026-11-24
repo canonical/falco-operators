@@ -73,21 +73,18 @@ class TestCharmState:
         self, mock_service, mock_charm_dir, mock_falco_layout
     ):
         """Test loading state from a custom rules secret."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
         oci_ref = "quay.io/canonical/falco-rules:latest"
+        secret = ops.testing.Secret(
+            tracked_content={
+                "username": "robot",
+                "password": "token",
+                "oci_ref": oci_ref,
+            }
+        )
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state = ops.testing.State(
-            config={"custom-rules-secret": secret_id},
-            secrets=[
-                ops.testing.Secret(
-                    id=secret_id,
-                    tracked_content={
-                        "username": "robot",
-                        "password": "token",
-                        "oci_ref": oci_ref,
-                    },
-                )
-            ],
+            config={"custom-rules-secret": secret.id},
+            secrets=[secret],
         )
 
         with context(context.on.install(), state) as manager:
@@ -129,11 +126,11 @@ class TestCharmState:
         self, mock_service, secret_content, error, mock_charm_dir, mock_falco_layout
     ):
         """Test validation of the custom rules secret payload."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
+        secret = ops.testing.Secret(tracked_content=secret_content)
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state = ops.testing.State(
-            config={"custom-rules-secret": secret_id},
-            secrets=[ops.testing.Secret(id=secret_id, tracked_content=secret_content)],
+            config={"custom-rules-secret": secret.id},
+            secrets=[secret],
         )
 
         with context(context.on.install(), state) as manager:
@@ -159,22 +156,19 @@ class TestCharmState:
         self, mock_service, mock_charm_dir, mock_falco_layout
     ):
         """Test that validation errors do not include secret values."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
         password = "super-secret-token"  # nosec B105 - test credential
         oci_ref = "https://quay.io/private/rules:latest"
+        secret = ops.testing.Secret(
+            tracked_content={
+                "username": "robot",
+                "password": password,
+                "oci_ref": oci_ref,
+            }
+        )
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state = ops.testing.State(
-            config={"custom-rules-secret": secret_id},
-            secrets=[
-                ops.testing.Secret(
-                    id=secret_id,
-                    tracked_content={
-                        "username": "robot",
-                        "password": password,
-                        "oci_ref": oci_ref,
-                    },
-                )
-            ],
+            config={"custom-rules-secret": secret.id},
+            secrets=[secret],
         )
 
         with (

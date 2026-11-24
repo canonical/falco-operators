@@ -267,19 +267,16 @@ class TestCharmConfigHandling:
         self, mock_service_class, mock_charm_dir, mock_falco_layout, caplog
     ):
         """Test that the specific secret validation error is logged."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
+        secret = ops.testing.Secret(
+            tracked_content={
+                "username": "robot",
+                "oci_ref": "quay.io/org/rules:latest",
+            }
+        )
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state_in = ops.testing.State(
-            config={"custom-rules-secret": secret_id},
-            secrets=[
-                ops.testing.Secret(
-                    id=secret_id,
-                    tracked_content={
-                        "username": "robot",
-                        "oci_ref": "quay.io/org/rules:latest",
-                    },
-                )
-            ],
+            config={"custom-rules-secret": secret.id},
+            secrets=[secret],
         )
 
         with caplog.at_level("WARNING", logger="charm"):
@@ -293,23 +290,20 @@ class TestCharmConfigHandling:
         self, mock_service_class, mock_charm_dir, mock_falco_layout, caplog
     ):
         """Test that invalid secret values are not written to the logs."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
         username = "robot-user"
         password = "super-secret-token"  # nosec B105 - test credential
         oci_ref = "https://quay.io/private/rules:latest"
+        secret = ops.testing.Secret(
+            tracked_content={
+                "username": username,
+                "password": password,
+                "oci_ref": oci_ref,
+            }
+        )
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state_in = ops.testing.State(
-            config={"custom-rules-secret": secret_id},
-            secrets=[
-                ops.testing.Secret(
-                    id=secret_id,
-                    tracked_content={
-                        "username": username,
-                        "password": password,
-                        "oci_ref": oci_ref,
-                    },
-                )
-            ],
+            config={"custom-rules-secret": secret.id},
+            secrets=[secret],
         )
 
         with caplog.at_level("WARNING", logger="charm"):
@@ -343,23 +337,20 @@ class TestCharmConfigHandling:
         self, mock_service_class, mock_charm_dir, mock_falco_layout
     ):
         """Test config_changed when git and OCI rules sources are both configured."""
-        secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
+        secret = ops.testing.Secret(
+            tracked_content={
+                "username": "robot",
+                "password": "token",
+                "oci_ref": "quay.io/canonical/falco-rules:latest",
+            }
+        )
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         state_in = ops.testing.State(
             config={
                 "custom-config-repository": "git+ssh://git@github.com/owner/repo.git",
-                "custom-rules-secret": secret_id,
+                "custom-rules-secret": secret.id,
             },
-            secrets=[
-                ops.testing.Secret(
-                    id=secret_id,
-                    tracked_content={
-                        "username": "robot",
-                        "password": "token",
-                        "oci_ref": "quay.io/canonical/falco-rules:latest",
-                    },
-                )
-            ],
+            secrets=[secret],
         )
         state_out = context.run(context.on.config_changed(), state_in)
 
