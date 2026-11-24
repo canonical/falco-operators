@@ -3,7 +3,6 @@
 
 """Unit tests for Falco state module."""
 
-import json
 from unittest.mock import patch
 
 import ops
@@ -72,7 +71,7 @@ class TestCharmState:
     def test_valid_charm_state_with_custom_rules_secret(
         self, mock_service, mock_charm_dir, mock_falco_layout
     ):
-        """Test loading state from a JSON custom rules secret."""
+        """Test loading state from a custom rules secret."""
         secret_id = "secret:d5dn431kohtcgpn8ou4g"  # nosec B105 - test secret ID
         oci_ref = "quay.io/canonical/falco-rules:latest"
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
@@ -82,13 +81,9 @@ class TestCharmState:
                 ops.testing.Secret(
                     id=secret_id,
                     tracked_content={
-                        "value": json.dumps(
-                            {
-                                "username": "robot",
-                                "password": "token",
-                                "oci_ref": oci_ref,
-                            }
-                        )
+                        "username": "robot",
+                        "password": "token",
+                        "oci_ref": oci_ref,
                     },
                 )
             ],
@@ -117,13 +112,9 @@ class TestCharmState:
                 ops.testing.Secret(
                     id=secret_id,
                     tracked_content={
-                        "value": json.dumps(
-                            {
-                                "username": "robot",
-                                "password": "token",
-                                "oci_ref": "quay.io/canonical/falco-rules:latest",
-                            }
-                        )
+                        "username": "robot",
+                        "password": "token",
+                        "oci_ref": "quay.io/canonical/falco-rules:latest",
                     },
                 )
             ],
@@ -137,68 +128,31 @@ class TestCharmState:
     @pytest.mark.parametrize(
         ("secret_content", "error"),
         [
-            ({"other": "value"}, "must contain a 'value' key"),
-            ({"value": "not-json"}, "must be a valid JSON object"),
-            ({"value": json.dumps(["not", "an", "object"])}, "must be a JSON object"),
             (
-                {"value": json.dumps({"username": "robot", "password": "token"})},
+                {"other": "value"},
+                "missing or has empty required keys: username, password, oci_ref",
+            ),
+            (
+                {"username": "robot", "password": "token"},
                 "missing or has empty required keys: oci_ref",
             ),
             (
-                {
-                    "value": json.dumps(
-                        {
-                            "password": "token",
-                            "oci_ref": "quay.io/org/rules:latest",
-                        }
-                    )
-                },
+                {"password": "token", "oci_ref": "quay.io/org/rules:latest"},
                 "missing or has empty required keys: username",
             ),
             (
-                {
-                    "value": json.dumps(
-                        {
-                            "username": "robot",
-                            "oci_ref": "quay.io/org/rules:latest",
-                        }
-                    )
-                },
+                {"username": "robot", "oci_ref": "quay.io/org/rules:latest"},
+                "missing or has empty required keys: password",
+            ),
+            (
+                {"username": "robot", "password": "", "oci_ref": "quay.io/org/rules:latest"},
                 "missing or has empty required keys: password",
             ),
             (
                 {
-                    "value": json.dumps(
-                        {
-                            "username": "robot",
-                            "password": "",
-                            "oci_ref": "quay.io/org/rules:latest",
-                        }
-                    )
-                },
-                "missing or has empty required keys: password",
-            ),
-            (
-                {
-                    "value": json.dumps(
-                        {
-                            "username": "robot",
-                            "password": 123,
-                            "oci_ref": "quay.io/org/rules:latest",
-                        }
-                    )
-                },
-                "must be strings",
-            ),
-            (
-                {
-                    "value": json.dumps(
-                        {
-                            "username": "robot",
-                            "password": "token",
-                            "oci_ref": "https://quay.io/org/rules:latest",
-                        }
-                    )
+                    "username": "robot",
+                    "password": "token",
+                    "oci_ref": "https://quay.io/org/rules:latest",
                 },
                 "without a URL scheme",
             ),

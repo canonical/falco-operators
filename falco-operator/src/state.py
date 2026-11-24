@@ -4,7 +4,6 @@
 """Charm state module."""
 
 import itertools
-import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -186,37 +185,16 @@ def _fetch_custom_rules_secret(model: ops.Model, config: CharmConfig) -> CustomR
     except ops.SecretNotFoundError as exc:
         raise InvalidCharmConfigError("Custom rules secret not found.") from exc
 
-    raw_value = content.get("value")
-    if not raw_value:
-        raise InvalidCharmConfigError(
-            "Custom rules secret must contain a 'value' key with a JSON object."
-        )
-
-    try:
-        rules_config = json.loads(raw_value)
-    except json.JSONDecodeError as exc:
-        raise InvalidCharmConfigError(
-            "Custom rules secret 'value' must be a valid JSON object."
-        ) from exc
-
-    if not isinstance(rules_config, dict):
-        raise InvalidCharmConfigError("Custom rules secret 'value' must be a JSON object.")
-
     required_keys = ("username", "password", "oci_ref")
-    missing_keys = [key for key in required_keys if not rules_config.get(key)]
+    missing_keys = [key for key in required_keys if not content.get(key)]
     if missing_keys:
         raise InvalidCharmConfigError(
-            "Custom rules secret JSON is missing or has empty required keys: "
-            + ", ".join(missing_keys)
-        )
-    if not all(isinstance(rules_config[key], str) for key in required_keys):
-        raise InvalidCharmConfigError(
-            "Custom rules secret JSON values for username, password, and oci_ref must be strings"
+            "Custom rules secret is missing or has empty required keys: " + ", ".join(missing_keys)
         )
 
-    username = rules_config["username"]
-    password = rules_config["password"]
-    oci_ref = rules_config["oci_ref"]
+    username = content["username"]
+    password = content["password"]
+    oci_ref = content["oci_ref"]
 
     if "://" in oci_ref or "/" not in oci_ref:
         raise InvalidCharmConfigError(

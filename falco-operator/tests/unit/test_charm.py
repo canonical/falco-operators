@@ -3,7 +3,6 @@
 
 """Unit tests for Falco charm."""
 
-import json
 import shutil
 from unittest.mock import MagicMock, patch
 
@@ -296,13 +295,9 @@ class TestCharmConfigHandling:
                 ops.testing.Secret(
                     id=secret_id,
                     tracked_content={
-                        "value": json.dumps(
-                            {
-                                "username": "robot",
-                                "password": "token",
-                                "oci_ref": "quay.io/canonical/falco-rules:latest",
-                            }
-                        )
+                        "username": "robot",
+                        "password": "token",
+                        "oci_ref": "quay.io/canonical/falco-rules:latest",
                     },
                 )
             ],

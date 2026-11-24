@@ -32,13 +32,14 @@ falcoctl registry push \
 
 ## Create the secret
 
-Create a Juju secret whose `value` key contains a JSON object with the registry credentials and
-artifact reference:
+Create a Juju secret with the registry credentials and artifact reference:
 
 ```bash
-juju add-secret custom-rules-secret value='{"username":"your-robot","password":"your-token","oci_ref":"quay.io/your-org/falco-rules:1.0.0"}'
+juju add-secret custom-rules-secret username=your-robot password=your-token oci_ref=quay.io/your-org/falco-rules:1.0.0
 juju grant-secret custom-rules-secret falco
 ```
+
+Quote values that contain spaces or shell characters.
 
 The `grant-secret` command returns the secret ID to use in the next step.
 
@@ -83,8 +84,8 @@ artifact removes a file, the old file may remain until the next fresh reset.
 
 - The unit is blocked with `Only one of custom-config-repository and custom-rules-secret can be
   configured`: remove one of the two custom rules sources.
-- The unit is blocked with `Invalid charm config`: check that the secret contains a `value` key with
-  a valid JSON object and that the object contains `username`, `password`, and `oci_ref`.
+- The unit is blocked with `Invalid charm config`: check that the secret contains non-empty
+  `username`, `password`, and `oci_ref` keys.
 - The unit is blocked with `Failed configuring Falco`: check the registry credentials, the artifact
   reference, and the unit logs for the `falcoctl` error.
 - `falcoctl-rules-follow` is not running: check `systemctl status falcoctl-rules-follow` and the

@@ -108,21 +108,13 @@ config:
     custom-rules-secret:
       type: secret
       description: |
-        The Juju secret ID containing a single key, `value`, whose value is a JSON object with the
-        OCI registry credentials and rules reference:
-
-        ```json
-        {
-          "username": "my-robot-account",
-          "password": "my-robot-token",
-          "oci_ref": "quay.io/my-org/falco-rules:latest"
-        }
-        ```
+        The Juju secret ID containing the OCI registry credentials and rules reference. The secret
+        must contain the keys `username`, `password`, and `oci_ref`.
 
         To create the secret:
 
         ```
-        juju add-secret custom-rules-secret value='{"username":"my-robot-account","password":"my-robot-token","oci_ref":"quay.io/my-org/falco-rules:latest"}'
+        juju add-secret custom-rules-secret username=my-robot-account password=my-robot-token oci_ref=quay.io/my-org/falco-rules:latest
         juju grant-secret custom-rules-secret falco
         ```
 
