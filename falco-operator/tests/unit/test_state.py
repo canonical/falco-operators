@@ -149,7 +149,7 @@ class TestCharmState:
                     "password": "token",
                     "oci_ref": "https://quay.io/org/rules:latest",
                 },
-                "without a URL scheme",
+                "must not include a URL scheme",
             ),
         ],
     )

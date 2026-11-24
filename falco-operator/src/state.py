@@ -17,6 +17,7 @@ from config import (
     CharmConfig,
     ConflictingRulesSourceError,
     InvalidCharmConfigError,
+    validate_oci_reference,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,8 +34,7 @@ class CustomRulesSecret(BaseModel):
     @classmethod
     def validate_oci_ref(cls, value: str) -> str:
         """Validate the OCI reference."""
-        if "://" in value or "/" not in value:
-            raise ValueError("must be a full OCI reference without a URL scheme")
+        validate_oci_reference(value)
         return value
 
 

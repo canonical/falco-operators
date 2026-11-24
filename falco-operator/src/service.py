@@ -19,7 +19,7 @@ from ops.charm import CharmBase
 from ops.model import ProxyConfig
 
 import state
-from config import DEFAULT_FOLLOW_INTERVAL
+from config import DEFAULT_FOLLOW_INTERVAL, validate_oci_reference
 
 logger = logging.getLogger(__name__)
 
@@ -557,10 +557,13 @@ def _registry_from_oci_ref(oci_ref: str) -> str:
     Raises:
         OciRulesError: If the reference is not a full OCI reference.
     """
-    if "://" in oci_ref:
-        raise OciRulesError("OCI reference must not include a URL scheme")
-    registry, separator, _ = oci_ref.partition("/")
-    if not separator or not registry:
+    try:
+        validate_oci_reference(oci_ref)
+    except ValueError as e:
+        raise OciRulesError(f"OCI reference {e}") from e
+
+    registry, _, _ = oci_ref.partition("/")
+    if not registry:
         raise OciRulesError("OCI reference must include a registry and repository")
     return registry
 

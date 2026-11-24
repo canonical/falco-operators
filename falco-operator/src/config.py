@@ -16,6 +16,21 @@ FOLLOW_INTERVAL_PATTERN = re.compile(r"^(?:\d+(?:\.\d+)?(?:s|m|h))+$")
 logger = logging.getLogger(__name__)
 
 
+def validate_oci_reference(value: str) -> None:
+    """Validate a full OCI artifact reference.
+
+    Args:
+        value: OCI artifact reference.
+
+    Raises:
+        ValueError: If the reference is not a full OCI reference.
+    """
+    if "://" in value:
+        raise ValueError("must not include a URL scheme")
+    if "/" not in value:
+        raise ValueError("must include a registry and repository")
+
+
 class InvalidCharmConfigError(Exception):
     """Exception raised when the charm configuration is invalid."""
 
