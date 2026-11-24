@@ -195,7 +195,8 @@ def _fetch_custom_rules_secret(
     missing_keys = [key for key in required_keys if not rules_config.get(key)]
     if missing_keys:
         raise InvalidCharmConfigError(
-            "Custom rules secret JSON is missing required keys: " + ", ".join(missing_keys)
+            "Custom rules secret JSON is missing or has empty required keys: "
+            + ", ".join(missing_keys)
         )
     if not all(isinstance(rules_config[key], str) for key in required_keys):
         raise InvalidCharmConfigError(

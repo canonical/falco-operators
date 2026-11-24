@@ -142,7 +142,53 @@ class TestCharmState:
             ({"value": json.dumps(["not", "an", "object"])}, "must be a JSON object"),
             (
                 {"value": json.dumps({"username": "robot", "password": "token"})},
-                "missing required keys: oci_ref",
+                "missing or has empty required keys: oci_ref",
+            ),
+            (
+                {
+                    "value": json.dumps(
+                        {
+                            "password": "token",
+                            "oci_ref": "quay.io/org/rules:latest",
+                        }
+                    )
+                },
+                "missing or has empty required keys: username",
+            ),
+            (
+                {
+                    "value": json.dumps(
+                        {
+                            "username": "robot",
+                            "oci_ref": "quay.io/org/rules:latest",
+                        }
+                    )
+                },
+                "missing or has empty required keys: password",
+            ),
+            (
+                {
+                    "value": json.dumps(
+                        {
+                            "username": "robot",
+                            "password": "",
+                            "oci_ref": "quay.io/org/rules:latest",
+                        }
+                    )
+                },
+                "missing or has empty required keys: password",
+            ),
+            (
+                {
+                    "value": json.dumps(
+                        {
+                            "username": "robot",
+                            "password": 123,
+                            "oci_ref": "quay.io/org/rules:latest",
+                        }
+                    )
+                },
+                "must be strings",
             ),
             (
                 {
