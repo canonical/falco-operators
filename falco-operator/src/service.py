@@ -48,6 +48,7 @@ FALCOCTL_FOLLOW_SERVICE_NAME = "falcoctl-rules-follow"
 OCI_RULES_STARTUP_TIMEOUT = 60
 OCI_RULES_FETCH_ATTEMPTS = 3
 OCI_RULES_RETRY_DELAY = 10
+OCI_RULES_CHECK_TIMEOUT = 30
 
 TEMPLATE_DIR = "src/templates"
 SYSTEMD_SERVICE_DIR = Path("/etc/systemd/system")
@@ -553,6 +554,34 @@ class FalcoOciRules:
         os.chmod(self.config_file, 0o600)
         return True
 
+    def check_registry_access(self, oci_ref: str) -> None:
+        """Check that the configured registry and artifact are reachable.
+
+        Args:
+            oci_ref: Full OCI artifact reference.
+
+        Raises:
+            OciRulesError: If the registry cannot be reached or the artifact is unavailable.
+        """
+        cmd = [
+            str(self.falco_layout.falcoctl_cmd),
+            "--config",
+            str(self.config_file),
+            "artifact",
+            "manifest",
+            oci_ref,
+        ]
+        try:
+            subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=OCI_RULES_CHECK_TIMEOUT,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
+            raise OciRulesError("Unable to access the OCI registry") from e
+
     def _restart_and_wait_for_rules(self) -> None:
         """Restart the follower and retry before giving up on a rule install."""
         for attempt in range(1, self.fetch_attempts + 1):
@@ -719,6 +748,10 @@ class FalcoCustomSetting:
 
         logger.info("Falco custom settings configured")
 
+    def check_registry_access(self, custom_rules: state.CustomRulesSecret) -> None:
+        """Check that the configured OCI registry and artifact are reachable."""
+        self.oci_rules.check_registry_access(custom_rules.oci_ref)
+
     def _configure_oci_rules(
         self,
         custom_rules: state.CustomRulesSecret,
@@ -815,6 +848,11 @@ class FalcoService:
         systemd.service_restart(self.service_file.service_name)
 
         logger.info("Falco service configured and started")
+
+    def check_registry_access(self, charm_state: state.CharmState) -> None:
+        """Check that the configured OCI registry and artifact are reachable."""
+        if charm_state.custom_rules:
+            self.custom_setting.check_registry_access(charm_state.custom_rules)
 
     def check_active(self) -> bool:
         """Check if the Falco service is active."""

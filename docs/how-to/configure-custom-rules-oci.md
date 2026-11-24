@@ -86,7 +86,8 @@ immediately, run:
 juju run falco/0 retry-oci-rules
 ```
 
-The action fails if no custom rules secret is configured.
+The action fails if no custom rules secret is configured, or if the registry cannot be reached.
+Existing rules are retained when the registry check fails.
 
 ## Troubleshooting
 

@@ -325,6 +325,28 @@ def test_configure_rejects_invalid_reference(mock_falco_layout, tmp_path):
         oci_rules.configure("robot", "token", "not-a-reference")
 
 
+@patch("service.subprocess.run")
+def test_check_registry_access(mock_run, mock_falco_layout, tmp_path):
+    """Test that registry access uses falcoctl manifest."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+
+    oci_rules.check_registry_access("quay.io/org/falco-rules:latest")
+
+    cmd = mock_run.call_args.args[0]
+    assert "manifest" in cmd
+    assert "quay.io/org/falco-rules:latest" in cmd
+
+
+@patch("service.subprocess.run")
+def test_check_registry_access_fails(mock_run, mock_falco_layout, tmp_path):
+    """Test that registry access failures are reported."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_run.side_effect = subprocess.CalledProcessError(1, "falcoctl")
+
+    with pytest.raises(OciRulesError, match="Unable to access the OCI registry"):
+        oci_rules.check_registry_access("quay.io/org/falco-rules:latest")
+
+
 @patch("service.systemd")
 def test_configure_fails_when_rules_do_not_appear(mock_systemd, mock_falco_layout, tmp_path):
     """Test that a follower which installs no rules fails after all retries."""

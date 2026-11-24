@@ -21,6 +21,7 @@ from service import (
     FalcoProxyEnvFile,
     FalcoService,
     FalcoServiceFile,
+    OciRulesError,
 )
 from state import CharmBaseWithState, CharmState
 
@@ -150,6 +151,13 @@ class Falco(CharmBaseWithState):
 
         if not succeeded:
             event.fail(self.unit.status.message or "OCI rules retry failed")
+            return
+
+        try:
+            self.falco_service.check_registry_access(self.state)
+        except OciRulesError:
+            logger.warning("OCI registry check failed; existing rules are retained")
+            event.fail("OCI registry check failed; existing rules are retained")
             return
 
         event.set_results({"result": "OCI rules retry completed"})

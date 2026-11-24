@@ -12,7 +12,7 @@ import pytest
 from pydantic import AnyUrl
 
 from charm import Falco
-from service import FalcoConfigurationError
+from service import FalcoConfigurationError, OciRulesError
 
 
 class TestCharm:
@@ -339,6 +339,32 @@ class TestCharmConfigHandling:
         assert state_out.unit_status == ops.testing.ActiveStatus()
         mock_service.configure.assert_called_once()
         assert mock_service.configure.call_args.kwargs["force_restart"] is True
+
+    @patch("charm.FalcoService")
+    def test_retry_oci_rules_action_reports_registry_failure(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout
+    ):
+        """Test that the retry action fails when the registry is unreachable."""
+        secret = ops.testing.Secret(
+            tracked_content={
+                "username": "robot",
+                "password": "token",
+                "oci-ref": "quay.io/org/rules:latest",
+            }
+        )
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        mock_service = MagicMock()
+        mock_service.check_active.return_value = True
+        mock_service.check_registry_access.side_effect = OciRulesError(
+            "Unable to access the OCI registry"
+        )
+        mock_service_class.return_value = mock_service
+        state = ops.testing.State(config={"custom-rules-secret": secret.id}, secrets=[secret])
+
+        with pytest.raises(ops.testing.ActionFailed, match="OCI registry check failed"):
+            context.run(context.on.action("retry-oci-rules"), state)
+
+        mock_service.configure.assert_called_once()
 
     @patch("charm.FalcoService")
     def test_retry_oci_rules_action_requires_secret(
