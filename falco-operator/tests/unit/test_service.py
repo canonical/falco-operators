@@ -263,7 +263,7 @@ class TestFalcoOciRules:
     def test_remove_stops_service_and_deletes_rules(
         self, mock_systemd, mock_falco_layout, tmp_path
     ):
-        """Test removing OCI rules, staging state, and the follow service."""
+        """Test removing OCI rules, OCI rules state, and the follow service."""
         oci_rules = self._manager(mock_falco_layout, tmp_path)
         mock_systemd.service_running.return_value = False
         mock_systemd.service_restart.side_effect = lambda _: self._write_rule(oci_rules)
@@ -274,7 +274,7 @@ class TestFalcoOciRules:
         mock_systemd.service_disable.assert_called_with(oci_rules.service_name)
         assert not (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
         assert not oci_rules.service_file.exists()
-        assert not oci_rules.staging_dir.exists()
+        assert not oci_rules.oci_rules_dir.exists()
 
     @patch("service.subprocess.run")
     @patch("service.systemd")
@@ -299,7 +299,6 @@ class TestFalcoOciRules:
             follow_interval="",
         )
         assert not oci_rules.service_file.exists()
-        assert oci_rules.disabled_state_file.exists()
         assert (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
         assert "artifact" in mock_run.call_args.args[0]
         assert "install" in mock_run.call_args.args[0]
@@ -312,6 +311,42 @@ class TestFalcoOciRules:
             follow_interval="",
         )
         mock_run.assert_not_called()
+
+    @patch("service.subprocess.run")
+    @patch("service.systemd")
+    def test_configure_without_follow_reinstalls_on_reference_change(
+        self, mock_systemd, mock_run, mock_falco_layout, tmp_path
+    ):
+        """Test that changing the OCI reference reinstalls rules when following is disabled."""
+        oci_rules = self._manager(mock_falco_layout, tmp_path)
+
+        def fake_install(cmd, *args, **kwargs):
+            ref = cmd[-1]
+            name = "old-rule.yaml" if ref.endswith(":latest") else "new-rule.yaml"
+            (mock_falco_layout.rules_dir / name).write_text(ref, encoding="utf-8")
+            return MagicMock()
+
+        mock_run.side_effect = fake_install
+
+        oci_rules.configure(
+            "robot",
+            "token",
+            "quay.io/org/falco-rules:latest",
+            follow_interval="",
+        )
+        assert (mock_falco_layout.rules_dir / "old-rule.yaml").exists()
+
+        mock_run.reset_mock()
+        oci_rules.configure(
+            "robot",
+            "token",
+            "quay.io/org/falco-rules:next",
+            follow_interval="",
+        )
+
+        mock_run.assert_called_once()
+        assert not (mock_falco_layout.rules_dir / "old-rule.yaml").exists()
+        assert (mock_falco_layout.rules_dir / "new-rule.yaml").exists()
 
     def test_configure_missing_falcoctl_fails(self, mock_falco_layout, tmp_path):
         """Test that a missing falcoctl binary is reported clearly."""

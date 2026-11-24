@@ -342,29 +342,24 @@ class FalcoOciRules:
         self.service_file = systemd_service_dir / f"{self.service_name}.service"
 
     @property
-    def staging_dir(self) -> Path:
+    def oci_rules_dir(self) -> Path:
         """Get the directory used to store falcoctl configuration and state."""
         return self.falco_layout.oci_rules_dir
 
     @property
     def config_file(self) -> Path:
         """Get the falcoctl configuration file used for OCI follows."""
-        return self.staging_dir / "falcoctl.yaml"
+        return self.oci_rules_dir / "falcoctl.yaml"
 
     @property
     def state_dir(self) -> Path:
         """Get the directory where falcoctl persists follow state."""
-        return self.staging_dir / "follow-state"
+        return self.oci_rules_dir / "follow-state"
 
     @property
     def tmp_dir(self) -> Path:
         """Get the temporary directory used by falcoctl for atomic file moves."""
-        return self.staging_dir / "tmp"
-
-    @property
-    def disabled_state_file(self) -> Path:
-        """Get the state file used when periodic following is disabled."""
-        return self.staging_dir / "follow-disabled.json"
+        return self.oci_rules_dir / "tmp"
 
     @property
     def rules_dir(self) -> Path:
@@ -373,11 +368,11 @@ class FalcoOciRules:
 
     def is_configured(self) -> bool:
         """Return whether the OCI rules source has been configured."""
-        return self.service_file.exists() or self.disabled_state_file.exists()
+        return self.service_file.exists() or self.config_file.exists()
 
-    def has_staging(self) -> bool:
-        """Return whether an OCI configuration directory is present."""
-        return self.staging_dir.exists()
+    def has_oci_state(self) -> bool:
+        """Return whether OCI rules state or the follow service is present."""
+        return self.service_file.exists() or self.oci_rules_dir.exists()
 
     def configure(
         self,
@@ -405,13 +400,13 @@ class FalcoOciRules:
             raise OciRulesError(f"falcoctl binary not found at {self.falco_layout.falcoctl_cmd}")
 
         registry = _registry_from_oci_ref(oci_ref)
-        staging_missing = not self.staging_dir.exists()
+        state_missing = not self.oci_rules_dir.exists()
         try:
-            self.staging_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-            os.chmod(self.staging_dir, 0o700)
+            self.oci_rules_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            os.chmod(self.oci_rules_dir, 0o700)
             self.state_dir.mkdir(parents=True, exist_ok=True)
             self.tmp_dir.mkdir(parents=True, exist_ok=True)
-            config_changed = self._write_config(registry, username, password)
+            config_changed = self._write_config(registry, username, password, oci_ref)
             service_changed = False
             if follow_interval:
                 service_changed = self._render_service_file(oci_ref, follow_interval)
@@ -419,21 +414,11 @@ class FalcoOciRules:
             raise OciRulesError(f"Unable to prepare OCI rules directory: {e}") from e
 
         if not follow_interval:
-            self._configure_without_follow(oci_ref, config_changed, staging_missing)
+            self._configure_without_follow(oci_ref, config_changed, state_missing)
             return
 
-        follow_was_disabled = self.disabled_state_file.exists()
-        if follow_was_disabled:
-            self.disabled_state_file.unlink()
-
         service_running = systemd.service_running(self.service_name)
-        reset_required = (
-            service_changed
-            or config_changed
-            or staging_missing
-            or follow_was_disabled
-            or not service_running
-        )
+        reset_required = service_changed or config_changed or state_missing or not service_running
 
         if reset_required:
             if service_running:
@@ -453,13 +438,13 @@ class FalcoOciRules:
             self._wait_for_rules()
 
     def remove(self) -> bool:
-        """Stop the follow service and remove OCI rules and staging state.
+        """Stop the follow service and remove OCI rules state.
 
         Returns:
             True if anything was removed.
         """
         removed = False
-        oci_configured = self.is_configured() or self.staging_dir.exists()
+        oci_configured = self.has_oci_state()
         if self.service_file.exists():
             systemd.service_stop(self.service_name)
             systemd.service_disable(self.service_name)
@@ -470,21 +455,21 @@ class FalcoOciRules:
         if oci_configured:
             removed = self._clear_rules() or removed
 
-        if self.staging_dir.exists():
-            shutil.rmtree(self.staging_dir, ignore_errors=True)
+        if self.oci_rules_dir.exists():
+            shutil.rmtree(self.oci_rules_dir, ignore_errors=True)
             removed = True
 
         return removed
 
     def _configure_without_follow(
-        self, oci_ref: str, config_changed: bool, staging_missing: bool
+        self, oci_ref: str, config_changed: bool, state_missing: bool
     ) -> None:
         """Install rules once and leave periodic following disabled.
 
         Args:
             oci_ref: Full OCI artifact reference.
             config_changed: Whether the falcoctl config changed.
-            staging_missing: Whether the OCI configuration directory was missing.
+            state_missing: Whether the OCI rules state directory was missing.
         """
         service_was_configured = self.service_file.exists()
         if service_was_configured:
@@ -498,20 +483,14 @@ class FalcoOciRules:
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
 
-        disabled_state = self._read_disabled_state()
         install_required = (
-            service_was_configured
-            or config_changed
-            or staging_missing
-            or disabled_state.get("ref") != oci_ref
-            or not self._rule_files()
+            service_was_configured or config_changed or state_missing or not self._rule_files()
         )
         if not install_required:
             return
 
         self._clear_rules()
         self._install_once(oci_ref)
-        self._write_disabled_state({"ref": oci_ref})
 
     def _install_once(self, oci_ref: str) -> None:
         """Install an OCI rules artifact without starting a follower.
@@ -522,7 +501,7 @@ class FalcoOciRules:
         Raises:
             OciRulesError: If the artifact cannot be installed.
         """
-        install_state_dir = self.staging_dir / "install-state"
+        install_state_dir = self.oci_rules_dir / "install-state"
         install_state_dir.mkdir(parents=True, exist_ok=True)
         self.rules_dir.mkdir(parents=True, exist_ok=True)
         cmd = [
@@ -598,19 +577,22 @@ class FalcoOciRules:
         current_content = self.service_file.read_text(encoding="utf-8")
         return current_content != previous_content
 
-    def _write_config(self, registry: str, username: str, password: str) -> bool:
+    def _write_config(self, registry: str, username: str, password: str, oci_ref: str) -> bool:
         """Write a mode-0600 falcoctl config with registry credentials.
 
         Args:
             registry: OCI registry hostname.
             username: OCI registry username.
             password: OCI registry password or token.
+            oci_ref: OCI artifact reference, stored for change detection.
 
         Returns:
             True if the configuration file changed.
         """
-        credentials_file = self.staging_dir / "credentials.json"
+        credentials_file = self.oci_rules_dir / "credentials.json"
+        # Include the reference so a tag change is detected when following is disabled.
         config = (
+            f"# oci-ref: {json.dumps(oci_ref)}\n"
             "indexes: []\n"
             "registry:\n"
             "  creds:\n"
@@ -644,37 +626,6 @@ class FalcoOciRules:
             list(self.rules_dir.glob("*.yaml")) + list(self.rules_dir.glob("*.yml")),
             key=lambda path: path.name,
         )
-
-    def _read_disabled_state(self) -> dict:
-        """Read the state used when periodic following is disabled.
-
-        Returns:
-            The state mapping, or an empty mapping if missing or invalid.
-        """
-        if not self.disabled_state_file.exists():
-            return {}
-        try:
-            return json.loads(self.disabled_state_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as e:
-            logger.warning(
-                "Unable to read disabled-follow state from %s: %s",
-                self.disabled_state_file,
-                e,
-            )
-            return {}
-
-    def _write_disabled_state(self, state: dict) -> None:
-        """Write the state used when periodic following is disabled.
-
-        Args:
-            state: State mapping to persist.
-        """
-        temp_path = self.disabled_state_file.with_name(self.disabled_state_file.name + ".tmp")
-        fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as state_file:
-            json.dump(state, state_file, indent=2)
-            state_file.write("\n")
-        os.replace(temp_path, self.disabled_state_file)
 
 
 def _registry_from_oci_ref(oci_ref: str) -> str:
@@ -729,7 +680,7 @@ class FalcoCustomSetting:
         """Remove the Falco custom settings.
 
         Returns:
-            True if any rule, config, or OCI staging state was removed.
+            True if any rule, config, or OCI rules state was removed.
         """
         logger.info("Removing Falco custom settings")
 
@@ -765,7 +716,7 @@ class FalcoCustomSetting:
             self._configure_oci_rules(charm_state)
             return
 
-        oci_rules_configured = self.oci_rules.has_staging()
+        oci_rules_configured = self.oci_rules.has_oci_state()
         self.oci_rules.remove()
 
         if not charm_state.custom_config_repo:
