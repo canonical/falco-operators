@@ -458,8 +458,8 @@ class FalcoOciRules:
         if oci_configured:
             self._clear_rules()
 
-        if self.oci_rules_dir.exists():
-            shutil.rmtree(self.oci_rules_dir, ignore_errors=True)
+        # rmtree is a no-op when the directory is absent.
+        shutil.rmtree(self.oci_rules_dir, ignore_errors=True)
 
     def _clear_rules(self) -> None:
         """Remove all YAML rules from Falco's managed rules directory."""
