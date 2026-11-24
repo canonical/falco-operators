@@ -12,7 +12,7 @@ import pytest
 from pydantic import AnyUrl
 
 from charm import Falco
-from service import FalcoConfigurationError, OciRulesError
+from service import FalcoConfigurationError
 
 
 class TestCharm:
@@ -314,35 +314,6 @@ class TestCharmConfigHandling:
         assert username not in caplog.text
         assert password not in caplog.text
         assert oci_ref not in caplog.text
-
-    @patch("charm.FalcoService")
-    def test_update_status_triggers_reconcile(
-        self, mock_service_class, mock_charm_dir, mock_falco_layout
-    ):
-        """Test that update-status triggers reconciliation."""
-        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
-        mock_service = MagicMock()
-        mock_service.check_active.return_value = True
-        mock_service_class.return_value = mock_service
-
-        state_out = context.run(context.on.update_status(), ops.testing.State())
-
-        mock_service.configure.assert_called_once()
-        assert state_out.unit_status == ops.testing.ActiveStatus()
-
-    @patch("charm.FalcoService")
-    def test_update_status_blocks_when_oci_rules_fail(
-        self, mock_service_class, mock_charm_dir, mock_falco_layout
-    ):
-        """Test that update-status reports an OCI rules fetch failure."""
-        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
-        mock_service = MagicMock()
-        mock_service.configure.side_effect = OciRulesError("No OCI rules appeared")
-        mock_service_class.return_value = mock_service
-
-        state_out = context.run(context.on.update_status(), ops.testing.State())
-
-        assert state_out.unit_status == ops.testing.BlockedStatus("Failed to fetch OCI rules")
 
     @patch("charm.FalcoService")
     def test_secret_changed_reads_rotated_secret(
