@@ -37,8 +37,10 @@ artifact reference:
 
 ```bash
 juju add-secret custom-rules-secret value='{"username":"your-robot","password":"your-token","oci_ref":"quay.io/your-org/falco-rules:1.0.0"}'
-juju grant-secret custom-rules-secret falco  # returns the secret ID
+juju grant-secret custom-rules-secret falco
 ```
+
+The `grant-secret` command returns the secret ID to use in the next step.
 
 ## Configure the charm
 
@@ -66,7 +68,7 @@ configuration.
 ## Update the rules
 
 Push a new artifact to the registry using the same tag. The follow service checks for updates every
-5 minutes, and the next `update-status` reconciliation installs the changed rules.
+five minutes, and the next `update-status` reconciliation installs the changed rules.
 
 ## Troubleshooting
 

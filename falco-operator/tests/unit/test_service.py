@@ -21,8 +21,8 @@ from service import (
     FALCO_SERVICE_NAME,
     FalcoConfigurationError,
     FalcoCustomSetting,
-    FalcoProxyEnvFile,
     FalcoOciRules,
+    FalcoProxyEnvFile,
     FalcoService,
     FalcoServiceFile,
     GitCloneError,
@@ -175,6 +175,8 @@ def test_no_proxy_environment_when_unset(mock_falco_layout, tmp_path, existing_f
     proxy_env.install()
 
     assert not proxy_env_file.exists()
+
+
 class TestFalcoOciRules:
     """Test FalcoOciRules class."""
 
@@ -523,14 +525,18 @@ class TestFalcoService:
         """Test that an unchanged configuration does not restart an active service."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_service_file.context = {}
         mock_custom_setting = MagicMock()
         mock_custom_setting.configure.return_value = False
+        mock_proxy_env_file.install.return_value = False
         mock_service_file.update.return_value = False
         mock_systemd.service_running.return_value = True
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         service.configure(CharmState())
 
         mock_systemd.daemon_reload.assert_called_once()
@@ -541,14 +547,18 @@ class TestFalcoService:
         """Test that a changed service file triggers a restart."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_service_file.context = {}
         mock_custom_setting = MagicMock()
         mock_custom_setting.configure.return_value = False
+        mock_proxy_env_file.install.return_value = False
         mock_service_file.update.return_value = True
         mock_systemd.service_running.return_value = True
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         service.configure(CharmState())
 
         mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
@@ -558,14 +568,18 @@ class TestFalcoService:
         """Test that an inactive service is restarted even when configuration is unchanged."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_service_file.context = {}
         mock_custom_setting = MagicMock()
         mock_custom_setting.configure.return_value = False
+        mock_proxy_env_file.install.return_value = False
         mock_service_file.update.return_value = False
         mock_systemd.service_running.return_value = False
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         service.configure(CharmState())
 
         mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)

@@ -301,12 +301,17 @@ class FalcoProxyEnvFile(Template):
             mode=0o600,
         )
 
-    def install(self) -> None:
-        """Install the proxy environment file, or remove it if unset."""
+    def install(self) -> bool:
+        """Install the proxy environment file, or remove it if unset.
+
+        Returns:
+            True if the file was created, changed, or removed.
+        """
         if not self.context["proxy_values"]:
+            changed = self.destination.exists()
             self.remove()
-            return
-        super().install()
+            return changed
+        return super().install()
 
 
 class FalcoConfigFile(Template):
@@ -857,7 +862,7 @@ class FalcoService:
 
         try:
             changed = self.custom_setting.configure(charm_state)
-            self.proxy_env_file.install()
+            proxy_env_changed = self.proxy_env_file.install()
             service_file_changed = self.service_file.update(
                 context={"http_output": charm_state.http_output}
             )
@@ -866,7 +871,7 @@ class FalcoService:
             raise FalcoConfigurationError("Failed to configure Falco service") from e
 
         systemd.daemon_reload()
-        if changed or service_file_changed or not self.check_active():
+        if changed or proxy_env_changed or service_file_changed or not self.check_active():
             systemd.service_restart(self.service_file.service_name)
 
         logger.info("Falco service configured")

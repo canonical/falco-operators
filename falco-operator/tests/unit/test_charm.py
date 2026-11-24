@@ -390,6 +390,7 @@ def test_install_writes_proxy_environment_file(
     service_file_path = tmp_path / "falco.service"
     monkeypatch.setattr("service.FalcoServiceFile.service_file", service_file_path)
     monkeypatch.setattr("service.systemd.service_enable", MagicMock())
+    monkeypatch.setattr("service.systemd.service_start", MagicMock())
 
     context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
     state_in = ops.testing.State(
