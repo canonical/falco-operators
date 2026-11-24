@@ -78,7 +78,9 @@ ubuntu/0* active    idle   0        10.0.0.1
 
 ## Retry the fetch
 
-The charm retries a failed rule installation before blocking. To retry immediately:
+The charm retries a failed rule installation before blocking. If all retries fail, the charm enters a
+blocked state and retries on the next reconciliation. To trigger reconciliation and retry
+immediately, run:
 
 ```bash
 juju run falco/0 retry-oci-rules
