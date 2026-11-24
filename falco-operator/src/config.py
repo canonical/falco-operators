@@ -4,12 +4,14 @@
 """Charm config option module."""
 
 import logging
+import re
 from typing import Optional
 
 from ops import Secret
 from pydantic import AnyUrl, BaseModel, ConfigDict, field_validator
 
 SUPPORTED_SCHEMES = "git+ssh"
+FOLLOW_INTERVAL_PATTERN = re.compile(r"^(?:\d+(?:\.\d+)?(?:ns|us|µs|ms|s|m|h))+$")
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +32,7 @@ class CharmConfig(BaseModel):
         custom_config_ssh_key (Secret): Optional SSH key for custom configuration repository.
         custom_config_repository (AnyUrl): Optional URL to a custom configuration repository.
         custom_rules_secret (Secret): Optional secret with OCI registry credentials and rules reference.
+        custom_rules_follow_interval (str): How often falcoctl checks for OCI rules updates.
     """
 
     # Pydantic model config
@@ -39,6 +42,30 @@ class CharmConfig(BaseModel):
     custom_config_repository: Optional[AnyUrl] = None
     custom_config_repo_ssh_key: Optional[Secret] = None
     custom_rules_secret: Optional[Secret] = None
+    custom_rules_follow_interval: str = "1h"
+
+    @field_validator("custom_rules_follow_interval")
+    @classmethod
+    def validate_custom_rules_follow_interval(cls, value: str) -> str:
+        """Validate the falcoctl follow interval.
+
+        Args:
+            value: The configured follow interval.
+
+        Returns:
+            The validated interval, or an empty string to disable following.
+
+        Raises:
+            ValueError: If the interval is not a valid Go duration.
+        """
+        if value == "":
+            return value
+        if not FOLLOW_INTERVAL_PATTERN.fullmatch(value):
+            raise ValueError(
+                "custom_rules_follow_interval must be a Go duration such as '30m' or '1h', "
+                "or an empty string to disable following"
+            )
+        return value
 
     @field_validator("custom_config_repository")
     @classmethod

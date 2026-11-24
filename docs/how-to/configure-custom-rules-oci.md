@@ -52,6 +52,19 @@ The charm starts a `falcoctl-rules-follow` systemd service that runs `falcoctl a
 and writes rules directly into Falco's managed rules directory. When the configuration or secret
 changes, the charm clears the managed rules and restarts the follower for a fresh install.
 
+By default, the follower checks every hour. To change the interval:
+
+```bash
+juju config falco custom-rules-follow-interval=6h
+```
+
+To disable periodic following and install the artifact only when the configuration or secret
+changes, set the interval to an empty string:
+
+```bash
+juju config falco custom-rules-follow-interval=""
+```
+
 ## Verify the configuration
 
 ```bash
@@ -61,15 +74,16 @@ juju ssh falco/0 -- ls -la /var/lib/juju/agents/unit-falco-0/charm/falco/etc/fal
 juju ssh falco/0 -- ls -la /var/lib/juju/agents/unit-falco-0/charm/falco/etc/falco/oci-rules
 ```
 
-The unit should be active, the follow service should be running, and the rules should be present in
-`rules.d`. The `oci-rules` directory contains the `falcoctl` configuration and follow state.
+The unit should be active and the rules should be present in `rules.d`. When periodic following is
+enabled, `falcoctl-rules-follow` should be running. The `oci-rules` directory contains the
+`falcoctl` configuration and follow state.
 
 ## Update the rules
 
-Push a new artifact to the registry using the same tag. The follow service checks for updates every
-five minutes and installs changed files directly; Falco reloads automatically. If the new artifact
-removes a file, the old file may remain until the next configuration or secret change triggers a
-fresh reset.
+Push a new artifact to the registry using the same tag. The follow service checks for updates at the
+configured interval and installs changed files directly; Falco reloads automatically. If periodic
+following is disabled, change the configuration or secret to trigger a fresh install. If the new
+artifact removes a file, the old file may remain until the next fresh reset.
 
 ## Troubleshooting
 

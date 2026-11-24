@@ -129,8 +129,17 @@ config:
         A `falcoctl-rules-follow` systemd service uses `falcoctl artifact follow` to track the referenced
         artifact and write its rules directly into Falco's managed rules directory. When the configuration
         or secret changes, the charm clears the managed rules and restarts the follower for a fresh install.
-        This option cannot be used together with `custom-config-repository`; configure only one custom rules
-        source.
+        Use `custom-rules-follow-interval` to control how often the registry is checked; set it to an empty
+        string to disable periodic following. This option cannot be used together with
+        `custom-config-repository`; configure only one custom rules source.
+    custom-rules-follow-interval:
+      type: string
+      default: "1h"
+      description: |
+        How often the falcoctl follow service checks the OCI registry for a newer rules artifact.
+        Accepts Go duration strings such as `30s`, `5m`, `1h`, or `6h`. Set this to an empty string
+        to disable periodic following; rules are then installed only when the configuration or
+        secret changes.
 
 requires:
   general-info:

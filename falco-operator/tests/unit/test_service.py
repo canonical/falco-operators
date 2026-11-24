@@ -213,7 +213,7 @@ class TestFalcoOciRules:
         assert "--rulesfiles-dir" in service_content
         assert str(mock_falco_layout.rules_dir) in service_content
         assert "--tmp-dir" in service_content
-        assert "--every 5m" in service_content
+        assert "--every 1h" in service_content
         assert "--falco-versions http://127.0.0.1:8765/versions" in service_content
         assert "--no-verify" not in service_content
         assert "--plugins-dir" not in service_content
@@ -277,6 +277,49 @@ class TestFalcoOciRules:
         assert not oci_rules.service_file.exists()
         assert not oci_rules.staging_dir.exists()
 
+    @patch("service.subprocess.run")
+    @patch("service.systemd")
+    def test_configure_without_follow_installs_once(
+        self, mock_systemd, mock_run, mock_falco_layout, tmp_path
+    ):
+        """Test that an empty follow interval installs the artifact once."""
+        oci_rules = self._manager(mock_falco_layout, tmp_path)
+
+        def fake_install(cmd, *args, **kwargs):
+            (mock_falco_layout.rules_dir / "oci-rule.yaml").write_text(
+                "oci rule", encoding="utf-8"
+            )
+            return MagicMock()
+
+        mock_run.side_effect = fake_install
+
+        assert (
+            oci_rules.configure(
+                "robot",
+                "token",
+                "quay.io/org/falco-rules:latest",
+                follow_interval="",
+            )
+            is True
+        )
+        assert not oci_rules.service_file.exists()
+        assert oci_rules.disabled_state_file.exists()
+        assert (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
+        assert "artifact" in mock_run.call_args.args[0]
+        assert "install" in mock_run.call_args.args[0]
+
+        mock_run.reset_mock()
+        assert (
+            oci_rules.configure(
+                "robot",
+                "token",
+                "quay.io/org/falco-rules:latest",
+                follow_interval="",
+            )
+            is False
+        )
+        mock_run.assert_not_called()
+
     def test_configure_missing_falcoctl_fails(self, mock_falco_layout, tmp_path):
         """Test that a missing falcoctl binary is reported clearly."""
         mock_falco_layout.falcoctl_cmd.unlink()
@@ -309,6 +352,7 @@ class TestFalcoOciRules:
             username="robot",
             password="token",
             oci_ref="quay.io/org/falco-rules:latest",
+            follow_interval="1h",
         )
 
     def test_first_oci_configuration_clears_git_rules(self, mock_falco_layout):

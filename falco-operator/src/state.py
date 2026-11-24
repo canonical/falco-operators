@@ -28,6 +28,7 @@ class CharmState(BaseModel):
         custom_rules_username: Optional OCI registry username for custom rules.
         custom_rules_password: Optional OCI registry password for custom rules.
         custom_rules_oci_ref: Optional OCI artifact reference for custom rules.
+        custom_rules_follow_interval: How often falcoctl checks for OCI rules updates.
         http_output: Optional HTTP output data from http-output relation.
     """
 
@@ -37,6 +38,7 @@ class CharmState(BaseModel):
     custom_rules_username: Optional[str] = None
     custom_rules_password: Optional[str] = None
     custom_rules_oci_ref: Optional[str] = None
+    custom_rules_follow_interval: str = "1h"
     http_output: Optional[dict[str, str]] = None
 
     @classmethod
@@ -95,6 +97,7 @@ class CharmState(BaseModel):
             custom_rules_username=custom_rules[0] if custom_rules else None,
             custom_rules_password=custom_rules[1] if custom_rules else None,
             custom_rules_oci_ref=custom_rules[2] if custom_rules else None,
+            custom_rules_follow_interval=charm_config.custom_rules_follow_interval,
             http_output=http_output,
         )
 

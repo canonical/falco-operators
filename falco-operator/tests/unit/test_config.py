@@ -18,6 +18,7 @@ class TestCharmConfig:
         assert config.custom_config_repository is None
         assert config.custom_config_repo_ssh_key is None
         assert config.custom_rules_secret is None
+        assert config.custom_rules_follow_interval == "1h"
 
     def test_init_with_values(self):
         """Test initialization with values."""
@@ -52,3 +53,20 @@ class TestCharmConfig:
         """Test initialization with invalid URL."""
         with pytest.raises(InvalidCharmConfigError):
             CharmConfig(custom_config_repository="git+ssh://github.com/owner/repo.git")
+
+    @pytest.mark.parametrize("interval", ["30s", "5m", "1h", "6h", "1h30m"])
+    def test_init_with_valid_follow_interval(self, interval):
+        """Test valid Go duration follow intervals."""
+        config = CharmConfig(custom_rules_follow_interval=interval)
+        assert config.custom_rules_follow_interval == interval
+
+    def test_init_with_disabled_follow_interval(self):
+        """Test that an empty follow interval disables following."""
+        config = CharmConfig(custom_rules_follow_interval="")
+        assert config.custom_rules_follow_interval == ""
+
+    @pytest.mark.parametrize("interval", ["5", "five minutes", "1d", "-1h"])
+    def test_init_with_invalid_follow_interval(self, interval):
+        """Test invalid follow intervals."""
+        with pytest.raises(ValidationError):
+            CharmConfig(custom_rules_follow_interval=interval)
