@@ -25,7 +25,21 @@ jobs:
 
       - name: Extract Falco, falcoctl, and plugin versions
         id: version
-        run: ./.github/scripts/extract-versions.sh
+        run: |
+          # Read versions from .versions file
+          source .versions
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
+          echo "falco_version=${FALCO_VERSION}" >> $GITHUB_OUTPUT
+          echo "falcoctl_version=${FALCOCTL_VERSION}" >> $GITHUB_OUTPUT
+          echo "json_plugin_version=${FALCO_JSON_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
+          echo "k8saudit_plugin_version=${FALCO_K8SAUDIT_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
+
+          echo "Build information:"
+          echo "Architecture: $(uname -m)"
+          echo "Building Falco version: ${FALCO_VERSION}"
+          echo "Building falcoctl version: ${FALCOCTL_VERSION}"
+          echo "Building Falco json plugin version: ${FALCO_JSON_PLUGIN_VERSION}"
+          echo "Building Falco k8saudit plugin version: ${FALCO_K8SAUDIT_PLUGIN_VERSION}"
 
       - name: Get latest build workflow run
         id: latest_build_workflow_run
