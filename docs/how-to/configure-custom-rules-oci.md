@@ -99,6 +99,8 @@ The action fails if no custom rules secret is configured.
   reference, and the unit logs for the `falcoctl` error. The charm retries a failed installation
   before blocking; use the `retry-oci-rules` action to retry immediately.
 - If `falcoctl-rules-follow` fails but managed rules are already present, the charm keeps the
-  existing rules and logs a warning instead of blocking.
+  existing rules and logs a warning instead of blocking. If the follower keeps running but registry
+  updates fail, check `journalctl -u falcoctl-rules-follow` on the unit; the charm cannot see those
+  pull errors directly.
 - `falcoctl-rules-follow` is not running: check `systemctl status falcoctl-rules-follow` and the
   service logs. The service needs Falco's version endpoint on `127.0.0.1:8765` to be available.
