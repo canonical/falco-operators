@@ -82,7 +82,7 @@ class CharmState(BaseModel):
         custom_config_repo_ssh_key = _fetch_custom_ssh_key(charm.model, charm_config)
         custom_rules = _fetch_custom_rules_secret(charm.model, charm_config)
 
-        if custom_config_repo and custom_rules:
+        if custom_config_repo and custom_rules.is_configured:
             raise ConflictingRulesSourceError(
                 "Only one of custom-config-repository and custom-rules-secret can be configured"
             )
@@ -99,9 +99,9 @@ class CharmState(BaseModel):
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
-            custom_rules_username=custom_rules.username if custom_rules else None,
-            custom_rules_password=custom_rules.password if custom_rules else None,
-            custom_rules_oci_ref=custom_rules.oci_ref if custom_rules else None,
+            custom_rules_username=custom_rules.username,
+            custom_rules_password=custom_rules.password,
+            custom_rules_oci_ref=custom_rules.oci_ref,
             custom_rules_follow_interval=charm_config.custom_rules_follow_interval,
             http_output=http_output,
         )
@@ -154,14 +154,17 @@ def _fetch_custom_ssh_key(model: ops.Model, config: CharmConfig) -> Optional[str
 class CustomRulesSecret(BaseModel):
     """Validated OCI rules secret payload."""
 
-    username: str
-    password: str
-    oci_ref: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    oci_ref: Optional[str] = None
+
+    @property
+    def is_configured(self) -> bool:
+        """Return whether an OCI rules secret was configured."""
+        return self.oci_ref is not None
 
 
-def _fetch_custom_rules_secret(
-    model: ops.Model, config: CharmConfig
-) -> Optional[CustomRulesSecret]:
+def _fetch_custom_rules_secret(model: ops.Model, config: CharmConfig) -> CustomRulesSecret:
     """Fetch OCI registry credentials and artifact reference from the charm config.
 
     Args:
@@ -169,13 +172,13 @@ def _fetch_custom_rules_secret(
         config: The charm config.
 
     Returns:
-        The validated secret payload, or None if not configured.
+        The validated secret payload, or an empty payload if not configured.
 
     Raises:
         InvalidCharmConfigError: If the secret cannot be accessed or is missing required keys.
     """
     if not config.custom_rules_secret:
-        return None
+        return CustomRulesSecret()
 
     try:
         secret = model.get_secret(id=config.custom_rules_secret.id)
