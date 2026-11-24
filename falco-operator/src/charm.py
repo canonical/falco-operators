@@ -99,8 +99,12 @@ class Falco(CharmBaseWithState):
         self.unit.status = ops.MaintenanceStatus("Installing Falco service")
         self.falco_service.install()
 
-    def reconcile(self, _: ops.EventBase, force_restart: bool = False) -> bool:
-        """Reconcile the charm state.
+    def reconcile(self, _: ops.EventBase) -> None:
+        """Reconcile the charm state."""
+        self._reconcile()
+
+    def _reconcile(self, force_restart: bool = False) -> bool:
+        """Reconcile the charm state and report whether it succeeded.
 
         Args:
             force_restart: Whether to force the OCI follower to retry immediately.
@@ -133,12 +137,12 @@ class Falco(CharmBaseWithState):
             if not self.state.custom_rules:
                 event.fail("No custom rules secret is configured")
                 return
-        except (ConflictingRulesSourceError, InvalidCharmConfigError) as e:
+        except InvalidCharmConfigError as e:
             event.fail(str(e))
             return
 
         try:
-            succeeded = self.reconcile(event, force_restart=True)
+            succeeded = self._reconcile(force_restart=True)
         except Exception as e:
             logger.exception("Retrying OCI rules failed")
             event.fail(str(e))
