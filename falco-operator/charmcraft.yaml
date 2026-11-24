@@ -117,12 +117,6 @@ config:
         juju add-secret custom-rules-secret username=my-robot-account password=my-robot-token oci_ref=quay.io/my-org/falco-rules:latest
         juju grant-secret custom-rules-secret falco
         ```
-
-        A `falcoctl-rules-follow` systemd service uses `falcoctl artifact follow` to track the referenced
-        artifact and write its rules directly into Falco's managed rules directory. When the configuration
-        or secret changes, the charm clears the managed rules and restarts the follower for a fresh install.
-        Use `custom-rules-follow-interval` to control how often the registry is checked. This option cannot
-        be used together with `custom-config-repository`; configure only one custom rules source.
     custom-rules-follow-interval:
       type: string
       default: "1h"
