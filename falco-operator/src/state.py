@@ -7,7 +7,7 @@ import itertools
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, TypedDict
+from typing import Optional
 
 import ops
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
@@ -99,9 +99,9 @@ class CharmState(BaseModel):
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
-            custom_rules_username=custom_rules["username"] if custom_rules else None,
-            custom_rules_password=custom_rules["password"] if custom_rules else None,
-            custom_rules_oci_ref=custom_rules["oci_ref"] if custom_rules else None,
+            custom_rules_username=custom_rules.username if custom_rules else None,
+            custom_rules_password=custom_rules.password if custom_rules else None,
+            custom_rules_oci_ref=custom_rules.oci_ref if custom_rules else None,
             custom_rules_follow_interval=charm_config.custom_rules_follow_interval,
             http_output=http_output,
         )
@@ -151,7 +151,7 @@ def _fetch_custom_ssh_key(model: ops.Model, config: CharmConfig) -> Optional[str
     return ssh_key_content
 
 
-class CustomRulesSecret(TypedDict):
+class CustomRulesSecret(BaseModel):
     """Validated OCI rules secret payload."""
 
     username: str
@@ -169,7 +169,7 @@ def _fetch_custom_rules_secret(
         config: The charm config.
 
     Returns:
-        A dict with the username, password, and OCI reference, or None if not configured.
+        The validated secret payload, or None if not configured.
 
     Raises:
         InvalidCharmConfigError: If the secret cannot be accessed or is missing required keys.
@@ -220,4 +220,4 @@ def _fetch_custom_rules_secret(
             "Custom rules secret key 'oci_ref' must be a full OCI reference without a URL scheme"
         )
 
-    return {"username": username, "password": password, "oci_ref": oci_ref}
+    return CustomRulesSecret(username=username, password=password, oci_ref=oci_ref)
