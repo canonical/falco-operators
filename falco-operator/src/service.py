@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 GIT = "/usr/bin/git"
 RSYNC = "/usr/bin/rsync"
 SSH_KEYSCAN = "/usr/bin/ssh-keyscan"
+JOURNALCTL = "/usr/bin/journalctl"
 
 # Ssh related paths
 SSH_DIR = Path.home() / ".ssh"
@@ -48,7 +49,13 @@ FALCOCTL_FOLLOW_SERVICE_NAME = "falcoctl-rules-follow"
 OCI_RULES_STARTUP_TIMEOUT = 60
 OCI_RULES_FETCH_ATTEMPTS = 3
 OCI_RULES_RETRY_DELAY = 10
-OCI_RULES_CHECK_TIMEOUT = 30
+FOLLOWER_ERROR_MARKERS = (
+    "Unable to pull artifact",
+    "Unable to pull config layer",
+    "Unmet requirements",
+    "error occurred while fetching descriptor",
+    "Invalid destination",
+)
 
 TEMPLATE_DIR = "src/templates"
 SYSTEMD_SERVICE_DIR = Path("/etc/systemd/system")
@@ -184,20 +191,27 @@ class Template:
         )
         self._template = self._env.get_template(self.name)
 
-    def install(self) -> None:
-        """Install template file."""
-        self._render(self.context)
+    def install(self) -> bool:
+        """Install template file.
+
+        Returns:
+            True if the destination file was created or changed.
+        """
+        return self._render(self.context)
 
     def remove(self) -> None:
         """Remove template file."""
         if self.destination.exists():
             self.destination.unlink()
 
-    def _render(self, context: dict) -> None:
+    def _render(self, context: dict) -> bool:
         """Render template file from a template.
 
         Args:
             context (dict): Context for rendering the template
+
+        Returns:
+            True if the destination file was created or changed.
 
         Raises:
             TemplateRenderError: If rendering or writing the template fails
@@ -210,7 +224,7 @@ class Template:
                 and self.destination.read_text(encoding="utf-8") == content
             ):
                 logger.debug("Template file unchanged at %s", self.destination)
-                return
+                return False
             if not self.destination.parent.exists():
                 self.destination.parent.mkdir(parents=True, exist_ok=True)
             if self.mode is None:
@@ -223,6 +237,7 @@ class Template:
                     destination_file.write(content)
                 self.destination.chmod(self.mode)
             logger.debug("Template file generated at %s", self.destination)
+            return True
         except OSError as e:
             logger.exception("Failed to write template to %s", self.destination)
             raise TemplateRenderError(f"Failed to write template to {self.destination}") from e
@@ -252,14 +267,17 @@ class FalcoServiceFile(Template):
         }
         super().__init__(self.template, self.service_file, context=context)
 
-    def update(self, context: dict) -> None:
+    def update(self, context: dict) -> bool:
         """Update the Falco service file with new context.
 
         Args:
             context: A dictionary containing new context values.
+
+        Returns:
+            True if the service file changed.
         """
         self.context.update(context)
-        self.install()
+        return self.install()
 
 
 class FalcoProxyEnvFile(Template):
@@ -292,15 +310,8 @@ class FalcoProxyEnvFile(Template):
             mode=0o600,
         )
 
-    def install(self) -> None:
-        """Install the proxy environment file, or remove it if unset."""
-        if not self.context["proxy_values"]:
-            self.remove()
-            return
-        super().install()
-
-    def update(self) -> bool:
-        """Install the proxy environment file and report whether it changed.
+    def install(self) -> bool:
+        """Install the proxy environment file, or remove it if unset.
 
         Returns:
             True if the file was created, changed, or removed.
@@ -308,7 +319,11 @@ class FalcoProxyEnvFile(Template):
         previous = (
             self.destination.read_text(encoding="utf-8") if self.destination.exists() else None
         )
-        self.install()
+        if not self.context["proxy_values"]:
+            self.remove()
+            return previous is not None
+
+        super().install()
         current = (
             self.destination.read_text(encoding="utf-8") if self.destination.exists() else None
         )
@@ -385,6 +400,11 @@ class FalcoOciRules:
         """Get Falco's managed rules directory."""
         return self.falco_layout.rules_dir
 
+    @property
+    def log_cursor_file(self) -> Path:
+        """Get the journal cursor used to detect new follower errors."""
+        return self.oci_rules_dir / "follow-log-cursor"
+
     def is_configured(self) -> bool:
         """Return whether the OCI rules source has been configured."""
         return self.service_file.exists() or self.config_file.exists()
@@ -404,7 +424,7 @@ class FalcoOciRules:
         oci_ref: str,
         follow_interval: str = DEFAULT_FOLLOW_INTERVAL,
         force_restart: bool = False,
-    ) -> None:
+    ) -> bool:
         """Configure OCI rules and the falcoctl follow service.
 
         On configuration changes, existing managed rules are removed and the artifact is
@@ -416,6 +436,9 @@ class FalcoOciRules:
             oci_ref: Full OCI artifact reference.
             follow_interval: Go duration for registry checks.
             force_restart: Whether to restart the follower even if its unit did not change.
+
+        Returns:
+            True if the rules or follower changed.
 
         Raises:
             OciRulesError: If the rules cannot be configured or installed.
@@ -469,8 +492,15 @@ class FalcoOciRules:
         if restart_required:
             self._restart_and_wait_for_rules()
 
-    def remove(self) -> None:
-        """Stop the follow service and remove OCI rules state."""
+        return reset_required or force_restart
+
+    def remove(self) -> bool:
+        """Stop the follow service and remove OCI rules state.
+
+        Returns:
+            True if anything was removed.
+        """
+        removed = False
         # Only clear managed rules when OCI rules may have been installed, so removing the
         # OCI source does not delete rules managed by the git source.
         oci_configured = self.has_oci_state()
@@ -479,17 +509,28 @@ class FalcoOciRules:
             systemd.service_disable(self.service_name)
             self.service_file.unlink()
             systemd.daemon_reload()
+            removed = True
 
         if oci_configured:
-            self._clear_rules()
+            removed = self._clear_rules() or removed
 
-        # rmtree is a no-op when the directory is absent.
-        shutil.rmtree(self.oci_rules_dir, ignore_errors=True)
+        if self.oci_rules_dir.exists():
+            shutil.rmtree(self.oci_rules_dir, ignore_errors=True)
+            removed = True
 
-    def _clear_rules(self) -> None:
-        """Remove all YAML rules from Falco's managed rules directory."""
+        return removed
+
+    def _clear_rules(self) -> bool:
+        """Remove all YAML rules from Falco's managed rules directory.
+
+        Returns:
+            True if any rule files were removed.
+        """
+        removed = False
         for rule_file in self._rule_files():
             rule_file.unlink()
+            removed = True
+        return removed
 
     def _render_service_file(self, oci_ref: str, follow_interval: str) -> bool:
         """Render the falcoctl follow systemd unit.
@@ -554,33 +595,49 @@ class FalcoOciRules:
         os.chmod(self.config_file, 0o600)
         return True
 
-    def check_registry_access(self, oci_ref: str) -> None:
-        """Check that the configured registry and artifact are reachable.
+    def _write_log_cursor(self, timestamp: float) -> None:
+        """Persist the journal cursor used for follower checks."""
+        try:
+            self.log_cursor_file.write_text(str(int(timestamp)), encoding="utf-8")
+        except OSError:
+            logger.debug("Unable to write the OCI follower log cursor")
 
-        Args:
-            oci_ref: Full OCI artifact reference.
+    def check_follower_logs(self) -> None:
+        """Log follower errors that appeared since the previous check."""
+        now = time.time()
+        if not self.log_cursor_file.exists():
+            self._write_log_cursor(now)
+            return
 
-        Raises:
-            OciRulesError: If the registry cannot be reached or the artifact is unavailable.
-        """
+        try:
+            since = int(self.log_cursor_file.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            self._write_log_cursor(now)
+            return
+
         cmd = [
-            str(self.falco_layout.falcoctl_cmd),
-            "--config",
-            str(self.config_file),
-            "artifact",
-            "manifest",
-            oci_ref,
+            JOURNALCTL,
+            "-u",
+            self.service_name,
+            "--since",
+            f"@{since}",
+            "--no-pager",
+            "-o",
+            "cat",
         ]
         try:
-            subprocess.run(
-                cmd,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=OCI_RULES_CHECK_TIMEOUT,
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=10)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+            logger.debug("Unable to read follower logs from journald")
+            return
+
+        if any(marker in result.stdout for marker in FOLLOWER_ERROR_MARKERS):
+            logger.warning(
+                "falcoctl-rules-follow reported registry fetch errors since the last check; "
+                "existing rules are retained"
             )
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
-            raise OciRulesError("Unable to access the OCI registry") from e
+
+        self._write_log_cursor(now)
 
     def _restart_and_wait_for_rules(self) -> None:
         """Restart the follower and retry before giving up on a rule install."""
@@ -680,12 +737,16 @@ class FalcoCustomSetting:
 
         logger.info("Falco custom settings installed")
 
-    def remove(self) -> None:
-        """Remove the Falco custom settings."""
+    def remove(self) -> bool:
+        """Remove the Falco custom settings.
+
+        Returns:
+            True if any rule, config, or OCI rules state was removed.
+        """
         logger.info("Removing Falco custom settings")
 
         # Stop the OCI follower before changing the managed rules directory.
-        self.oci_rules.remove()
+        removed = self.oci_rules.remove()
 
         # Remove all custom rules files
         for rule_file in [
@@ -693,39 +754,43 @@ class FalcoCustomSetting:
             *self.falco_layout.rules_dir.glob("*.yml"),
         ]:
             rule_file.unlink()
+            removed = True
 
         # Remove all custom config files
         for config_file in self.falco_layout.configs_dir.glob("*.yaml"):
             config_file.unlink()
+            removed = True
 
         logger.info("Falco custom settings removed")
+        return removed
 
-    def configure(self, charm_state: state.CharmState, force_restart: bool = False) -> None:
+    def configure(self, charm_state: state.CharmState, force_restart: bool = False) -> bool:
         """Configure the Falco custom settings.
 
         Args:
             charm_state (CharmState): The charm state
             force_restart: Whether to restart the OCI follower even if its unit is unchanged.
 
+        Returns:
+            True if any rules or configuration changed.
+
         Raises:
             OciRulesError: If OCI rules cannot be fetched or installed.
         """
         if charm_state.custom_rules:
-            self._configure_oci_rules(
+            return self._configure_oci_rules(
                 charm_state.custom_rules,
                 charm_state.custom_rules_follow_interval,
                 force_restart,
             )
-            return
 
         oci_rules_configured = self.oci_rules.has_oci_state()
-        self.oci_rules.remove()
+        oci_rules_removed = self.oci_rules.remove()
 
         if not charm_state.custom_config_repo:
             logger.info("No custom rules source set")
             logger.debug("Removing Falco custom settings")
-            self.remove()
-            return
+            return self.remove() or oci_rules_removed
 
         logger.info("Configuring Falco custom settings")
 
@@ -735,7 +800,7 @@ class FalcoCustomSetting:
             self.remove()
 
         # Sync custom configuration repository
-        _git_sync(
+        git_changed = _git_sync(
             str(charm_state.custom_config_repo),
             str(charm_state.custom_config_repo.host),
             ref=charm_state.custom_config_repo_ref,
@@ -747,29 +812,33 @@ class FalcoCustomSetting:
         _pull_falco_config_files(f"{self.falco_layout.configs_dir}/")
 
         logger.info("Falco custom settings configured")
+        return git_changed or oci_rules_removed
 
-    def check_registry_access(self, custom_rules: state.CustomRulesSecret) -> None:
-        """Check that the configured OCI registry and artifact are reachable."""
-        self.oci_rules.check_registry_access(custom_rules.oci_ref)
+    def check_follower_logs(self) -> None:
+        """Log new errors reported by the OCI follower."""
+        self.oci_rules.check_follower_logs()
 
     def _configure_oci_rules(
         self,
         custom_rules: state.CustomRulesSecret,
         follow_interval: str,
         force_restart: bool,
-    ) -> None:
+    ) -> bool:
         """Configure custom rules from an OCI registry.
 
         Args:
             custom_rules: Validated OCI registry credentials and artifact reference.
             follow_interval: Go duration for registry checks.
             force_restart: Whether to restart the follower even if its unit is unchanged.
+
+        Returns:
+            True if the rules or follower changed.
         """
         # The first OCI reconciliation must remove rules installed by the git source.
         if not self.oci_rules.is_configured():
             self.remove()
 
-        self.oci_rules.configure(
+        return self.oci_rules.configure(
             username=custom_rules.username,
             password=custom_rules.password,
             oci_ref=custom_rules.oci_ref,
@@ -822,37 +891,37 @@ class FalcoService:
 
         logger.info("Falco service removed")
 
-    def configure(self, charm_state: state.CharmState, force_restart: bool = False) -> None:
+    def configure(self, charm_state: state.CharmState) -> None:
         """Configure the Falco service.
 
         Args:
             charm_state (CharmState): The charm state
-            force_restart: Whether to force the OCI follower to retry immediately.
 
         Raises:
-            FalcoConfigurationError: If configuration validation fails
+            FalcoConfigurationError: If configuration validation or OCI setup fails
         """
         logger.info("Configuring Falco service")
 
         try:
-            proxy_env_changed = self.proxy_env_file.update()
-            self.custom_setting.configure(
-                charm_state, force_restart=force_restart or proxy_env_changed
+            proxy_env_changed = self.proxy_env_file.install()
+            changed = self.custom_setting.configure(charm_state, force_restart=proxy_env_changed)
+            service_file_changed = self.service_file.update(
+                context={"http_output": charm_state.http_output}
             )
-            self.service_file.update(context={"http_output": charm_state.http_output})
-        except (GitCloneError, SshKeyScanError, RsyncError, OciRulesError) as e:
+            if charm_state.custom_rules:
+                self.custom_setting.check_follower_logs()
+        except OciRulesError as e:
+            logger.error("Failed to configure OCI rules: %s", e)
+            raise
+        except (GitCloneError, SshKeyScanError, RsyncError) as e:
             logger.error("Failed to configure Falco custom settings: %s", e)
             raise FalcoConfigurationError("Failed to configure Falco service") from e
 
         systemd.daemon_reload()
-        systemd.service_restart(self.service_file.service_name)
+        if changed or proxy_env_changed or service_file_changed or not self.check_active():
+            systemd.service_restart(self.service_file.service_name)
 
-        logger.info("Falco service configured and started")
-
-    def check_registry_access(self, charm_state: state.CharmState) -> None:
-        """Check that the configured OCI registry and artifact are reachable."""
-        if charm_state.custom_rules:
-            self.custom_setting.check_registry_access(charm_state.custom_rules)
+        logger.info("Falco service configured")
 
     def check_active(self) -> bool:
         """Check if the Falco service is active."""
@@ -917,7 +986,7 @@ def _git_sync(
     hostname: str,
     ref: str = "",
     ssh_private_key: str = "",
-) -> None:
+) -> bool:
     """Sync the repository to the specified destination.
 
     Args:
@@ -925,6 +994,9 @@ def _git_sync(
         hostname (str): The host to scan for Ssh key
         ref (str): The branch or tag to checkout
         ssh_private_key (str): The SSH private key content
+
+    Returns:
+        True if the repository was cloned or updated, False if it was already synced.
 
     Raises:
         GitCloneError: If git clone fails
@@ -935,13 +1007,14 @@ def _git_sync(
     repo_tag_matched = ref == _get_cloned_repo_tag()
     if repo_cloned and repo_tag_matched:
         logger.info("Custom config repository already synced")
-        return
+        return False
 
     if ssh_private_key:
         _setup_ssh_key(ssh_private_key)
 
     _add_known_hosts(hostname)
     _git_clone(repo, ref=ref)
+    return True
 
 
 def _setup_ssh_key(ssh_private_key: str) -> None:

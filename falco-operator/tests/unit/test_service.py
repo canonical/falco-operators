@@ -113,7 +113,7 @@ def test_proxy_environment_file(mock_falco_layout, tmp_path):
         ),
     )
     proxy_env.destination = proxy_env_file
-    assert proxy_env.update() is True
+    assert proxy_env.install() is True
 
     proxy_content = proxy_env_file.read_text()
     assert "HTTP_PROXY=http://egress.ps7.internal:3128" in proxy_content
@@ -123,7 +123,7 @@ def test_proxy_environment_file(mock_falco_layout, tmp_path):
     assert "NO_PROXY=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
     assert "no_proxy=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
     assert stat.S_IMODE(proxy_env_file.stat().st_mode) == 0o600
-    assert proxy_env.update() is False
+    assert proxy_env.install() is False
 
 
 def test_proxy_environment_is_not_html_escaped(mock_falco_layout, tmp_path):
@@ -172,7 +172,7 @@ def test_no_proxy_environment_when_unset(mock_falco_layout, tmp_path, existing_f
         proxy_env_file.write_text("HTTP_PROXY=http://old-proxy:3128\n", encoding="utf-8")
     proxy_env = FalcoProxyEnvFile(mock_falco_layout, ProxyConfig())
     proxy_env.destination = proxy_env_file
-    assert proxy_env.update() is existing_file
+    assert proxy_env.install() is existing_file
 
     assert not proxy_env_file.exists()
 
@@ -325,28 +325,6 @@ def test_configure_rejects_invalid_reference(mock_falco_layout, tmp_path):
         oci_rules.configure("robot", "token", "not-a-reference")
 
 
-@patch("service.subprocess.run")
-def test_check_registry_access(mock_run, mock_falco_layout, tmp_path):
-    """Test that registry access uses falcoctl manifest."""
-    oci_rules = _manager(mock_falco_layout, tmp_path)
-
-    oci_rules.check_registry_access("quay.io/org/falco-rules:latest")
-
-    cmd = mock_run.call_args.args[0]
-    assert "manifest" in cmd
-    assert "quay.io/org/falco-rules:latest" in cmd
-
-
-@patch("service.subprocess.run")
-def test_check_registry_access_fails(mock_run, mock_falco_layout, tmp_path):
-    """Test that registry access failures are reported."""
-    oci_rules = _manager(mock_falco_layout, tmp_path)
-    mock_run.side_effect = subprocess.CalledProcessError(1, "falcoctl")
-
-    with pytest.raises(OciRulesError, match="Unable to access the OCI registry"):
-        oci_rules.check_registry_access("quay.io/org/falco-rules:latest")
-
-
 @patch("service.systemd")
 def test_configure_fails_when_rules_do_not_appear(mock_systemd, mock_falco_layout, tmp_path):
     """Test that a follower which installs no rules fails after all retries."""
@@ -444,6 +422,34 @@ def test_configure_credentials_change_updates_config_and_restarts(
     assert "old-token" not in config_content
     mock_systemd.service_stop.assert_called_with(oci_rules.service_name)
     mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
+
+
+@patch("service.subprocess.run")
+def test_check_follower_logs_starts_at_current_position(mock_run, mock_falco_layout, tmp_path):
+    """Test that the first follower log check only stores a cursor."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    oci_rules.oci_rules_dir.mkdir(parents=True, exist_ok=True)
+
+    oci_rules.check_follower_logs()
+
+    mock_run.assert_not_called()
+    assert oci_rules.log_cursor_file.exists()
+
+
+@patch("service.subprocess.run")
+def test_check_follower_logs_warns_on_fetch_errors(mock_run, mock_falco_layout, tmp_path, caplog):
+    """Test that follower fetch errors are logged without raw journal lines."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    oci_rules.oci_rules_dir.mkdir(parents=True, exist_ok=True)
+    oci_rules.log_cursor_file.write_text("1", encoding="utf-8")
+    mock_run.return_value = MagicMock(stdout="Unable to pull artifact: registry unavailable\n")
+
+    with caplog.at_level("WARNING", logger="service"):
+        oci_rules.check_follower_logs()
+
+    assert "reported registry fetch errors" in caplog.text
+    assert "registry unavailable" not in caplog.text
+    assert oci_rules.log_cursor_file.read_text(encoding="utf-8") != "1"
 
 
 def test_configure_uses_configured_oci_rules(mock_falco_layout):
@@ -605,6 +611,24 @@ class TestFalcoServiceEdgeCases:
         with pytest.raises(FalcoConfigurationError):
             falco_service.configure(charm_state)
 
+    @patch("service.systemd")
+    def test_configure_oci_error_is_not_wrapped(self, mock_systemd):
+        """Test that OCI rule errors remain distinct from generic config errors."""
+        mock_config = MagicMock()
+        mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
+        mock_service_file.service_name = FALCO_SERVICE_NAME
+        mock_proxy_env_file.install.return_value = False
+        mock_custom_setting = MagicMock()
+        mock_custom_setting.configure.side_effect = OciRulesError("No OCI rules appeared")
+
+        falco_service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
+
+        with pytest.raises(OciRulesError, match="No OCI rules appeared"):
+            falco_service.configure(CharmState())
+
 
 class TestFalcoService:
     """Test FalcoService class."""
@@ -659,7 +683,7 @@ class TestFalcoService:
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_service_file.context = {}
         mock_custom_setting = MagicMock()
-        mock_proxy_env_file.update.return_value = False
+        mock_proxy_env_file.install.return_value = False
 
         service = FalcoService(
             mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
@@ -670,9 +694,57 @@ class TestFalcoService:
         mock_custom_setting.configure.assert_called_once_with(charm_state, force_restart=False)
         mock_service_file.install.assert_not_called()
         mock_service_file.update.assert_called_once()
-        mock_proxy_env_file.update.assert_called_once()
+        mock_proxy_env_file.install.assert_called_once()
         mock_systemd.daemon_reload.assert_called_once()
         mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
+
+    @patch("service.systemd")
+    def test_configure_unchanged_does_not_restart_falco(self, mock_systemd):
+        """Test that an unchanged configuration does not restart Falco."""
+        mock_config = MagicMock()
+        mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
+        mock_service_file.service_name = FALCO_SERVICE_NAME
+        mock_service_file.context = {}
+        mock_custom_setting = MagicMock()
+        mock_proxy_env_file.install.return_value = False
+        mock_custom_setting.configure.return_value = False
+        mock_service_file.update.return_value = False
+        mock_systemd.service_running.return_value = True
+
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
+        service.configure(CharmState())
+
+        mock_systemd.daemon_reload.assert_called_once()
+        mock_systemd.service_restart.assert_not_called()
+
+    @patch("service.systemd")
+    def test_configure_checks_follower_logs_for_oci_rules(self, mock_systemd):
+        """Test that OCI reconciliation checks the follower journal."""
+        mock_config = MagicMock()
+        mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
+        mock_service_file.service_name = FALCO_SERVICE_NAME
+        mock_service_file.context = {}
+        mock_custom_setting = MagicMock()
+        mock_proxy_env_file.install.return_value = False
+        mock_systemd.service_running.return_value = True
+
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
+        charm_state = CharmState(
+            custom_rules=CustomRulesSecret(
+                username="robot",
+                password="token",  # nosec B106 - test credential
+                oci_ref="quay.io/org/falco-rules:latest",
+            )
+        )
+        service.configure(charm_state)
+
+        mock_custom_setting.check_follower_logs.assert_called_once()
 
     @patch("service.systemd")
     def test_configure_restarts_follower_on_proxy_change(self, mock_systemd):
@@ -683,7 +755,7 @@ class TestFalcoService:
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_service_file.context = {}
         mock_custom_setting = MagicMock()
-        mock_proxy_env_file.update.return_value = True
+        mock_proxy_env_file.install.return_value = True
 
         service = FalcoService(
             mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
@@ -887,10 +959,13 @@ class TestUtilityFunctions:
 
         mock_subprocess.check_output.side_effect = check_output_side_effect
 
-        service._git_sync("git+ssh://git@github.com/user/repo.git", "github.com", ref="v1.0")
+        changed = service._git_sync(
+            "git+ssh://git@github.com/user/repo.git", "github.com", ref="v1.0"
+        )
 
         # Should not call run (git clone) if already synced
         mock_subprocess.run.assert_not_called()
+        assert changed is False
 
     @patch("service.subprocess.check_output")
     @patch("service.subprocess.run")
@@ -911,11 +986,12 @@ class TestUtilityFunctions:
                 b"github.com ssh-rsa AAAA...\n",  # add_known_hosts
             ]
 
-            service._git_sync(
+            changed = service._git_sync(
                 "git+ssh://git@github.com/user/repo.git", "github.com", ssh_private_key="test-key"
             )
 
             # Verify SSH key was written
+            assert changed is True
             assert test_ssh_key_file.exists()
             assert test_ssh_key_file.read_text() == "test-key"
 

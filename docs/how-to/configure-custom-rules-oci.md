@@ -78,16 +78,15 @@ ubuntu/0* active    idle   0        10.0.0.1
 
 ## Retry the fetch
 
-The charm retries a failed rule installation before blocking. If all retries fail, the charm enters a
-blocked state and retries on the next reconciliation. To trigger reconciliation and retry
-immediately, run:
+The charm retries a failed rule installation before blocking. If all retries fail, the unit is
+blocked with `Failed to fetch OCI rules`.
 
-```bash
-juju run falco/0 retry-oci-rules
-```
+The `update-status` hook reconciles the unit every five minutes by default. If the rules are
+installed during a later attempt, the unit returns to active automatically.
 
-The action fails if no custom rules secret is configured, or if the registry cannot be reached.
-Existing rules are retained when the registry check fails.
+There is no supported command to run `update-status` immediately. To trigger reconciliation
+manually, change the custom rules secret or change `custom-rules-follow-interval` to another valid
+value and back.
 
 ## Troubleshooting
 
@@ -96,12 +95,14 @@ Existing rules are retained when the registry check fails.
 - The unit is blocked with `Invalid charm config`: check that the secret contains non-empty
   `username`, `password`, and `oci-ref` keys. The charm logs the specific validation error; inspect
   it with `juju debug-log`.
-- The unit is blocked with `Failed configuring Falco`: check the registry credentials, the artifact
-  reference, and the unit logs for the `falcoctl` error. The charm retries a failed installation
-  before blocking; use the `retry-oci-rules` action to retry immediately.
+- The unit is blocked with `Failed to fetch OCI rules`: check the registry credentials, the artifact
+  reference, and the unit logs for the `falcoctl` error. The charm retries automatically on the next
+  `update-status` hook.
+- The unit is blocked with `Failed configuring Falco`: check the unit logs for the configuration
+  error.
 - If `falcoctl-rules-follow` fails but managed rules are already present, the charm keeps the
-  existing rules and logs a warning instead of blocking. If the follower keeps running but registry
-  updates fail, check `journalctl -u falcoctl-rules-follow` on the unit; the charm cannot see those
-  pull errors directly.
+  existing rules and logs a warning instead of blocking. The charm reads new follower errors from
+  the systemd journal on each reconciliation; raw errors remain available with
+  `journalctl -u falcoctl-rules-follow`.
 - `falcoctl-rules-follow` is not running: check `systemctl status falcoctl-rules-follow` and the
   service logs. The service needs Falco's version endpoint on `127.0.0.1:8765` to be available.

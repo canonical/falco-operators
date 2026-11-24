@@ -316,65 +316,33 @@ class TestCharmConfigHandling:
         assert oci_ref not in caplog.text
 
     @patch("charm.FalcoService")
-    def test_retry_oci_rules_action_forces_retry(
+    def test_update_status_triggers_reconcile(
         self, mock_service_class, mock_charm_dir, mock_falco_layout
     ):
-        """Test that the retry action forces OCI reconfiguration."""
-        secret = ops.testing.Secret(
-            tracked_content={
-                "username": "robot",
-                "password": "token",
-                "oci-ref": "quay.io/org/rules:latest",
-            }
-        )
+        """Test that update-status triggers reconciliation."""
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         mock_service = MagicMock()
         mock_service.check_active.return_value = True
         mock_service_class.return_value = mock_service
-        state = ops.testing.State(config={"custom-rules-secret": secret.id}, secrets=[secret])
 
-        state_out = context.run(context.on.action("retry-oci-rules"), state)
+        state_out = context.run(context.on.update_status(), ops.testing.State())
 
-        assert context.action_results == {"result": "OCI rules retry completed"}
+        mock_service.configure.assert_called_once()
         assert state_out.unit_status == ops.testing.ActiveStatus()
-        mock_service.configure.assert_called_once()
-        assert mock_service.configure.call_args.kwargs["force_restart"] is True
 
     @patch("charm.FalcoService")
-    def test_retry_oci_rules_action_reports_registry_failure(
+    def test_update_status_blocks_when_oci_rules_fail(
         self, mock_service_class, mock_charm_dir, mock_falco_layout
     ):
-        """Test that the retry action fails when the registry is unreachable."""
-        secret = ops.testing.Secret(
-            tracked_content={
-                "username": "robot",
-                "password": "token",
-                "oci-ref": "quay.io/org/rules:latest",
-            }
-        )
+        """Test that update-status reports an OCI rules fetch failure."""
         context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
         mock_service = MagicMock()
-        mock_service.check_active.return_value = True
-        mock_service.check_registry_access.side_effect = OciRulesError(
-            "Unable to access the OCI registry"
-        )
+        mock_service.configure.side_effect = OciRulesError("No OCI rules appeared")
         mock_service_class.return_value = mock_service
-        state = ops.testing.State(config={"custom-rules-secret": secret.id}, secrets=[secret])
 
-        with pytest.raises(ops.testing.ActionFailed, match="OCI registry check failed"):
-            context.run(context.on.action("retry-oci-rules"), state)
+        state_out = context.run(context.on.update_status(), ops.testing.State())
 
-        mock_service.configure.assert_called_once()
-
-    @patch("charm.FalcoService")
-    def test_retry_oci_rules_action_requires_secret(
-        self, mock_service_class, mock_charm_dir, mock_falco_layout
-    ):
-        """Test that the retry action fails without an OCI rules secret."""
-        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
-
-        with pytest.raises(ops.testing.ActionFailed, match="No custom rules secret is configured"):
-            context.run(context.on.action("retry-oci-rules"), ops.testing.State())
+        assert state_out.unit_status == ops.testing.BlockedStatus("Failed to fetch OCI rules")
 
     @patch("charm.FalcoService")
     def test_secret_changed_reads_rotated_secret(

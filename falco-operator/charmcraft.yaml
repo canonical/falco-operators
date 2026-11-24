@@ -118,10 +118,6 @@ config:
         Accepts Go durations of at least `5m`, such as `5m`, `1h`, or `6h`. An empty value uses
         the default interval of one hour.
 
-actions:
-  retry-oci-rules:
-    description: Retry fetching the configured OCI rules now.
-
 requires:
   general-info:
     interface: juju-info

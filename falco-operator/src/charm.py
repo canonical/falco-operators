@@ -73,7 +73,7 @@ class Falco(CharmBaseWithState):
 
         self.framework.observe(self.on.config_changed, self.reconcile)
         self.framework.observe(self.on.secret_changed, self.reconcile)
-        self.framework.observe(self.on.retry_oci_rules_action, self._on_retry_oci_rules_action)
+        self.framework.observe(self.on.update_status, self.reconcile)
 
         # Observe http-endpoint relation evnents to trigger reconciliation
         self.framework.observe(
@@ -102,65 +102,27 @@ class Falco(CharmBaseWithState):
 
     def reconcile(self, _: ops.EventBase) -> None:
         """Reconcile the charm state."""
-        self._reconcile()
-
-    def _reconcile(self, force_restart: bool = False) -> bool:
-        """Reconcile the charm state and report whether it succeeded.
-
-        Args:
-            force_restart: Whether to force the OCI follower to retry immediately.
-
-        Returns:
-            True if reconciliation succeeded.
-        """
         try:
-            self.falco_service.configure(self.state, force_restart=force_restart)
+            self.falco_service.configure(self.state)
         except ConflictingRulesSourceError as e:
             self.unit.status = ops.BlockedStatus(str(e))
-            return False
+            return
+        except OciRulesError as e:
+            logger.error("Failed to fetch OCI rules: %s", e)
+            self.unit.status = ops.BlockedStatus("Failed to fetch OCI rules")
+            return
         except InvalidCharmConfigError as e:
             logger.warning("Invalid charm config: %s", e)
             self.unit.status = ops.BlockedStatus("Invalid charm config")
-            return False
+            return
         except FalcoConfigurationError:
             self.unit.status = ops.BlockedStatus("Failed configuring Falco")
-            return False
+            return
 
         if not self.falco_service.check_active():
             raise RuntimeError("Falco service is not running")
 
         self.unit.status = ops.ActiveStatus()
-        return True
-
-    def _on_retry_oci_rules_action(self, event: ops.ActionEvent) -> None:
-        """Retry fetching the configured OCI rules."""
-        try:
-            if not self.state.custom_rules:
-                event.fail("No custom rules secret is configured")
-                return
-        except InvalidCharmConfigError as e:
-            event.fail(str(e))
-            return
-
-        try:
-            succeeded = self._reconcile(force_restart=True)
-        except Exception as e:
-            logger.exception("Retrying OCI rules failed")
-            event.fail(str(e))
-            return
-
-        if not succeeded:
-            event.fail(self.unit.status.message or "OCI rules retry failed")
-            return
-
-        try:
-            self.falco_service.check_registry_access(self.state)
-        except OciRulesError:
-            logger.warning("OCI registry check failed; existing rules are retained")
-            event.fail("OCI registry check failed; existing rules are retained")
-            return
-
-        event.set_results({"result": "OCI rules retry completed"})
 
 
 if __name__ == "__main__":  # pragma: nocover
