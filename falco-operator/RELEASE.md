@@ -85,6 +85,20 @@ tar -xzf falco-<version>-x86_64.tar.gz
 ./usr/bin/falcoctl version
 ```
 
+## Build locally
+
+The build workflow delegates its shell steps to scripts under `.github/scripts/`. To run the full
+build locally, install the same build dependencies used by CI and Go, then run:
+
+```bash
+./.github/scripts/install-build-dependencies.sh
+BUILD_ROOT=/tmp/falco-build OUTPUT_DIR=/tmp/falco-release ./.github/scripts/build-all.sh
+```
+
+The individual scripts (`clone-sources.sh`, `build-falco.sh`, `build-falco-plugins.sh`,
+`build-falcoctl.sh`, `prepare-artifacts.sh`, and `create-tarball.sh`) can also be run separately
+with the environment variables defined in `.github/workflows/build_falco.yaml`.
+
 ## Troubleshooting
 
 If you have any issue, please follow the steps below to do the troubleshooting:
