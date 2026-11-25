@@ -32,13 +32,12 @@ def test_deploy_charms(deployment: Deployment, juju: jubilant.Juju) -> None:
         assert unit.workload_status.current == "active"
 
 
-def test_falco_files_exist(deployment: Deployment) -> None:
+def test_falco_files_exist(deployment: Deployment, juju: jubilant.Juju) -> None:
     """
     Arrange: Falco charm is deployed and active.
     Act: Check for expected files on the unit.
     Assert: Falco binary, config, and systemd service files exist.
     """
-    juju = deployment.juju
     for unit_name in deployment.units:
         name = unit_name.replace("/", "-")
         logger.info("Checking if falco binary exists in unit %s", unit_name)
@@ -69,13 +68,12 @@ def test_falco_files_exist(deployment: Deployment) -> None:
         assert "exists" in result.strip(), "Falco systemd service file not found"
 
 
-def test_falco_service_running(deployment: Deployment) -> None:
+def test_falco_service_running(deployment: Deployment, juju: jubilant.Juju) -> None:
     """
     Arrange: Falco charm is deployed and active.
     Act: Check if falco systemd service is running.
     Assert: Falco service is active and running.
     """
-    juju = deployment.juju
     for unit_name in deployment.units:
         logger.info("Checking falco service status in unit %s", unit_name)
         result = juju.ssh(unit_name, "systemctl is-active falco")
@@ -86,13 +84,12 @@ def test_falco_service_running(deployment: Deployment) -> None:
         assert result.strip() == "enabled", f"Falco service is not enabled: {result}"
 
 
-def test_remove_integration(deployment: Deployment) -> None:
+def test_remove_integration(deployment: Deployment, juju: jubilant.Juju) -> None:
     """
     Arrange: Falco charm is deployed and integrated with a principal charm.
     Act: Remove the integration between falco and the principal charm.
     Assert: Falco service is stopped and files are cleaned up.
     """
-    juju = deployment.juju
     logger.info(
         "Removing integration between %s and %s", deployment.principal_app, deployment.falco_app
     )

@@ -7,6 +7,7 @@ import logging
 import shutil
 import tempfile
 import typing
+import uuid
 from collections.abc import Generator
 from pathlib import Path
 
@@ -18,11 +19,17 @@ from .helpers import (
     PRINCIPAL_APP,
     PRINCIPAL_APP_CONSTRAINTS,
     PRINCIPAL_APP_UNITS,
+    RULES_FILE_NAME,
+    RULES_V1_MARKER,
+    RULES_V2_MARKER,
     Deployment,
     OciRegistry,
     _extract_falcoctl,
     _free_port,
-    deploy_falco,
+    _gateway,
+    _install_ca,
+    _rules_dir,
+    _write_rules_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,7 +49,7 @@ def juju_fixture(request: pytest.FixtureRequest) -> Generator[jubilant.Juju, Non
         """Show debug log.
 
         Args:
-            juju: the Juju object.
+            juju: The Juju object.
         """
         if request.session.testsfailed:
             log = juju.debug_log(limit=1000)
@@ -92,15 +99,42 @@ def deployment_fixture(
     falco_app: str,
 ) -> Deployment:
     """Deploy the shared test topology used by the integration tests."""
-    return deploy_falco(
-        juju,
-        charm,
-        pytestconfig,
+    current = juju.status()
+    if principal_app not in current.apps:
+        logger.info("Deploying %s with constraints: %s", principal_app, PRINCIPAL_APP_CONSTRAINTS)
+        juju.deploy(
+            "ubuntu",
+            app=principal_app,
+            num_units=PRINCIPAL_APP_UNITS,
+            base=pytestconfig.getoption("--base"),
+            constraints=PRINCIPAL_APP_CONSTRAINTS,
+        )
+
+    if falco_app not in current.apps:
+        logger.info("Deploying %s", falco_app)
+        juju.deploy(charm, app=falco_app)
+
+    logger.info("Integrating %s with %s", principal_app, falco_app)
+    try:
+        juju.integrate(principal_app, falco_app)
+    except jubilant.CLIError as exc:
+        if "already" not in str(exc).lower():
+            raise
+
+    status = juju.wait(
+        lambda status: jubilant.all_active(status, principal_app, falco_app),
+        timeout=juju.wait_timeout,
+        error=jubilant.any_error,
+    )
+    units = status.get_units(falco_app)
+    if not units:
+        raise RuntimeError(f"No {falco_app} units found after deployment")
+    unit_names = list(units)
+    return Deployment(
         principal_app=principal_app,
         falco_app=falco_app,
-        num_units=PRINCIPAL_APP_UNITS,
-        constraints=PRINCIPAL_APP_CONSTRAINTS,
-        gateway=True,
+        units=unit_names,
+        gateway=_gateway(juju, unit_names[0]),
     )
 
 
@@ -122,3 +156,74 @@ def registry_fixture(deployment: Deployment, charm: str) -> Generator[OciRegistr
         yield registry
     finally:
         registry.stop()
+
+
+@pytest.fixture(scope="module", name="rules_dir")
+def rules_dir_fixture(
+    juju: jubilant.Juju,
+    deployment: Deployment,
+    registry: OciRegistry,
+) -> str:
+    """Install the test CA and return the managed rules directory."""
+    _install_ca(juju, deployment.unit, registry.ca_cert)
+    return _rules_dir(juju, deployment.unit)
+
+
+@pytest.fixture(scope="module", name="wrong_secret")
+def wrong_secret_fixture(
+    juju: jubilant.Juju,
+    deployment: Deployment,
+    registry: OciRegistry,
+):
+    """Create and configure a secret with an incorrect registry password."""
+    secret = juju.add_secret(
+        f"falco-oci-rules-wrong-{uuid.uuid4().hex[:8]}",
+        {
+            "username": registry.username,
+            "password": "incorrect-password",
+            "oci-ref": registry.oci_ref,
+        },
+        info="OCI rules integration test - incorrect credentials",
+    )
+    juju.grant_secret(secret, deployment.falco_app)
+    juju.config(deployment.falco_app, {"custom-rules-secret": str(secret)})
+    return secret
+
+
+@pytest.fixture(scope="module", name="correct_secret")
+def correct_secret_fixture(
+    juju: jubilant.Juju,
+    deployment: Deployment,
+    registry: OciRegistry,
+):
+    """Create and configure a secret with valid registry credentials."""
+    secret = juju.add_secret(
+        f"falco-oci-rules-correct-{uuid.uuid4().hex[:8]}",
+        {
+            "username": registry.username,
+            "password": registry.password,
+            "oci-ref": registry.oci_ref,
+        },
+        info="OCI rules integration test - correct credentials",
+    )
+    juju.grant_secret(secret, deployment.falco_app)
+    juju.config(deployment.falco_app, {"custom-rules-secret": str(secret)})
+    return secret
+
+
+@pytest.fixture(scope="module", name="v1_rules")
+def v1_rules_fixture(registry: OciRegistry) -> Path:
+    """Push the initial rules artifact."""
+    rules = registry.root / "v1" / RULES_FILE_NAME
+    _write_rules_file(rules, RULES_V1_MARKER)
+    registry.push_rules(rules, "1.0.0")
+    return rules
+
+
+@pytest.fixture(scope="module", name="v2_rules")
+def v2_rules_fixture(registry: OciRegistry) -> Path:
+    """Push the updated rules artifact."""
+    rules = registry.root / "v2" / RULES_FILE_NAME
+    _write_rules_file(rules, RULES_V2_MARKER)
+    registry.push_rules(rules, "1.0.1")
+    return rules
