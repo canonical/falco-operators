@@ -506,6 +506,31 @@ def _wait_for_rule(
     )
 
 
+def _remove_managed_rules(juju: jubilant.Juju, unit: str, rules_dir: str) -> None:
+    """Remove the managed rule file to simulate a state with no installed rules."""
+    rule_file = Path(rules_dir) / RULES_FILE_NAME
+    juju.ssh(unit, f"sudo -n rm -f {shlex.quote(str(rule_file))}")
+
+
+def _block_registry(juju: jubilant.Juju, unit: str, host: str) -> None:
+    """Blackhole the registry host on the unit to simulate a network outage."""
+    juju.ssh(unit, f"sudo -n ip route add blackhole {host}/32")
+
+
+def _unblock_registry(juju: jubilant.Juju, unit: str, host: str) -> None:
+    """Remove the blackhole route created by :func:`_block_registry`."""
+    juju.ssh(unit, f"sudo -n ip route del blackhole {host}/32")
+
+
+def _fire_update_status(juju: jubilant.Juju, unit: str) -> None:
+    """Run the charm's update-status hook manually.
+
+    This exercises the same reconcile path as Juju's scheduled update-status
+    event without waiting for the model's update-status interval.
+    """
+    juju.exec("hooks/update-status", unit=unit, wait=180)
+
+
 @pytest.fixture(scope="module", name="deployment")
 def deployment_fixture(
     juju: jubilant.Juju,
@@ -644,4 +669,37 @@ def test_oci_rules_with_authenticated_registry(
         juju, unit, rules_dir, RULES_V2_MARKER, timeout=RULE_UPDATE_TIMEOUT
     )
     assert RULES_V1_MARKER not in v2_content
+    assert juju.ssh(unit, "systemctl is-active falcoctl-rules-follow").strip() == "active"
+
+    logger.info("Simulating a registry network outage and recovery on update-status")
+    _remove_managed_rules(juju, unit, rules_dir)
+    _block_registry(juju, unit, registry.host)
+    try:
+        _fire_update_status(juju, unit)
+        status = juju.wait(
+            lambda status: jubilant.all_blocked(status, FALCO_APP),
+            timeout=juju.wait_timeout,
+            error=jubilant.any_error,
+        )
+        blocked_units = status.get_units(FALCO_APP)
+        assert blocked_units, "No Falco units found after the network outage"
+        for blocked_unit in blocked_units.values():
+            assert blocked_unit.workload_status.message == "Failed to fetch OCI rules"
+        assert not _installed_rule_files(juju, unit, rules_dir), (
+            "Rules were installed while the registry was unreachable"
+        )
+    finally:
+        _unblock_registry(juju, unit, registry.host)
+
+    logger.info("Restoring the registry and triggering update-status")
+    _fire_update_status(juju, unit)
+    juju.wait(
+        lambda status: jubilant.all_active(status, PRINCIPAL_APP, FALCO_APP),
+        timeout=juju.wait_timeout,
+        error=jubilant.any_error,
+    )
+    recovered_content = _wait_for_rule(
+        juju, unit, rules_dir, RULES_V2_MARKER, timeout=juju.wait_timeout
+    )
+    assert RULES_V2_MARKER in recovered_content
     assert juju.ssh(unit, "systemctl is-active falcoctl-rules-follow").strip() == "active"
