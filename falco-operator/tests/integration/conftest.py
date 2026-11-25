@@ -78,27 +78,15 @@ def juju_fixture(request: pytest.FixtureRequest) -> Generator[jubilant.Juju, Non
         return
 
 
-@pytest.fixture(scope="module", name="principal_app")
-def principal_app_fixture() -> str:
-    """Return the principal application name used by the tests."""
-    return PRINCIPAL_APP
-
-
-@pytest.fixture(scope="module", name="falco_app")
-def falco_app_fixture() -> str:
-    """Return the Falco application name used by the tests."""
-    return FALCO_APP
-
-
 @pytest.fixture(scope="module", name="deployment")
 def deployment_fixture(
     juju: jubilant.Juju,
     charm: str,
     pytestconfig: pytest.Config,
-    principal_app: str,
-    falco_app: str,
 ) -> Deployment:
     """Deploy the shared test topology used by the integration tests."""
+    principal_app = PRINCIPAL_APP
+    falco_app = FALCO_APP
     current = juju.status()
     if principal_app not in current.apps:
         logger.info("Deploying %s with constraints: %s", principal_app, PRINCIPAL_APP_CONSTRAINTS)
