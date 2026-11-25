@@ -27,7 +27,6 @@ from .helpers import (
     _free_port,
     _gateway,
     _install_ca,
-    _rules_dir,
     _write_rules_file,
 )
 
@@ -126,7 +125,11 @@ def deployment_fixture(
 
 
 @pytest.fixture(scope="module", name="registry")
-def registry_fixture(deployment: Deployment, charm: str) -> Generator[OciRegistry, None, None]:
+def registry_fixture(
+    juju: jubilant.Juju,
+    deployment: Deployment,
+    charm: str,
+) -> Generator[OciRegistry, None, None]:
     """Start an authenticated registry and extract falcoctl for pushing rules."""
     if shutil.which("docker") is None:
         pytest.skip("Docker is required for the OCI registry integration test")
@@ -138,22 +141,12 @@ def registry_fixture(deployment: Deployment, charm: str) -> Generator[OciRegistr
         falcoctl_binary=_extract_falcoctl(Path(charm), root / "falcoctl"),
     )
     registry.start()
+    _install_ca(juju, deployment.unit, registry.ca_cert)
     logger.info("Started test OCI registry at %s", registry.address)
     try:
         yield registry
     finally:
         registry.stop()
-
-
-@pytest.fixture(scope="module", name="rules_dir")
-def rules_dir_fixture(
-    juju: jubilant.Juju,
-    deployment: Deployment,
-    registry: OciRegistry,
-) -> str:
-    """Install the test CA and return the managed rules directory."""
-    _install_ca(juju, deployment.unit, registry.ca_cert)
-    return _rules_dir(juju, deployment.unit)
 
 
 @pytest.fixture(scope="module", name="correct_secret")
