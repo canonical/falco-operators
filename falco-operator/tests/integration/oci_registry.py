@@ -420,28 +420,3 @@ def _wait_for_rule(
         f"Rule marker {marker!r} was not installed in {rule_file} on {unit} "
         f"within {timeout} seconds. Last content:\n{last_content}"
     )
-
-
-def _remove_managed_rules(juju: jubilant.Juju, unit: str, rules_dir: str) -> None:
-    """Remove the managed rule file to simulate a state with no installed rules."""
-    rule_file = Path(rules_dir) / RULES_FILE_NAME
-    juju.ssh(unit, f"sudo -n rm -f {shlex.quote(str(rule_file))}")
-
-
-def _block_registry(juju: jubilant.Juju, unit: str, host: str) -> None:
-    """Blackhole the registry host on the unit to simulate a network outage."""
-    juju.ssh(unit, f"sudo -n ip route add blackhole {host}/32")
-
-
-def _unblock_registry(juju: jubilant.Juju, unit: str, host: str) -> None:
-    """Remove the blackhole route created by :func:`_block_registry`."""
-    juju.ssh(unit, f"sudo -n ip route del blackhole {host}/32")
-
-
-def _fire_update_status(juju: jubilant.Juju, unit: str) -> None:
-    """Run the charm's update-status hook manually.
-
-    This exercises the same reconcile path as Juju's scheduled update-status
-    event without waiting for the model's update-status interval.
-    """
-    juju.exec("hooks/update-status", unit=unit, wait=180)

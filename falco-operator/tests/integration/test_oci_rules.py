@@ -6,7 +6,9 @@
 """Integration tests for fetching Falco rules from an authenticated OCI registry."""
 
 import logging
+import shlex
 import uuid
+from pathlib import Path
 
 import jubilant
 
@@ -20,13 +22,9 @@ from .oci_registry import (
     RULES_V2_MARKER,
     Deployment,
     OciRegistry,
-    _block_registry,
-    _fire_update_status,
     _install_ca,
     _installed_rule_files,
-    _remove_managed_rules,
     _rules_dir,
-    _unblock_registry,
     _wait_for_rule,
     _write_rules_file,
 )
@@ -52,6 +50,7 @@ def test_oci_rules_with_authenticated_registry(
 
     _install_ca(juju, unit, registry.ca_cert)
     rules_dir = _rules_dir(juju, unit)
+    rule_file = Path(rules_dir) / RULES_FILE_NAME
 
     suffix = uuid.uuid4().hex[:8]
     rules_v1 = registry.root / "v1" / RULES_FILE_NAME
@@ -124,10 +123,10 @@ def test_oci_rules_with_authenticated_registry(
     assert juju.ssh(unit, "systemctl is-active falcoctl-rules-follow").strip() == "active"
 
     logger.info("Simulating a registry network outage and recovery on update-status")
-    _remove_managed_rules(juju, unit, rules_dir)
-    _block_registry(juju, unit, registry.host)
+    juju.ssh(unit, f"sudo -n rm -f {shlex.quote(str(rule_file))}")
+    juju.ssh(unit, f"sudo -n ip route add blackhole {registry.host}/32")
     try:
-        _fire_update_status(juju, unit)
+        juju.exec("hooks/update-status", unit=unit, wait=180)
         status = juju.wait(
             lambda status: jubilant.all_blocked(status, FALCO_APP),
             timeout=juju.wait_timeout,
@@ -141,10 +140,10 @@ def test_oci_rules_with_authenticated_registry(
             "Rules were installed while the registry was unreachable"
         )
     finally:
-        _unblock_registry(juju, unit, registry.host)
+        juju.ssh(unit, f"sudo -n ip route del blackhole {registry.host}/32")
 
     logger.info("Restoring the registry and triggering update-status")
-    _fire_update_status(juju, unit)
+    juju.exec("hooks/update-status", unit=unit, wait=180)
     juju.wait(
         lambda status: jubilant.all_active(status, PRINCIPAL_APP, FALCO_APP),
         timeout=juju.wait_timeout,
