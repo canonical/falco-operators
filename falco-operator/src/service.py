@@ -282,14 +282,12 @@ class FalcoProxyEnvFile(Template):
             falco_layout: The Falco file layout.
             proxy_config: The model's proxy configuration.
         """
-        http_proxy = proxy_config.http or ""
-        https_proxy = proxy_config.https or ""
         no_proxy = ",".join(proxy_config.no)
         proxy_values = [
-            ("HTTP_PROXY", http_proxy),
-            ("http_proxy", http_proxy),
-            ("HTTPS_PROXY", https_proxy),
-            ("https_proxy", https_proxy),
+            ("HTTP_PROXY", proxy_config.http),
+            ("http_proxy", proxy_config.http),
+            ("HTTPS_PROXY", proxy_config.https),
+            ("https_proxy", proxy_config.https),
             ("NO_PROXY", no_proxy),
             ("no_proxy", no_proxy),
         ]
@@ -429,7 +427,6 @@ class FalcoOciRules:
         if not self.falco_layout.falcoctl_cmd.exists():
             raise OciRulesError(f"falcoctl binary not found at {self.falco_layout.falcoctl_cmd}")
 
-        follow_interval = follow_interval or DEFAULT_FOLLOW_INTERVAL
         registry = _registry_from_oci_ref(oci_ref)
         state_missing = not self.oci_rules_dir.exists()
         try:
