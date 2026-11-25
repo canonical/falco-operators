@@ -75,8 +75,7 @@ The Falco Operators are members of the Ubuntu family. This is an open-source pro
 projects, contributions, suggestions, fixes, and constructive feedback.
 
 - [Code of conduct](https://ubuntu.com/community/code-of-conduct)
-- [Get support](https://discourse.charmhub.io/)
-- [Join our online chat](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
+- [Get support](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
 - [Contribute](https://github.com/canonical/falco-operators/blob/main/CONTRIBUTING.md)
 
 Thinking about using the Falco Operators for your next project?
