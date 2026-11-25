@@ -14,7 +14,7 @@ state.
 ## Prerequisites
 
 - A deployed Falco operator from {ref}`getting started tutorial <tutorial_getting_started>`
-- An OCI registry repository containing a Falco rulesfile artifact
+- An OCI registry repository containing a Falco `rulesfile` artifact
 - A registry username and password or robot token with read access to the artifact
 
 ## Create the secret
@@ -51,14 +51,14 @@ juju config falco custom-rules-secret="<secret-id>"
 
 By default, the charm checks the registry every hour. To change the interval, replace `<duration>`
 with a Go duration of at least `5m`, using seconds (`s`), minutes (`m`), or hours (`h`), such as
-`5m`, `1h`, or `1h30m`:
+`5m`, `1h`, or `1h30m`. Whitespace is not accepted:
 
 ```bash
-juju config falco custom-rules-follow-interval="<duration>"
+juju config falco custom-rules-refresh-interval="<duration>"
 ```
 
 At each check, the charm fetches the artifact if it has changed and replaces the managed rule files.
-An empty interval value uses the default interval of one hour.
+When unset, the default interval is one hour. An empty value is invalid.
 
 ## Verify the configuration
 

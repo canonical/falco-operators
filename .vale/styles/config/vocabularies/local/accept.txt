@@ -3,6 +3,3 @@ Falco
 falcosidekick
 Falcosidekick
 monorepo
-rulesfile
-systemd
-Systemd

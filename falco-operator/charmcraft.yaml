@@ -110,13 +110,13 @@ config:
       description: |
         The Juju secret ID containing the OCI registry credentials and rules reference. The secret
         must contain the keys `username`, `password`, and `oci-ref`.
-    custom-rules-follow-interval:
+    custom-rules-refresh-interval:
       type: string
       default: "1h"
       description: |
-        How often the falcoctl follow service checks the OCI registry for a newer rules artifact.
-        Accepts Go durations of at least `5m`, such as `5m`, `1h`, or `6h`. An empty value uses
-        the default interval of one hour.
+        How often the charm checks the OCI registry for a newer rules artifact.
+        Accepts Go durations of at least `5m`, such as `5m`, `1h`, or `6h`. Whitespace and empty
+        values are not accepted. When unset, the default interval is one hour.
 
 requires:
   general-info:

@@ -35,7 +35,7 @@ class TestCharmState:
             )
             assert state.custom_config_repo_ref == ""
             assert state.custom_config_repo_ssh_key is None
-            assert state.custom_rules_follow_interval == "1h"
+            assert state.custom_rules_refresh_interval == "1h"
 
     @patch("charm.FalcoService")
     def test_valid_charm_state_with_tag(self, mock_service, mock_charm_dir, mock_falco_layout):

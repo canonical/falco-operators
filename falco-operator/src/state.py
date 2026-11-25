@@ -52,7 +52,7 @@ class CharmState(BaseModel):
         custom_config_repo_ref: Optional branch or tag to a custom configuration repository.
         custom_config_repo_ssh_key: Optional SSH key for custom configuration repository.
         custom_rules: Optional validated OCI registry credentials and rules reference.
-        custom_rules_follow_interval: How often falcoctl checks for OCI rules updates.
+        custom_rules_refresh_interval: How often falcoctl checks for OCI rules updates.
         http_output: Optional HTTP output data from http-output relation.
     """
 
@@ -60,7 +60,7 @@ class CharmState(BaseModel):
     custom_config_repo_ref: Optional[str] = None
     custom_config_repo_ssh_key: Optional[str] = None
     custom_rules: Optional[CustomRulesSecret] = None
-    custom_rules_follow_interval: str = DEFAULT_FOLLOW_INTERVAL
+    custom_rules_refresh_interval: str = DEFAULT_FOLLOW_INTERVAL
     http_output: Optional[dict[str, str]] = None
 
     @classmethod
@@ -117,7 +117,7 @@ class CharmState(BaseModel):
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
             custom_rules=custom_rules,
-            custom_rules_follow_interval=charm_config.custom_rules_follow_interval,
+            custom_rules_refresh_interval=charm_config.custom_rules_refresh_interval,
             http_output=http_output,
         )
 

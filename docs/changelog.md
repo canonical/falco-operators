@@ -13,7 +13,7 @@ Each revision is versioned by the date of the revision.
 ### Added
 
 - Build and package `falcoctl` alongside Falco in the release artifact, making the pinned `falcoctl` binary available to the charm and to standalone consumers of the release tarball.
-- Added the `custom-rules-secret` option to fetch and track custom Falco rules from an OCI registry using a `falcoctl artifact follow` service that writes directly to Falco's managed rules directory and performs a fresh install on configuration changes. The follow interval defaults to one hour. Git-based custom configuration and OCI rules are mutually exclusive.
+- Added the `custom-rules-secret` option to fetch and track custom Falco rules from an OCI registry using a `falcoctl artifact follow` service that writes directly to Falco's managed rules directory and performs a fresh install on configuration changes. The refresh interval defaults to one hour. Git-based custom configuration and OCI rules are mutually exclusive.
 
 ## 2026-11-18
 
