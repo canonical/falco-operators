@@ -13,7 +13,7 @@ from pathlib import Path
 import jubilant
 import pytest
 
-from tests.integration.oci_registry import (
+from .oci_registry import (
     FALCO_APP,
     PRINCIPAL_APP,
     PRINCIPAL_APP_CONSTRAINTS,

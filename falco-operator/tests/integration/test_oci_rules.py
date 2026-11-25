@@ -10,7 +10,7 @@ import uuid
 
 import jubilant
 
-from tests.integration.oci_registry import (
+from .oci_registry import (
     FALCO_APP,
     PRINCIPAL_APP,
     RULE_UPDATE_TIMEOUT,
