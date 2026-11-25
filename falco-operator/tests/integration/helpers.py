@@ -55,9 +55,12 @@ def _gateway(juju: jubilant.Juju, unit: str) -> str:
     return gateway
 
 
+DOCKER = shutil.which("docker") or "docker"
 REGISTRY_USERNAME = "falco-test"
 REGISTRY_PASSWORD = "falco-test-password"  # nosec B105 - local test credential
-REGISTRY_HTPASSWD = "falco-test:$2y$05$03/yOI6axBGYTFcN1r5.L.ddKEZk7gu/0bRtkqTm/cxTJ5I1aeFzS\n"
+REGISTRY_HTPASSWD = (
+    f"{REGISTRY_USERNAME}:$2y$05$03/yOI6axBGYTFcN1r5.L.ddKEZk7gu/0bRtkqTm/cxTJ5I1aeFzS\n"
+)
 REGISTRY_REPO = "falco-rules"
 REGISTRY_TAG = "latest"
 RULES_FILE_NAME = "oci-test-rules.yaml"
@@ -180,7 +183,7 @@ class OciRegistry:
     def _docker(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
         """Run a Docker command as the test runner user."""
         return subprocess.run(
-            ["docker", *args],
+            [DOCKER, *args],
             capture_output=True,
             text=True,
             check=check,
@@ -191,7 +194,6 @@ class OciRegistry:
         self._certs_dir.mkdir(parents=True)
         server_key = self._certs_dir / "server.key"
         server_cert = self._certs_dir / "server.crt"
-        self.ca_cert = server_cert
 
         _run_command(
             "openssl",
@@ -298,7 +300,7 @@ def _free_port() -> int:
 
 def _install_ca(juju: jubilant.Juju, unit: str, ca_cert: Path) -> None:
     """Install the test CA in the unit's system trust store."""
-    remote = f"/tmp/{uuid.uuid4().hex}-falco-oci-test-ca.crt"
+    remote = f"/home/ubuntu/{uuid.uuid4().hex}-falco-oci-test-ca.crt"
     juju.scp(ca_cert, f"{unit}:{remote}")
     juju.exec(
         f"install -m 0644 {remote} /usr/local/share/ca-certificates/falco-oci-test-ca.crt",

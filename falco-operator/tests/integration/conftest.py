@@ -20,6 +20,7 @@ from .helpers import (
     PRINCIPAL_APP_CONSTRAINTS,
     PRINCIPAL_APP_UNITS,
     RULES_FILE_NAME,
+    RULES_REFRESH_INTERVAL,
     RULES_V2_MARKER,
     Deployment,
     OciRegistry,
@@ -140,11 +141,11 @@ def registry_fixture(
         port=_free_port(),
         falcoctl_binary=_extract_falcoctl(Path(charm), root / "falcoctl"),
     )
-    registry.start()
-    for unit in deployment.units:
-        _install_ca(juju, unit, registry.ca_cert)
-    logger.info("Started test OCI registry at %s", registry.address)
     try:
+        registry.start()
+        for unit in deployment.units:
+            _install_ca(juju, unit, registry.ca_cert)
+        logger.info("Started test OCI registry at %s", registry.address)
         yield registry
     finally:
         registry.stop()
@@ -169,7 +170,10 @@ def correct_secret_fixture(
     juju.grant_secret(secret, deployment.falco_app)
     juju.config(
         deployment.falco_app,
-        {"custom-rules-secret": str(secret), "custom-rules-refresh-interval": "5m"},
+        {
+            "custom-rules-secret": str(secret),
+            "custom-rules-refresh-interval": RULES_REFRESH_INTERVAL,
+        },
     )
     return secret
 

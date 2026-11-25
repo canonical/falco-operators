@@ -13,6 +13,7 @@ from pathlib import Path
 import jubilant
 
 from .helpers import (
+    RULE_UPDATE_TIMEOUT,
     RULES_FILE_NAME,
     RULES_V1_MARKER,
     RULES_V2_MARKER,
@@ -91,11 +92,14 @@ def test_valid_credentials_install_rules(
 def test_artifact_updates_are_followed(
     deployment: Deployment,
     juju: jubilant.Juju,
+    correct_secret,
     v2_rules: Path,
 ) -> None:
     """A new artifact is followed without changing charm configuration."""
     rules_dir = _rules_dir(juju, deployment.unit)
-    v2_content = _wait_for_rule(juju, deployment.unit, rules_dir, RULES_V2_MARKER, timeout=8 * 60)
+    v2_content = _wait_for_rule(
+        juju, deployment.unit, rules_dir, RULES_V2_MARKER, timeout=RULE_UPDATE_TIMEOUT
+    )
     assert RULES_V1_MARKER not in v2_content
     assert (
         juju.exec("systemctl is-active falcoctl-rules-follow", unit=deployment.unit).stdout.strip()
@@ -114,9 +118,9 @@ def test_recovers_after_network_outage(
     rules_dir = _rules_dir(juju, deployment.unit)
     rule_file = Path(rules_dir) / RULES_FILE_NAME
     juju.exec(f"rm -f {shlex.quote(str(rule_file))}", unit=deployment.unit)
-    juju.ssh(
-        deployment.unit,
-        (f"sudo -n iptables -A OUTPUT -d {registry.host} -p tcp --dport {registry.port} -j DROP"),
+    juju.exec(
+        f"iptables -A OUTPUT -d {registry.host} -p tcp --dport {registry.port} -j DROP",
+        unit=deployment.unit,
     )
     try:
         juju.exec("hooks/update-status", unit=deployment.unit, wait=180)
