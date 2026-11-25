@@ -26,7 +26,7 @@ from .helpers import (
 logger = logging.getLogger(__name__)
 
 
-def test_01_wrong_credentials_are_rejected(
+def test_wrong_credentials_are_rejected(
     deployment: Deployment,
     juju: jubilant.Juju,
     rules_dir: str,
@@ -58,7 +58,7 @@ def test_01_wrong_credentials_are_rejected(
     )
 
 
-def test_02_valid_credentials_install_rules(
+def test_valid_credentials_install_rules(
     deployment: Deployment,
     juju: jubilant.Juju,
     rules_dir: str,
@@ -83,7 +83,7 @@ def test_02_valid_credentials_install_rules(
     )
 
 
-def test_03_artifact_updates_are_followed(
+def test_artifact_updates_are_followed(
     deployment: Deployment,
     juju: jubilant.Juju,
     rules_dir: str,
@@ -97,7 +97,7 @@ def test_03_artifact_updates_are_followed(
     )
 
 
-def test_04_recovers_after_network_outage(
+def test_recovers_after_network_outage(
     deployment: Deployment,
     juju: jubilant.Juju,
     registry: OciRegistry,
