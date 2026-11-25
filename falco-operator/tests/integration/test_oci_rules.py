@@ -591,9 +591,11 @@ def test_oci_rules_with_authenticated_registry(
     """
     Arrange: Deploy Falco, start an authenticated TLS OCI registry, and push rules.
     Act: Configure the charm with bad credentials, then with valid credentials, then
-        publish an updated rules artifact without changing charm configuration.
-    Assert: Bad credentials block the unit, valid credentials install the rules, and
-        the follower installs the updated rules automatically.
+        publish an updated rules artifact without changing charm configuration, then
+        simulate a registry outage and fire update-status.
+    Assert: Bad credentials block the unit, valid credentials install the rules, the
+        follower installs the updated rules automatically, a registry outage blocks the
+        unit when no rules exist, and update-status restores the rules and active status.
     """
     juju = deployment.juju
     unit = deployment.unit
