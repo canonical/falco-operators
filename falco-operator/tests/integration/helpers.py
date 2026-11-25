@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import base64
 import dataclasses
 import json
 import logging
@@ -14,16 +13,14 @@ import re
 import shlex
 import shutil
 import socket
-import ssl
 import subprocess
 import time
-import urllib.error
-import urllib.request
 import uuid
 import zipfile
 from pathlib import Path
 
 import jubilant
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +57,7 @@ def _gateway(juju: jubilant.Juju, unit: str) -> str:
 
 REGISTRY_USERNAME = "falco-test"
 REGISTRY_PASSWORD = "falco-test-password"  # nosec B105 - local test credential
+REGISTRY_HTPASSWD = "falco-test:$2y$05$03/yOI6axBGYTFcN1r5.L.ddKEZk7gu/0bRtkqTm/cxTJ5I1aeFzS\n"
 REGISTRY_REPO = "falco-rules"
 REGISTRY_TAG = "latest"
 RULES_FILE_NAME = "oci-test-rules.yaml"
@@ -100,6 +98,7 @@ class OciRegistry:
         self._container_name = f"falco-oci-test-{uuid.uuid4().hex[:8]}"
         self._auth_dir = root / "auth"
         self._certs_dir = root / "certs"
+        self._falcoctl_config = root / "falcoctl.yaml"
 
     @property
     def address(self) -> str:
@@ -115,6 +114,7 @@ class OciRegistry:
         """Create the registry configuration and start the Docker registry."""
         self._create_certificates()
         self._write_htpasswd()
+        self._write_falcoctl_config()
         self._docker(
             "run",
             "-d",
@@ -154,21 +154,11 @@ class OciRegistry:
             rules_file: YAML file containing the rules to push.
             version: Semver-compatible artifact version.
         """
-        config = self.root / "falcoctl-push.yaml"
-        config.write_text(
-            "registry:\n"
-            "  auth:\n"
-            "    basic:\n"
-            f"      - registry: {json.dumps(self.address)}\n"
-            f"        user: {json.dumps(self.username)}\n"
-            f"        password: {json.dumps(self.password)}\n",
-            encoding="utf-8",
-        )
         env = {**os.environ, "SSL_CERT_FILE": str(self.ca_cert)}
         command = [
             str(self.falcoctl_binary),
             "--config",
-            str(config),
+            str(self._falcoctl_config),
             "--log-format",
             "text",
             "registry",
@@ -225,29 +215,36 @@ class OciRegistry:
         )
 
     def _write_htpasswd(self) -> None:
-        """Write the registry htpasswd file using the httpd helper image."""
+        """Write the fixed test htpasswd file."""
         self._auth_dir.mkdir()
-        result = self._docker(
-            "run",
-            "--rm",
-            "--entrypoint",
-            "htpasswd",
-            "httpd:2",
-            "-nbB",
-            self.username,
-            self.password,
+        (self._auth_dir / "htpasswd").write_text(REGISTRY_HTPASSWD, encoding="utf-8")
+
+    def _write_falcoctl_config(self) -> None:
+        """Write the falcoctl credentials used to push artifacts."""
+        self._falcoctl_config.write_text(
+            "registry:\n"
+            "  auth:\n"
+            "    basic:\n"
+            f"      - registry: {json.dumps(self.address)}\n"
+            f"        user: {json.dumps(self.username)}\n"
+            f"        password: {json.dumps(self.password)}\n",
+            encoding="utf-8",
         )
-        (self._auth_dir / "htpasswd").write_text(result.stdout, encoding="utf-8")
 
     def _wait_until_ready(self) -> None:
         """Wait for the registry to accept authenticated TLS requests."""
-        context = ssl.create_default_context(cafile=str(self.ca_cert))
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             try:
-                if self._v2_status(context, self.username, self.password) == 200:
+                response = requests.get(
+                    f"https://{self.address}/v2/",
+                    auth=(self.username, self.password),
+                    verify=str(self.ca_cert),
+                    timeout=5,
+                )
+                if response.status_code == 200:
                     break
-            except (OSError, urllib.error.URLError):
+            except requests.RequestException:
                 pass
             time.sleep(1)
         else:
@@ -256,21 +253,14 @@ class OciRegistry:
                 f"Registry at {self.address} did not become ready:\n{logs.stdout}\n{logs.stderr}"
             )
 
-        if self._v2_status(context, self.username, "wrong-password") != 401:
-            raise RuntimeError("Registry did not reject an incorrect password")
-
-    def _v2_status(self, context: ssl.SSLContext, username: str, password: str) -> int:
-        """Return the HTTP status for the registry API root with basic auth."""
-        credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
-        request = urllib.request.Request(
+        response = requests.get(
             f"https://{self.address}/v2/",
-            headers={"Authorization": f"Basic {credentials}"},
+            auth=(self.username, "wrong-password"),
+            verify=str(self.ca_cert),
+            timeout=5,
         )
-        try:
-            with urllib.request.urlopen(request, context=context, timeout=5) as response:
-                return response.status
-        except urllib.error.HTTPError as exc:
-            return exc.code
+        if response.status_code != 401:
+            raise RuntimeError("Registry did not reject an incorrect password")
 
 
 def _run_command(*command: str) -> None:

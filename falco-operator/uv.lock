@@ -280,6 +280,7 @@ integration = [
     { name = "jubilant" },
     { name = "opcli" },
     { name = "pytest" },
+    { name = "requests" },
 ]
 lint = [
     { name = "codespell" },
@@ -323,6 +324,7 @@ integration = [
     { name = "jubilant", specifier = "==1.15.0" },
     { name = "opcli", git = "https://github.com/canonical/charm-ci.git?tag=v1.0.2" },
     { name = "pytest" },
+    { name = "requests" },
 ]
 lint = [
     { name = "codespell" },

@@ -55,6 +55,7 @@ integration = [
   "jubilant==1.15.0",
   "opcli",
   "pytest",
+  "requests",
 ]
 
 [tool.hatch.metadata]
