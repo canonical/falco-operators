@@ -1,13 +1,14 @@
-# Falco binary release
+# Falco and `falcoctl` binary release
 
-This guide outlines the process for creating a new Falco binary release for the Falco Operator.
+This guide outlines the process for creating a new Falco and `falcoctl` binary release for the Falco Operator.
 
 ## Overview
 
 This document describes the [build](../.github/workflows/build_falco.yaml) and [release](../.github/workflows/release_falco.yaml)
-process for Falco binary. This Falco binary is used by the Falco Operator, and it includes:
+process for the Falco and `falcoctl` binaries. These binaries are used by the Falco Operator, and the release includes:
 
-- Falco binary
+- falco binary
+- `falcoctl` binary
 - Falco k8saudit plugin
 - Falco default rules
 - Falco k8saudit plugin default rules
@@ -20,12 +21,13 @@ process for Falco binary. This Falco binary is used by the Falco Operator, and i
 > This step is typically performed by the renovate bot. Manual updates are only necessary if you are creating a release
 > outside of the regular schedule.
 
-Edit the `.versions` file in the repository root to specify the Falco and plugin versions to build. You can find the
-latest versions on the respective GitHub releases pages.
+Edit the `.versions` file in the repository root to specify the Falco, `falcoctl`, and plugin versions to build. You can
+find the latest versions on the respective GitHub releases pages.
 
 References:
 
 - [Falco Releases](https://github.com/falcosecurity/falco/releases)
+- [`falcoctl` Releases](https://github.com/falcosecurity/falcoctl/releases)
 - [Falco Plugins Releases](https://github.com/falcosecurity/plugins/releases)
 
 ### Create a pull request
@@ -47,7 +49,7 @@ The pull request will trigger a test build to verify the build process completes
 
 ### Review build artifacts (optional)
 
-Once the PR is created, the `Build Falco Binary` workflow will run automatically:
+Once the PR is created, the `Build Falco and falcoctl Binaries` workflow will run automatically:
 
 1. Check the GitHub Actions tab for the workflow run
 2. Verify that the build completes successfully
@@ -60,7 +62,7 @@ After the pull request is reviewed and approved, merge the pull request to the `
 
 ### Create a GitHub release
 
-Merging the PR to `main` will trigger the [Create Falco Release](../.github/workflows/release_falco.yaml) workflow.
+Merging the PR to `main` will trigger the [Create Falco and `falcoctl` Release](../.github/workflows/release_falco.yaml) workflow.
 
 ### Verify the release
 
@@ -77,10 +79,22 @@ wget https://github.com/canonical/falco-operators/releases/download/falco/<tag>/
 # Extract and verify contents
 tar -tzf falco-<version>-x86_64.tar.gz
 
-# Verify binary
+# Verify binaries
 tar -xzf falco-<version>-x86_64.tar.gz
 ./usr/bin/falco --version
+./usr/bin/falcoctl version
 ```
+
+## Build locally
+
+The longer build procedures are available as scripts under `.github/scripts/`:
+
+- `build-falco.sh`
+- `build-falco-plugins.sh`
+- `build-falcoctl.sh`
+
+Use the environment variables defined in `.github/workflows/build_falco.yaml` to point the scripts
+at your local source checkouts.
 
 ## Troubleshooting
 
@@ -88,11 +102,13 @@ If you have any issue, please follow the steps below to do the troubleshooting:
 
 ### Version compatibility
 
-Ensure compatibility between Falco and plugin versions:
+Ensure compatibility between Falco, `falcoctl`, and plugin versions:
 - Check the [Falco documentation](https://falco.org/docs/) for plugin compatibility
 - Review the plugin release notes for supported Falco versions
+- Review the [`falcoctl` release notes](https://github.com/falcosecurity/falcoctl/releases) for changes that may affect rule or plugin distribution
 
 ## Additional resources
 
 - [Falco Releases](https://github.com/falcosecurity/falco/releases)
+- [`falcoctl` Releases](https://github.com/falcosecurity/falcoctl/releases)
 - [Falco Plugins Releases](https://github.com/falcosecurity/plugins/releases)

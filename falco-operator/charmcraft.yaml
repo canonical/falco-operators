@@ -59,14 +59,16 @@ parts:
       # https//github.com/canonical/falco-operators/blob/main/.github/workflows/release_falco.yaml
       DOWNLOAD_URL="https://github.com/canonical/falco-operators/releases/download/falco/$VERSION/falco-$VERSION-$ARCH.tar.gz"
 
-      # Install falco
+      # Install Falco and falcoctl
       curl -s -L -o $CRAFT_PART_SRC/falco-$VERSION-$ARCH.tar.gz $DOWNLOAD_URL
       tar -xvf $CRAFT_PART_SRC/falco-$VERSION-$ARCH.tar.gz -C $CRAFT_PART_BUILD/
       cp -r $CRAFT_PART_BUILD/{etc,usr} $CRAFT_PART_INSTALL/
     organize:
       "*": falco/
     stage:
-      - falco/usr/bin/falco
+      # Stage the whole directory so the charm remains buildable with
+      # Falco tarballs created before falcoctl was added.
+      - falco/usr/bin/
       - falco/usr/share/falco/
       - falco/etc/falco/default_rules/
 
