@@ -1,0 +1,447 @@
+#!/usr/bin/env python3
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+"""Helpers for integration tests that use an authenticated OCI registry."""
+
+from __future__ import annotations
+
+import base64
+import dataclasses
+import json
+import logging
+import os
+import re
+import shlex
+import shutil
+import socket
+import ssl
+import subprocess
+import time
+import urllib.error
+import urllib.request
+import uuid
+import zipfile
+from pathlib import Path
+
+import jubilant
+
+logger = logging.getLogger(__name__)
+
+FALCO_APP = "falco-oci"
+PRINCIPAL_APP = "ubuntu-oci"
+PRINCIPAL_APP_UNITS = 1
+PRINCIPAL_APP_CONSTRAINTS = {"virt-type": "virtual-machine"}
+
+REGISTRY_USERNAME = "falco-test"
+REGISTRY_PASSWORD = "falco-test-password"  # nosec B105 - local test credential
+REGISTRY_REPO = "falco-rules"
+REGISTRY_TAG = "latest"
+RULES_FILE_NAME = "oci-test-rules.yaml"
+RULES_REFRESH_INTERVAL = "5m"
+# The follower checks the registry every five minutes. Give it one full interval plus
+# a generous margin to download and install the updated artifact.
+RULE_UPDATE_TIMEOUT = 8 * 60
+
+RULES_V1_MARKER = "OCI registry test rule v1"
+RULES_V2_MARKER = "OCI registry test rule v2"
+
+
+@dataclasses.dataclass(frozen=True)
+class Deployment:
+    """The deployed Falco application and its registry-visible network details."""
+
+    juju: jubilant.Juju
+    unit: str
+    gateway: str
+
+
+class OciRegistry:
+    """A temporary TLS-enabled OCI registry with htpasswd authentication."""
+
+    def __init__(
+        self,
+        root: Path,
+        host: str,
+        port: int,
+        falcoctl_binary: Path,
+    ) -> None:
+        """Initialize the registry.
+
+        Args:
+            root: Directory for certificates, authentication, and push tooling.
+            host: Hostname or IP address the units use to reach the registry.
+            port: Port the registry listens on.
+            falcoctl_binary: Path to the falcoctl binary used to push artifacts.
+        """
+        self.root = root
+        self.host = host
+        self.port = port
+        self.falcoctl_binary = falcoctl_binary
+        self.username = REGISTRY_USERNAME
+        self.password = REGISTRY_PASSWORD
+        self.ca_cert = root / "ca.crt"
+        self._container_name = f"falco-oci-test-{uuid.uuid4().hex[:8]}"
+        self._auth_dir = root / "auth"
+        self._certs_dir = root / "certs"
+
+    @property
+    def address(self) -> str:
+        """Return the registry address used in OCI references."""
+        return f"{self.host}:{self.port}"
+
+    @property
+    def oci_ref(self) -> str:
+        """Return the artifact reference configured in the charm secret."""
+        return f"{self.address}/{REGISTRY_REPO}:{REGISTRY_TAG}"
+
+    def start(self) -> None:
+        """Create the registry configuration and start the Docker registry."""
+        self._create_certificates()
+        self._write_htpasswd()
+        self._docker(
+            "run",
+            "-d",
+            "--name",
+            self._container_name,
+            "-p",
+            f"{self.host}:{self.port}:5000",
+            "-v",
+            f"{self._auth_dir}:/auth",
+            "-v",
+            f"{self._certs_dir}:/certs",
+            "-e",
+            "REGISTRY_HTTP_ADDR=0.0.0.0:5000",
+            "-e",
+            "REGISTRY_HTTP_TLS_CERTIFICATE=/certs/server.crt",
+            "-e",
+            "REGISTRY_HTTP_TLS_KEY=/certs/server.key",
+            "-e",
+            "REGISTRY_AUTH=htpasswd",
+            "-e",
+            "REGISTRY_AUTH_HTPASSWD_REALM=Registry",
+            "-e",
+            "REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd",
+            "registry:2",
+        )
+        self._wait_until_ready()
+
+    def stop(self) -> None:
+        """Stop the registry and remove its temporary files."""
+        self._docker("rm", "-f", self._container_name, check=False)
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def push_rules(self, rules_file: Path, version: str) -> None:
+        """Push a Falco rulesfile artifact to the registry.
+
+        Args:
+            rules_file: YAML file containing the rules to push.
+            version: Semver-compatible artifact version.
+        """
+        config = self.root / "falcoctl-push.yaml"
+        config.write_text(
+            "registry:\n"
+            "  auth:\n"
+            "    basic:\n"
+            f"      - registry: {json.dumps(self.address)}\n"
+            f"        user: {json.dumps(self.username)}\n"
+            f"        password: {json.dumps(self.password)}\n",
+            encoding="utf-8",
+        )
+        env = {**os.environ, "SSL_CERT_FILE": str(self.ca_cert)}
+        command = [
+            str(self.falcoctl_binary),
+            "--config",
+            str(config),
+            "--log-format",
+            "text",
+            "registry",
+            "push",
+            "--type",
+            "rulesfile",
+            "--version",
+            version,
+            self.oci_ref,
+            str(rules_file),
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, env=env, check=False)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to push rules to {self.oci_ref}:\n{result.stdout}\n{result.stderr}"
+            )
+        logger.info("Pushed %s as %s", rules_file, self.oci_ref)
+
+    def _docker(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+        """Run a Docker command as the test runner user."""
+        return subprocess.run(
+            ["docker", *args],
+            capture_output=True,
+            text=True,
+            check=check,
+        )
+
+    def _create_certificates(self) -> None:
+        """Create a test CA and a registry certificate trusted by the units."""
+        self._certs_dir.mkdir(parents=True)
+        ca_key = self.root / "ca.key"
+        server_key = self._certs_dir / "server.key"
+        server_csr = self.root / "server.csr"
+        server_cert = self._certs_dir / "server.crt"
+        server_ext = self.root / "server.ext"
+
+        _run_command(
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            str(ca_key),
+            "-out",
+            str(self.ca_cert),
+            "-days",
+            "1",
+            "-subj",
+            "/CN=falco-oci-test-ca",
+            "-addext",
+            "basicConstraints=critical,CA:TRUE",
+        )
+        _run_command(
+            "openssl",
+            "req",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            str(server_key),
+            "-out",
+            str(server_csr),
+            "-subj",
+            f"/CN={self.host}",
+        )
+        server_ext.write_text(
+            f"subjectAltName=IP:{self.host},DNS:localhost\n",
+            encoding="utf-8",
+        )
+        _run_command(
+            "openssl",
+            "x509",
+            "-req",
+            "-in",
+            str(server_csr),
+            "-CA",
+            str(self.ca_cert),
+            "-CAkey",
+            str(ca_key),
+            "-CAcreateserial",
+            "-out",
+            str(server_cert),
+            "-days",
+            "1",
+            "-extfile",
+            str(server_ext),
+        )
+
+    def _write_htpasswd(self) -> None:
+        """Write the registry htpasswd file using the httpd helper image."""
+        self._auth_dir.mkdir()
+        result = self._docker(
+            "run",
+            "--rm",
+            "--entrypoint",
+            "htpasswd",
+            "httpd:2",
+            "-nbB",
+            self.username,
+            self.password,
+        )
+        (self._auth_dir / "htpasswd").write_text(result.stdout, encoding="utf-8")
+
+    def _wait_until_ready(self) -> None:
+        """Wait for the registry to accept authenticated TLS requests."""
+        context = ssl.create_default_context(cafile=str(self.ca_cert))
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            try:
+                if self._v2_status(context, self.username, self.password) == 200:
+                    break
+            except (OSError, urllib.error.URLError):
+                pass
+            time.sleep(1)
+        else:
+            logs = self._docker("logs", self._container_name, check=False)
+            raise RuntimeError(
+                f"Registry at {self.address} did not become ready:\n{logs.stdout}\n{logs.stderr}"
+            )
+
+        if self._v2_status(context, self.username, "wrong-password") != 401:
+            raise RuntimeError("Registry did not reject an incorrect password")
+
+    def _v2_status(self, context: ssl.SSLContext, username: str, password: str) -> int:
+        """Return the HTTP status for the registry API root with basic auth."""
+        credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
+        request = urllib.request.Request(
+            f"https://{self.address}/v2/",
+            headers={"Authorization": f"Basic {credentials}"},
+        )
+        try:
+            with urllib.request.urlopen(request, context=context, timeout=5) as response:
+                return response.status
+        except urllib.error.HTTPError as exc:
+            return exc.code
+
+
+def _run_command(*command: str) -> None:
+    """Run a command and raise a useful error if it fails."""
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"Command failed: {shlex.join(command)}\n{result.stderr}")
+
+
+def _extract_falcoctl(charm_path: Path, destination: Path) -> Path:
+    """Extract falcoctl from the built charm so the host can push artifacts."""
+    if charm_path.is_dir():
+        source = charm_path / "falco" / "usr" / "bin" / "falcoctl"
+        if not source.is_file():
+            source = charm_path / "usr" / "bin" / "falcoctl"
+        if not source.is_file():
+            raise RuntimeError(f"falcoctl not found in {charm_path}")
+        shutil.copy2(source, destination)
+    else:
+        with zipfile.ZipFile(charm_path) as archive:
+            names = [name for name in archive.namelist() if name.endswith("usr/bin/falcoctl")]
+            if not names:
+                raise RuntimeError(f"falcoctl not found in {charm_path}")
+            destination.write_bytes(archive.read(names[0]))
+    destination.chmod(0o755)
+    return destination
+
+
+def _free_port() -> int:
+    """Return an available local TCP port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("", 0))
+        return int(sock.getsockname()[1])
+
+
+def _gateway(juju: jubilant.Juju, unit: str) -> str:
+    """Return the unit's default gateway, which is reachable from the test runner."""
+    gateway = juju.ssh(unit, "ip -4 route show default | awk '{print $3; exit}'").strip()
+    if not gateway:
+        raise RuntimeError(f"Could not determine the default gateway for {unit}")
+    return gateway
+
+
+def _install_ca(juju: jubilant.Juju, unit: str, ca_cert: Path) -> None:
+    """Install the test CA in the unit's system trust store."""
+    encoded = base64.b64encode(ca_cert.read_bytes()).decode()
+    juju.ssh(
+        unit,
+        (
+            f"printf '%s' '{encoded}' | base64 -d | "
+            "sudo -n tee /usr/local/share/ca-certificates/falco-oci-test.crt >/dev/null && "
+            "sudo -n update-ca-certificates"
+        ),
+    )
+
+
+def _rules_dir(juju: jubilant.Juju, unit: str) -> str:
+    """Return the managed Falco rules directory from the follower unit file."""
+    try:
+        service = juju.ssh(unit, "sudo -n systemctl cat falcoctl-rules-follow")
+    except jubilant.CLIError:
+        service = ""
+    match = re.search(r"--rulesfiles-dir\s+(\S+)", service)
+    if match:
+        return match.group(1)
+
+    result = juju.ssh(
+        unit,
+        (
+            "sudo -n find /var/lib/juju/agents "
+            "-path '*/charm/falco/etc/falco/rules.d' -type d -print -quit"
+        ),
+    ).strip()
+    if not result:
+        raise RuntimeError(f"Could not find the managed rules directory on {unit}")
+    return result
+
+
+def _write_rules_file(path: Path, marker: str) -> None:
+    """Write a minimal valid Falco rules file containing *marker* in its output."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "- rule: OCI Test Rule\n"
+        "  desc: Rule installed by the Falco operator integration test\n"
+        "  condition: evt.type = execve\n"
+        f"  output: {marker}\n"
+        "  priority: WARNING\n"
+        "  tags: [oci, integration]\n",
+        encoding="utf-8",
+    )
+
+
+def _installed_rule_files(juju: jubilant.Juju, unit: str, rules_dir: str) -> list[str]:
+    """Return the YAML rule files in the managed rules directory."""
+    result = juju.ssh(
+        unit,
+        (
+            f"sudo -n find {shlex.quote(rules_dir)} -maxdepth 1 -type f "
+            "\\( -name '*.yaml' -o -name '*.yml' \\) -print"
+        ),
+    )
+    return [line for line in result.splitlines() if line.strip()]
+
+
+def _wait_for_rule(
+    juju: jubilant.Juju,
+    unit: str,
+    rules_dir: str,
+    marker: str,
+    timeout: float,
+) -> str:
+    """Wait until the managed rule file contains *marker* and return its contents."""
+    rule_file = Path(rules_dir) / RULES_FILE_NAME
+    deadline = time.monotonic() + timeout
+    last_content = ""
+    while time.monotonic() < deadline:
+        try:
+            content = juju.ssh(unit, f"sudo -n cat {shlex.quote(str(rule_file))}")
+        except jubilant.CLIError as exc:
+            last_content = str(exc)
+        else:
+            if marker in content:
+                return content
+            last_content = content
+        time.sleep(10)
+
+    raise AssertionError(
+        f"Rule marker {marker!r} was not installed in {rule_file} on {unit} "
+        f"within {timeout} seconds. Last content:\n{last_content}"
+    )
+
+
+def _remove_managed_rules(juju: jubilant.Juju, unit: str, rules_dir: str) -> None:
+    """Remove the managed rule file to simulate a state with no installed rules."""
+    rule_file = Path(rules_dir) / RULES_FILE_NAME
+    juju.ssh(unit, f"sudo -n rm -f {shlex.quote(str(rule_file))}")
+
+
+def _block_registry(juju: jubilant.Juju, unit: str, host: str) -> None:
+    """Blackhole the registry host on the unit to simulate a network outage."""
+    juju.ssh(unit, f"sudo -n ip route add blackhole {host}/32")
+
+
+def _unblock_registry(juju: jubilant.Juju, unit: str, host: str) -> None:
+    """Remove the blackhole route created by :func:`_block_registry`."""
+    juju.ssh(unit, f"sudo -n ip route del blackhole {host}/32")
+
+
+def _fire_update_status(juju: jubilant.Juju, unit: str) -> None:
+    """Run the charm's update-status hook manually.
+
+    This exercises the same reconcile path as Juju's scheduled update-status
+    event without waiting for the model's update-status interval.
+    """
+    juju.exec("hooks/update-status", unit=unit, wait=180)
