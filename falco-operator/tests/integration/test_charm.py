@@ -98,7 +98,8 @@ def test_remove_integration(deployment: Deployment, juju: jubilant.Juju) -> None
         lambda status: status.apps[deployment.principal_app].is_active, timeout=juju.wait_timeout
     )
 
-    for unit_name in deployment.units:
+    principal_units = juju.status().get_units(deployment.principal_app)
+    for unit_name in principal_units:
         logger.info("Checking if falco service is stopped in unit %s", unit_name)
         result = juju.ssh(unit_name, "systemctl is-active falco || echo 'inactive'")
         assert "inactive" in result or "failed" in result, "Falco service should be inactive"

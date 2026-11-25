@@ -34,6 +34,9 @@ def test_wrong_credentials_are_rejected(
 ) -> None:
     """Invalid registry credentials block the charm and install no rules."""
     rules_dir = _rules_dir(juju, deployment.unit)
+    rules = registry.root / "v1" / RULES_FILE_NAME
+    _write_rules_file(rules, RULES_V1_MARKER)
+    registry.push_rules(rules, "1.0.0")
     secret = juju.add_secret(
         f"falco-oci-rules-wrong-{uuid.uuid4().hex[:8]}",
         {
@@ -118,14 +121,15 @@ def test_recovers_after_network_outage(
     try:
         juju.exec("hooks/update-status", unit=deployment.unit, wait=180)
         status = juju.wait(
-            lambda status: jubilant.all_blocked(status, deployment.falco_app),
+            lambda status: (
+                status.get_units(deployment.falco_app)[deployment.unit].workload_status.current
+                == "blocked"
+            ),
             timeout=juju.wait_timeout,
             error=jubilant.any_error,
         )
-        blocked_units = status.get_units(deployment.falco_app)
-        assert blocked_units, "No Falco units found after the network outage"
-        for blocked_unit in blocked_units.values():
-            assert blocked_unit.workload_status.message == "Failed to fetch OCI rules"
+        blocked_unit = status.get_units(deployment.falco_app)[deployment.unit]
+        assert blocked_unit.workload_status.message == "Failed to fetch OCI rules"
         assert not _installed_rule_files(juju, deployment.unit, rules_dir), (
             "Rules were installed while the registry was unreachable"
         )

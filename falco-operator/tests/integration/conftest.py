@@ -141,7 +141,8 @@ def registry_fixture(
         falcoctl_binary=_extract_falcoctl(Path(charm), root / "falcoctl"),
     )
     registry.start()
-    _install_ca(juju, deployment.unit, registry.ca_cert)
+    for unit in deployment.units:
+        _install_ca(juju, unit, registry.ca_cert)
     logger.info("Started test OCI registry at %s", registry.address)
     try:
         yield registry
@@ -166,7 +167,10 @@ def correct_secret_fixture(
         info="OCI rules integration test - correct credentials",
     )
     juju.grant_secret(secret, deployment.falco_app)
-    juju.config(deployment.falco_app, {"custom-rules-secret": str(secret)})
+    juju.config(
+        deployment.falco_app,
+        {"custom-rules-secret": str(secret), "custom-rules-refresh-interval": "5m"},
+    )
     return secret
 
 
