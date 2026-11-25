@@ -20,7 +20,6 @@ from .helpers import (
     PRINCIPAL_APP_CONSTRAINTS,
     PRINCIPAL_APP_UNITS,
     RULES_FILE_NAME,
-    RULES_V1_MARKER,
     RULES_V2_MARKER,
     Deployment,
     OciRegistry,
@@ -157,27 +156,6 @@ def rules_dir_fixture(
     return _rules_dir(juju, deployment.unit)
 
 
-@pytest.fixture(scope="module", name="wrong_secret")
-def wrong_secret_fixture(
-    juju: jubilant.Juju,
-    deployment: Deployment,
-    registry: OciRegistry,
-):
-    """Create and configure a secret with an incorrect registry password."""
-    secret = juju.add_secret(
-        f"falco-oci-rules-wrong-{uuid.uuid4().hex[:8]}",
-        {
-            "username": registry.username,
-            "password": "incorrect-password",
-            "oci-ref": registry.oci_ref,
-        },
-        info="OCI rules integration test - incorrect credentials",
-    )
-    juju.grant_secret(secret, deployment.falco_app)
-    juju.config(deployment.falco_app, {"custom-rules-secret": str(secret)})
-    return secret
-
-
 @pytest.fixture(scope="module", name="correct_secret")
 def correct_secret_fixture(
     juju: jubilant.Juju,
@@ -197,15 +175,6 @@ def correct_secret_fixture(
     juju.grant_secret(secret, deployment.falco_app)
     juju.config(deployment.falco_app, {"custom-rules-secret": str(secret)})
     return secret
-
-
-@pytest.fixture(scope="module", name="v1_rules")
-def v1_rules_fixture(registry: OciRegistry) -> Path:
-    """Push the initial rules artifact."""
-    rules = registry.root / "v1" / RULES_FILE_NAME
-    _write_rules_file(rules, RULES_V1_MARKER)
-    registry.push_rules(rules, "1.0.0")
-    return rules
 
 
 @pytest.fixture(scope="module", name="v2_rules")

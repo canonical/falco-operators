@@ -7,6 +7,7 @@
 
 import logging
 import shlex
+import uuid
 from pathlib import Path
 
 import jubilant
@@ -19,6 +20,7 @@ from .helpers import (
     OciRegistry,
     _installed_rule_files,
     _wait_for_rule,
+    _write_rules_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,9 +30,20 @@ def test_01_wrong_credentials_are_rejected(
     deployment: Deployment,
     juju: jubilant.Juju,
     rules_dir: str,
-    wrong_secret,
+    registry: OciRegistry,
 ) -> None:
     """Invalid registry credentials block the charm and install no rules."""
+    secret = juju.add_secret(
+        f"falco-oci-rules-wrong-{uuid.uuid4().hex[:8]}",
+        {
+            "username": registry.username,
+            "password": "incorrect-password",
+            "oci-ref": registry.oci_ref,
+        },
+        info="OCI rules integration test - incorrect credentials",
+    )
+    juju.grant_secret(secret, deployment.falco_app)
+    juju.config(deployment.falco_app, {"custom-rules-secret": str(secret)})
     status = juju.wait(
         lambda status: jubilant.all_blocked(status, deployment.falco_app),
         timeout=juju.wait_timeout,
@@ -50,9 +63,12 @@ def test_02_valid_credentials_install_rules(
     juju: jubilant.Juju,
     rules_dir: str,
     correct_secret,
-    v1_rules: Path,
+    registry: OciRegistry,
 ) -> None:
     """Valid credentials install the rules and return the charm to active."""
+    rules = registry.root / "v1" / RULES_FILE_NAME
+    _write_rules_file(rules, RULES_V1_MARKER)
+    registry.push_rules(rules, "1.0.0")
     juju.wait(
         lambda status: jubilant.all_active(status, deployment.principal_app, deployment.falco_app),
         timeout=juju.wait_timeout,
