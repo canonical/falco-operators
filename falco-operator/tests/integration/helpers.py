@@ -96,7 +96,7 @@ class OciRegistry:
         self.falcoctl_binary = falcoctl_binary
         self.username = REGISTRY_USERNAME
         self.password = REGISTRY_PASSWORD
-        self.ca_cert = root / "ca.crt"
+        self.ca_cert = root / "certs" / "server.crt"
         self._container_name = f"falco-oci-test-{uuid.uuid4().hex[:8]}"
         self._auth_dir = root / "auth"
         self._certs_dir = root / "certs"
@@ -197,13 +197,11 @@ class OciRegistry:
         )
 
     def _create_certificates(self) -> None:
-        """Create a test CA and a registry certificate trusted by the units."""
+        """Create one self-signed certificate used by the registry and units."""
         self._certs_dir.mkdir(parents=True)
-        ca_key = self.root / "ca.key"
         server_key = self._certs_dir / "server.key"
-        server_csr = self.root / "server.csr"
         server_cert = self._certs_dir / "server.crt"
-        server_ext = self.root / "server.ext"
+        self.ca_cert = server_cert
 
         _run_command(
             "openssl",
@@ -213,50 +211,17 @@ class OciRegistry:
             "rsa:2048",
             "-nodes",
             "-keyout",
-            str(ca_key),
-            "-out",
-            str(self.ca_cert),
-            "-days",
-            "1",
-            "-subj",
-            "/CN=falco-oci-test-ca",
-            "-addext",
-            "basicConstraints=critical,CA:TRUE",
-        )
-        _run_command(
-            "openssl",
-            "req",
-            "-newkey",
-            "rsa:2048",
-            "-nodes",
-            "-keyout",
             str(server_key),
-            "-out",
-            str(server_csr),
-            "-subj",
-            f"/CN={self.host}",
-        )
-        server_ext.write_text(
-            f"subjectAltName=IP:{self.host},DNS:localhost\n",
-            encoding="utf-8",
-        )
-        _run_command(
-            "openssl",
-            "x509",
-            "-req",
-            "-in",
-            str(server_csr),
-            "-CA",
-            str(self.ca_cert),
-            "-CAkey",
-            str(ca_key),
-            "-CAcreateserial",
             "-out",
             str(server_cert),
             "-days",
             "1",
-            "-extfile",
-            str(server_ext),
+            "-subj",
+            f"/CN={self.host}",
+            "-addext",
+            f"subjectAltName=IP:{self.host},DNS:localhost",
+            "-addext",
+            "basicConstraints=critical,CA:TRUE",
         )
 
     def _write_htpasswd(self) -> None:
