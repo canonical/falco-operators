@@ -38,6 +38,8 @@ def validate_oci_reference(value: str) -> str:
         raise ValueError("must not include a URL scheme")
     if "/" not in value:
         raise ValueError("must include a registry and repository")
+    if any(character.isspace() for character in value):
+        raise ValueError("must not include whitespace")
     return value
 
 

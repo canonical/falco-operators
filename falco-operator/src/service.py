@@ -925,7 +925,7 @@ def _git_sync(
         SshKeyWriteError: If writing the Ssh key fails
     """
     repo_cloned = repo == _get_cloned_repo_url()
-    if repo_cloned and (not ref or ref == _get_cloned_repo_tag()):
+    if repo_cloned and ref == _get_cloned_repo_tag():
         logger.info("Custom config repository already synced")
         return False
 
