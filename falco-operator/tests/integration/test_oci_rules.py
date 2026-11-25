@@ -79,8 +79,9 @@ def test_valid_credentials_install_rules(
         juju, deployment.unit, rules_dir, RULES_V1_MARKER, timeout=juju.wait_timeout
     )
     assert RULES_V1_MARKER in v1_content
-    assert juju.ssh(deployment.unit, "systemctl is-active falcoctl-rules-follow").strip() == (
-        "active"
+    assert (
+        juju.exec("systemctl is-active falcoctl-rules-follow", unit=deployment.unit).stdout.strip()
+        == "active"
     )
 
 
@@ -93,8 +94,9 @@ def test_artifact_updates_are_followed(
     rules_dir = _rules_dir(juju, deployment.unit)
     v2_content = _wait_for_rule(juju, deployment.unit, rules_dir, RULES_V2_MARKER, timeout=8 * 60)
     assert RULES_V1_MARKER not in v2_content
-    assert juju.ssh(deployment.unit, "systemctl is-active falcoctl-rules-follow").strip() == (
-        "active"
+    assert (
+        juju.exec("systemctl is-active falcoctl-rules-follow", unit=deployment.unit).stdout.strip()
+        == "active"
     )
 
 
@@ -108,7 +110,7 @@ def test_recovers_after_network_outage(
     """A network outage blocks the charm, and update-status recovers it."""
     rules_dir = _rules_dir(juju, deployment.unit)
     rule_file = Path(rules_dir) / RULES_FILE_NAME
-    juju.ssh(deployment.unit, f"sudo -n rm -f {shlex.quote(str(rule_file))}")
+    juju.exec(f"rm -f {shlex.quote(str(rule_file))}", unit=deployment.unit)
     juju.ssh(
         deployment.unit,
         (f"sudo -n iptables -A OUTPUT -d {registry.host} -p tcp --dport {registry.port} -j DROP"),
@@ -128,12 +130,9 @@ def test_recovers_after_network_outage(
             "Rules were installed while the registry was unreachable"
         )
     finally:
-        juju.ssh(
-            deployment.unit,
-            (
-                f"sudo -n iptables -D OUTPUT -d {registry.host} "
-                f"-p tcp --dport {registry.port} -j DROP"
-            ),
+        juju.exec(
+            f"iptables -D OUTPUT -d {registry.host} -p tcp --dport {registry.port} -j DROP",
+            unit=deployment.unit,
         )
 
     juju.exec("hooks/update-status", unit=deployment.unit, wait=180)
@@ -146,6 +145,7 @@ def test_recovers_after_network_outage(
         juju, deployment.unit, rules_dir, RULES_V2_MARKER, timeout=juju.wait_timeout
     )
     assert RULES_V2_MARKER in recovered_content
-    assert juju.ssh(deployment.unit, "systemctl is-active falcoctl-rules-follow").strip() == (
-        "active"
+    assert (
+        juju.exec("systemctl is-active falcoctl-rules-follow", unit=deployment.unit).stdout.strip()
+        == "active"
     )

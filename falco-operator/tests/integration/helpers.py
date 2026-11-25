@@ -50,7 +50,9 @@ class Deployment:
 
 def _gateway(juju: jubilant.Juju, unit: str) -> str:
     """Return the unit's default gateway, which is reachable from the test runner."""
-    gateway = juju.ssh(unit, "ip -4 route show default | awk '{print $3; exit}'").strip()
+    gateway = juju.exec(
+        "ip -4 route show default | awk '{print $3; exit}'", unit=unit
+    ).stdout.strip()
     if not gateway:
         raise RuntimeError(f"Could not determine the default gateway for {unit}")
     return gateway
@@ -341,34 +343,29 @@ def _free_port() -> int:
 
 def _install_ca(juju: jubilant.Juju, unit: str, ca_cert: Path) -> None:
     """Install the test CA in the unit's system trust store."""
-    encoded = base64.b64encode(ca_cert.read_bytes()).decode()
-    juju.ssh(
-        unit,
-        (
-            f"printf '%s' '{encoded}' | base64 -d | "
-            "sudo -n tee /usr/local/share/ca-certificates/falco-oci-test.crt >/dev/null && "
-            "sudo -n update-ca-certificates"
-        ),
+    remote = f"/tmp/{uuid.uuid4().hex}-falco-oci-test-ca.crt"
+    juju.scp(ca_cert, f"{unit}:{remote}")
+    juju.exec(
+        f"install -m 0644 {remote} /usr/local/share/ca-certificates/falco-oci-test-ca.crt",
+        unit=unit,
     )
+    juju.exec("update-ca-certificates", unit=unit)
 
 
 def _rules_dir(juju: jubilant.Juju, unit: str) -> str:
     """Return the managed Falco rules directory from the follower unit file."""
     try:
-        service = juju.ssh(unit, "sudo -n systemctl cat falcoctl-rules-follow")
-    except jubilant.CLIError:
+        service = juju.exec("systemctl cat falcoctl-rules-follow", unit=unit).stdout
+    except jubilant.TaskError:
         service = ""
     match = re.search(r"--rulesfiles-dir\s+(\S+)", service)
     if match:
         return match.group(1)
 
-    result = juju.ssh(
-        unit,
-        (
-            "sudo -n find /var/lib/juju/agents "
-            "-path '*/charm/falco/etc/falco/rules.d' -type d -print -quit"
-        ),
-    ).strip()
+    result = juju.exec(
+        "find /var/lib/juju/agents -path '*/charm/falco/etc/falco/rules.d' -type d -print -quit",
+        unit=unit,
+    ).stdout.strip()
     if not result:
         raise RuntimeError(f"Could not find the managed rules directory on {unit}")
     return result
@@ -390,13 +387,13 @@ def _write_rules_file(path: Path, marker: str) -> None:
 
 def _installed_rule_files(juju: jubilant.Juju, unit: str, rules_dir: str) -> list[str]:
     """Return the YAML rule files in the managed rules directory."""
-    result = juju.ssh(
-        unit,
+    result = juju.exec(
         (
-            f"sudo -n find {shlex.quote(rules_dir)} -maxdepth 1 -type f "
+            f"find {shlex.quote(rules_dir)} -maxdepth 1 -type f "
             "\\( -name '*.yaml' -o -name '*.yml' \\) -print"
         ),
-    )
+        unit=unit,
+    ).stdout
     return [line for line in result.splitlines() if line.strip()]
 
 
@@ -413,8 +410,8 @@ def _wait_for_rule(
     last_content = ""
     while time.monotonic() < deadline:
         try:
-            content = juju.ssh(unit, f"sudo -n cat {shlex.quote(str(rule_file))}")
-        except jubilant.CLIError as exc:
+            content = juju.exec(f"cat {shlex.quote(str(rule_file))}", unit=unit).stdout
+        except jubilant.TaskError as exc:
             last_content = str(exc)
         else:
             if marker in content:
