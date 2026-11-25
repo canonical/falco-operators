@@ -49,7 +49,7 @@ def juju_fixture(request: pytest.FixtureRequest) -> Generator[jubilant.Juju, Non
         """Show debug log.
 
         Args:
-            juju: The Juju object.
+            juju: the Juju object.
         """
         if request.session.testsfailed:
             log = juju.debug_log(limit=1000)
