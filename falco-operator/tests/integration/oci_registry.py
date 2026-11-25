@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import base64
-import dataclasses
 import json
 import logging
 import os
@@ -28,11 +27,6 @@ import jubilant
 
 logger = logging.getLogger(__name__)
 
-FALCO_APP = "falco-oci"
-PRINCIPAL_APP = "ubuntu-oci"
-PRINCIPAL_APP_UNITS = 1
-PRINCIPAL_APP_CONSTRAINTS = {"virt-type": "virtual-machine"}
-
 REGISTRY_USERNAME = "falco-test"
 REGISTRY_PASSWORD = "falco-test-password"  # nosec B105 - local test credential
 REGISTRY_REPO = "falco-rules"
@@ -45,15 +39,6 @@ RULE_UPDATE_TIMEOUT = 8 * 60
 
 RULES_V1_MARKER = "OCI registry test rule v1"
 RULES_V2_MARKER = "OCI registry test rule v2"
-
-
-@dataclasses.dataclass(frozen=True)
-class Deployment:
-    """The deployed Falco application and its registry-visible network details."""
-
-    juju: jubilant.Juju
-    unit: str
-    gateway: str
 
 
 class OciRegistry:
@@ -323,14 +308,6 @@ def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("", 0))
         return int(sock.getsockname()[1])
-
-
-def _gateway(juju: jubilant.Juju, unit: str) -> str:
-    """Return the unit's default gateway, which is reachable from the test runner."""
-    gateway = juju.ssh(unit, "ip -4 route show default | awk '{print $3; exit}'").strip()
-    if not gateway:
-        raise RuntimeError(f"Could not determine the default gateway for {unit}")
-    return gateway
 
 
 def _install_ca(juju: jubilant.Juju, unit: str, ca_cert: Path) -> None:
