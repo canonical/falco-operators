@@ -13,19 +13,17 @@ from pathlib import Path
 import jubilant
 import pytest
 
-from .deployment import (
+from .helpers import (
     FALCO_APP,
-    OCI_FALCO_APP,
-    OCI_PRINCIPAL_APP,
-    OCI_PRINCIPAL_APP_CONSTRAINTS,
-    OCI_PRINCIPAL_APP_UNITS,
     PRINCIPAL_APP,
     PRINCIPAL_APP_CONSTRAINTS,
     PRINCIPAL_APP_UNITS,
     Deployment,
+    OciRegistry,
+    _extract_falcoctl,
+    _free_port,
     deploy_falco,
 )
-from .oci_registry import OciRegistry, _extract_falcoctl, _free_port
 
 logger = logging.getLogger(__name__)
 
@@ -73,52 +71,48 @@ def juju_fixture(request: pytest.FixtureRequest) -> Generator[jubilant.Juju, Non
         return
 
 
+@pytest.fixture(scope="module", name="principal_app")
+def principal_app_fixture() -> str:
+    """Return the principal application name used by the tests."""
+    return PRINCIPAL_APP
+
+
+@pytest.fixture(scope="module", name="falco_app")
+def falco_app_fixture() -> str:
+    """Return the Falco application name used by the tests."""
+    return FALCO_APP
+
+
 @pytest.fixture(scope="module", name="deployment")
 def deployment_fixture(
     juju: jubilant.Juju,
     charm: str,
     pytestconfig: pytest.Config,
+    principal_app: str,
+    falco_app: str,
 ) -> Deployment:
-    """Deploy the standard test topology used by the charm integration tests."""
+    """Deploy the shared test topology used by the integration tests."""
     return deploy_falco(
         juju,
         charm,
         pytestconfig,
-        principal_app=PRINCIPAL_APP,
-        falco_app=FALCO_APP,
+        principal_app=principal_app,
+        falco_app=falco_app,
         num_units=PRINCIPAL_APP_UNITS,
         constraints=PRINCIPAL_APP_CONSTRAINTS,
-    )
-
-
-@pytest.fixture(scope="module", name="oci_deployment")
-def oci_deployment_fixture(
-    juju: jubilant.Juju,
-    charm: str,
-    pytestconfig: pytest.Config,
-) -> Deployment:
-    """Deploy a single-unit topology for the OCI rules integration test."""
-    return deploy_falco(
-        juju,
-        charm,
-        pytestconfig,
-        principal_app=OCI_PRINCIPAL_APP,
-        falco_app=OCI_FALCO_APP,
-        num_units=OCI_PRINCIPAL_APP_UNITS,
-        constraints=OCI_PRINCIPAL_APP_CONSTRAINTS,
         gateway=True,
     )
 
 
 @pytest.fixture(scope="module", name="registry")
-def registry_fixture(oci_deployment: Deployment, charm: str) -> Generator[OciRegistry, None, None]:
+def registry_fixture(deployment: Deployment, charm: str) -> Generator[OciRegistry, None, None]:
     """Start an authenticated registry and extract falcoctl for pushing rules."""
     if shutil.which("docker") is None:
         pytest.skip("Docker is required for the OCI registry integration test")
     root = Path(tempfile.mkdtemp(prefix="falco-oci-registry-", dir=Path.home()))
     registry = OciRegistry(
         root=root,
-        host=oci_deployment.gateway,
+        host=deployment.gateway,
         port=_free_port(),
         falcoctl_binary=_extract_falcoctl(Path(charm), root / "falcoctl"),
     )

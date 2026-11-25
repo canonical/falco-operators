@@ -9,7 +9,7 @@ import logging
 
 import jubilant
 
-from .deployment import FALCO_APP, PRINCIPAL_APP, PRINCIPAL_APP_UNITS, Deployment
+from .helpers import PRINCIPAL_APP_UNITS, Deployment
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +22,13 @@ def test_deploy_charms(deployment: Deployment, juju: jubilant.Juju) -> None:
     """
     status = juju.status()
 
-    assert PRINCIPAL_APP in status.apps
-    assert status.apps[PRINCIPAL_APP].app_status.current == "active"
+    assert deployment.principal_app in status.apps
+    assert status.apps[deployment.principal_app].app_status.current == "active"
 
-    assert FALCO_APP in status.apps
+    assert deployment.falco_app in status.apps
     assert len(deployment.units) == PRINCIPAL_APP_UNITS
     for unit_name in deployment.units:
-        unit = status.get_units(FALCO_APP)[unit_name]
+        unit = status.get_units(deployment.falco_app)[unit_name]
         assert unit.workload_status.current == "active"
 
 
@@ -93,9 +93,13 @@ def test_remove_integration(deployment: Deployment) -> None:
     Assert: Falco service is stopped and files are cleaned up.
     """
     juju = deployment.juju
-    logger.info("Removing integration between %s and %s", PRINCIPAL_APP, FALCO_APP)
-    juju.remove_relation(PRINCIPAL_APP, FALCO_APP)
-    juju.wait(lambda status: status.apps[PRINCIPAL_APP].is_active, timeout=juju.wait_timeout)
+    logger.info(
+        "Removing integration between %s and %s", deployment.principal_app, deployment.falco_app
+    )
+    juju.remove_relation(deployment.principal_app, deployment.falco_app)
+    juju.wait(
+        lambda status: status.apps[deployment.principal_app].is_active, timeout=juju.wait_timeout
+    )
 
     for unit_name in deployment.units:
         logger.info("Checking if falco service is stopped in unit %s", unit_name)

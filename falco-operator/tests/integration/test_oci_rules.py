@@ -12,13 +12,13 @@ from pathlib import Path
 
 import jubilant
 
-from .deployment import OCI_FALCO_APP, OCI_PRINCIPAL_APP, Deployment
-from .oci_registry import (
+from .helpers import (
     RULE_UPDATE_TIMEOUT,
     RULES_FILE_NAME,
     RULES_REFRESH_INTERVAL,
     RULES_V1_MARKER,
     RULES_V2_MARKER,
+    Deployment,
     OciRegistry,
     _install_ca,
     _installed_rule_files,
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def test_oci_rules_with_authenticated_registry(
-    oci_deployment: Deployment,
+    deployment: Deployment,
     registry: OciRegistry,
 ) -> None:
     """
@@ -43,8 +43,8 @@ def test_oci_rules_with_authenticated_registry(
         follower installs the updated rules automatically, a registry outage blocks the
         unit when no rules exist, and update-status restores the rules and active status.
     """
-    juju = oci_deployment.juju
-    unit = oci_deployment.unit
+    juju = deployment.juju
+    unit = deployment.unit
 
     _install_ca(juju, unit, registry.ca_cert)
     rules_dir = _rules_dir(juju, unit)
@@ -65,9 +65,9 @@ def test_oci_rules_with_authenticated_registry(
         },
         info="OCI rules integration test - incorrect credentials",
     )
-    juju.grant_secret(wrong_secret, OCI_FALCO_APP)
+    juju.grant_secret(wrong_secret, deployment.falco_app)
     juju.config(
-        OCI_FALCO_APP,
+        deployment.falco_app,
         {
             "custom-rules-secret": str(wrong_secret),
             "custom-rules-refresh-interval": RULES_REFRESH_INTERVAL,
@@ -75,11 +75,11 @@ def test_oci_rules_with_authenticated_registry(
     )
 
     status = juju.wait(
-        lambda status: jubilant.all_blocked(status, OCI_FALCO_APP),
+        lambda status: jubilant.all_blocked(status, deployment.falco_app),
         timeout=juju.wait_timeout,
         error=jubilant.any_error,
     )
-    blocked_units = status.get_units(OCI_FALCO_APP)
+    blocked_units = status.get_units(deployment.falco_app)
     assert blocked_units, "No Falco units found after configuring the wrong secret"
     for blocked_unit in blocked_units.values():
         assert blocked_unit.workload_status.message == "Failed to fetch OCI rules"
@@ -97,11 +97,11 @@ def test_oci_rules_with_authenticated_registry(
         },
         info="OCI rules integration test - correct credentials",
     )
-    juju.grant_secret(correct_secret, OCI_FALCO_APP)
-    juju.config(OCI_FALCO_APP, {"custom-rules-secret": str(correct_secret)})
+    juju.grant_secret(correct_secret, deployment.falco_app)
+    juju.config(deployment.falco_app, {"custom-rules-secret": str(correct_secret)})
 
     juju.wait(
-        lambda status: jubilant.all_active(status, OCI_PRINCIPAL_APP, OCI_FALCO_APP),
+        lambda status: jubilant.all_active(status, deployment.principal_app, deployment.falco_app),
         timeout=juju.wait_timeout,
         error=jubilant.any_error,
     )
@@ -126,11 +126,11 @@ def test_oci_rules_with_authenticated_registry(
     try:
         juju.exec("hooks/update-status", unit=unit, wait=180)
         status = juju.wait(
-            lambda status: jubilant.all_blocked(status, OCI_FALCO_APP),
+            lambda status: jubilant.all_blocked(status, deployment.falco_app),
             timeout=juju.wait_timeout,
             error=jubilant.any_error,
         )
-        blocked_units = status.get_units(OCI_FALCO_APP)
+        blocked_units = status.get_units(deployment.falco_app)
         assert blocked_units, "No Falco units found after the network outage"
         for blocked_unit in blocked_units.values():
             assert blocked_unit.workload_status.message == "Failed to fetch OCI rules"
@@ -143,7 +143,7 @@ def test_oci_rules_with_authenticated_registry(
     logger.info("Restoring the registry and triggering update-status")
     juju.exec("hooks/update-status", unit=unit, wait=180)
     juju.wait(
-        lambda status: jubilant.all_active(status, OCI_PRINCIPAL_APP, OCI_FALCO_APP),
+        lambda status: jubilant.all_active(status, deployment.principal_app, deployment.falco_app),
         timeout=juju.wait_timeout,
         error=jubilant.any_error,
     )
