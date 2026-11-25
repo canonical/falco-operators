@@ -92,7 +92,10 @@ def test_04_recovers_after_network_outage(
     """A network outage blocks the charm, and update-status recovers it."""
     rule_file = Path(rules_dir) / RULES_FILE_NAME
     juju.ssh(deployment.unit, f"sudo -n rm -f {shlex.quote(str(rule_file))}")
-    juju.ssh(deployment.unit, f"sudo -n ip route add blackhole {registry.host}/32")
+    juju.ssh(
+        deployment.unit,
+        (f"sudo -n iptables -A OUTPUT -d {registry.host} -p tcp --dport {registry.port} -j DROP"),
+    )
     try:
         juju.exec("hooks/update-status", unit=deployment.unit, wait=180)
         status = juju.wait(
@@ -108,7 +111,13 @@ def test_04_recovers_after_network_outage(
             "Rules were installed while the registry was unreachable"
         )
     finally:
-        juju.ssh(deployment.unit, f"sudo -n ip route del blackhole {registry.host}/32")
+        juju.ssh(
+            deployment.unit,
+            (
+                f"sudo -n iptables -D OUTPUT -d {registry.host} "
+                f"-p tcp --dport {registry.port} -j DROP"
+            ),
+        )
 
     juju.exec("hooks/update-status", unit=deployment.unit, wait=180)
     juju.wait(
