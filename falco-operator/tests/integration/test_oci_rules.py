@@ -118,12 +118,12 @@ def test_recovers_after_network_outage(
     juju.model_config({"update-status-hook-interval": "1m"})
     rules_dir = _rules_dir(juju, deployment.unit)
     rule_file = Path(rules_dir) / RULES_FILE_NAME
-    juju.exec(f"rm -f {shlex.quote(str(rule_file))}", unit=deployment.unit)
     juju.exec(
         f"iptables -A OUTPUT -d {registry.host} -p tcp --dport {registry.port} -j DROP",
         unit=deployment.unit,
     )
     try:
+        juju.exec(f"rm -f {shlex.quote(str(rule_file))}", unit=deployment.unit)
         status = juju.wait(
             lambda status: (
                 status.get_units(deployment.falco_app)[deployment.unit].workload_status.current
