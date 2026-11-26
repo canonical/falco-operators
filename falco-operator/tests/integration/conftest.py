@@ -21,6 +21,7 @@ from .helpers import (
     PRINCIPAL_APP_UNITS,
     RULES_FILE_NAME,
     RULES_REFRESH_INTERVAL,
+    RULES_V1_MARKER,
     RULES_V2_MARKER,
     Deployment,
     OciRegistry,
@@ -28,6 +29,8 @@ from .helpers import (
     _free_port,
     _gateway,
     _install_ca,
+    _rules_dir,
+    _wait_for_rule,
     _write_rules_file,
 )
 
@@ -151,13 +154,23 @@ def registry_fixture(
         registry.stop()
 
 
+@pytest.fixture(scope="module", name="v1_rules")
+def v1_rules_fixture(registry: OciRegistry) -> Path:
+    """Push the initial rules artifact."""
+    rules = registry.root / "v1" / RULES_FILE_NAME
+    _write_rules_file(rules, RULES_V1_MARKER)
+    registry.push_rules(rules, "1.0.0")
+    return rules
+
+
 @pytest.fixture(scope="module", name="correct_secret")
 def correct_secret_fixture(
     juju: jubilant.Juju,
     deployment: Deployment,
     registry: OciRegistry,
+    v1_rules: Path,
 ):
-    """Create and configure a secret with valid registry credentials."""
+    """Create a valid secret after the initial artifact is published."""
     secret = juju.add_secret(
         f"falco-oci-rules-correct-{uuid.uuid4().hex[:8]}",
         {
@@ -178,9 +191,22 @@ def correct_secret_fixture(
     return secret
 
 
+@pytest.fixture(scope="module", name="v1_installed")
+def v1_installed_fixture(
+    juju: jubilant.Juju,
+    deployment: Deployment,
+    correct_secret,
+    v1_rules: Path,
+) -> Path:
+    """Wait for the initial artifact to be installed."""
+    rules_dir = _rules_dir(juju, deployment.unit)
+    _wait_for_rule(juju, deployment.unit, rules_dir, RULES_V1_MARKER, timeout=juju.wait_timeout)
+    return v1_rules
+
+
 @pytest.fixture(scope="module", name="v2_rules")
-def v2_rules_fixture(registry: OciRegistry) -> Path:
-    """Push the updated rules artifact."""
+def v2_rules_fixture(registry: OciRegistry, v1_installed: Path) -> Path:
+    """Publish the updated artifact after the initial one is installed."""
     rules = registry.root / "v2" / RULES_FILE_NAME
     _write_rules_file(rules, RULES_V2_MARKER)
     registry.push_rules(rules, "1.0.1")

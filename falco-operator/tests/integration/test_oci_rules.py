@@ -22,7 +22,6 @@ from .helpers import (
     _installed_rule_files,
     _rules_dir,
     _wait_for_rule,
-    _write_rules_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,12 +31,10 @@ def test_wrong_credentials_are_rejected(
     deployment: Deployment,
     juju: jubilant.Juju,
     registry: OciRegistry,
+    v1_rules: Path,
 ) -> None:
     """Invalid registry credentials block the charm and install no rules."""
     rules_dir = _rules_dir(juju, deployment.unit)
-    rules = registry.root / "v1" / RULES_FILE_NAME
-    _write_rules_file(rules, RULES_V1_MARKER)
-    registry.push_rules(rules, "1.0.0")
     secret = juju.add_secret(
         f"falco-oci-rules-wrong-{uuid.uuid4().hex[:8]}",
         {
@@ -66,14 +63,10 @@ def test_wrong_credentials_are_rejected(
 def test_valid_credentials_install_rules(
     deployment: Deployment,
     juju: jubilant.Juju,
-    correct_secret,
-    registry: OciRegistry,
+    v1_installed: Path,
 ) -> None:
     """Valid credentials install the rules and return the charm to active."""
     rules_dir = _rules_dir(juju, deployment.unit)
-    rules = registry.root / "v1" / RULES_FILE_NAME
-    _write_rules_file(rules, RULES_V1_MARKER)
-    registry.push_rules(rules, "1.0.0")
     juju.wait(
         lambda status: jubilant.all_active(status, deployment.principal_app, deployment.falco_app),
         timeout=juju.wait_timeout,
@@ -92,7 +85,6 @@ def test_valid_credentials_install_rules(
 def test_artifact_updates_are_followed(
     deployment: Deployment,
     juju: jubilant.Juju,
-    correct_secret,
     v2_rules: Path,
 ) -> None:
     """A new artifact is followed without changing charm configuration."""
