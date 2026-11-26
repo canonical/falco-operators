@@ -18,6 +18,7 @@ Juju configuration, relations, and lifecycle commands help users customize Falco
 :maxdepth: 1
 
 configure-custom-repository.md
+configure-custom-rules-oci.md
 configure-tls-ingress.md
 Integrate with COS <integrate-with-cos.md>
 ```

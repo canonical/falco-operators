@@ -105,6 +105,18 @@ config:
         command. and use the secret ID output to configure this option.
 
         `juju add-secret custom-config-repo-ssh-key value=<ssh-key> && juju grant-secret custom-config-repo-ssh-key <falco-operator>`
+    custom-rules-secret:
+      type: secret
+      description: |
+        The Juju secret ID containing the OCI registry credentials and rules reference. The secret
+        must contain the keys `username`, `password`, and `oci-ref`.
+    custom-rules-refresh-interval:
+      type: string
+      default: "1h"
+      description: |
+        How often the charm checks the OCI registry for a newer rules artifact.
+        Accepts Go durations of at least `5m`, such as `5m`, `1h`, or `6h`. Whitespace and empty
+        values are not accepted. When unset, the default interval is one hour.
 
 requires:
   general-info:
