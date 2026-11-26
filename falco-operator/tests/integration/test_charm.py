@@ -95,7 +95,11 @@ def test_remove_integration(deployment: Deployment, juju: jubilant.Juju) -> None
     )
     juju.remove_relation(deployment.principal_app, deployment.falco_app)
     juju.wait(
-        lambda status: status.apps[deployment.principal_app].is_active, timeout=juju.wait_timeout
+        lambda status: (
+            status.apps[deployment.principal_app].is_active
+            and deployment.falco_app not in status.apps
+        ),
+        timeout=juju.wait_timeout,
     )
 
     principal_units = juju.status().get_units(deployment.principal_app)

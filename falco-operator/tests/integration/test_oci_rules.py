@@ -115,6 +115,7 @@ def test_recovers_after_network_outage(
     correct_secret,
 ) -> None:
     """A network outage blocks the charm, and update-status recovers it."""
+    juju.model_config({"update-status-hook-interval": "1m"})
     rules_dir = _rules_dir(juju, deployment.unit)
     rule_file = Path(rules_dir) / RULES_FILE_NAME
     juju.exec(f"rm -f {shlex.quote(str(rule_file))}", unit=deployment.unit)
@@ -123,7 +124,6 @@ def test_recovers_after_network_outage(
         unit=deployment.unit,
     )
     try:
-        juju.exec("hooks/update-status", unit=deployment.unit, wait=180)
         status = juju.wait(
             lambda status: (
                 status.get_units(deployment.falco_app)[deployment.unit].workload_status.current
@@ -143,7 +143,6 @@ def test_recovers_after_network_outage(
             unit=deployment.unit,
         )
 
-    juju.exec("hooks/update-status", unit=deployment.unit, wait=180)
     juju.wait(
         lambda status: jubilant.all_active(status, deployment.principal_app, deployment.falco_app),
         timeout=juju.wait_timeout,
