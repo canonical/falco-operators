@@ -349,7 +349,10 @@ def _wait_for_rule(
     marker: str,
     timeout: float,
 ) -> str:
-    """Wait until the managed rule file contains *marker* and return its contents."""
+    """Wait until the rule is fetched locally and return the managed rule contents.
+
+    The rule is considered fetched once the managed rule file on *unit* contains *marker*.
+    """
     rule_file = Path(rules_dir) / RULES_FILE_NAME
     deadline = time.monotonic() + timeout
     last_content = ""
