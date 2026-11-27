@@ -39,7 +39,7 @@ def test_wrong_credentials_are_rejected(
         f"falco-oci-rules-wrong-{uuid.uuid4().hex[:8]}",
         {
             "username": registry.username,
-            "password": "incorrect-password",
+            "password": f"wrong-{registry.password}",
             "oci-ref": registry.oci_ref,
         },
         info="OCI rules integration test - incorrect credentials",
@@ -67,11 +67,12 @@ def test_valid_credentials_install_rules(
 ) -> None:
     """Valid credentials install the rules and return the charm to active."""
     rules_dir = _rules_dir(juju, deployment.unit)
-    juju.wait(
+    status = juju.wait(
         lambda status: jubilant.all_active(status, deployment.principal_app, deployment.falco_app),
         timeout=juju.wait_timeout,
         error=jubilant.any_error,
     )
+    assert status.apps[deployment.falco_app].app_status.current == "active"
     v1_content = _wait_for_rule(
         juju, deployment.unit, rules_dir, RULES_V1_MARKER, timeout=juju.wait_timeout
     )

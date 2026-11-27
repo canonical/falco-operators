@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import shlex
 import shutil
 import socket
@@ -19,6 +20,7 @@ import uuid
 import zipfile
 from pathlib import Path
 
+import bcrypt
 import jubilant
 import requests
 
@@ -56,11 +58,6 @@ def _gateway(juju: jubilant.Juju, unit: str) -> str:
 
 
 DOCKER = shutil.which("docker") or "docker"
-REGISTRY_USERNAME = "falco-test"
-REGISTRY_PASSWORD = "falco-test-password"  # nosec B105 - local test credential
-REGISTRY_HTPASSWD = (
-    f"{REGISTRY_USERNAME}:$2y$05$03/yOI6axBGYTFcN1r5.L.ddKEZk7gu/0bRtkqTm/cxTJ5I1aeFzS\n"
-)
 REGISTRY_REPO = "falco-rules"
 REGISTRY_TAG = "latest"
 RULES_FILE_NAME = "oci-test-rules.yaml"
@@ -95,8 +92,10 @@ class OciRegistry:
         self.host = host
         self.port = port
         self.falcoctl_binary = falcoctl_binary
-        self.username = REGISTRY_USERNAME
-        self.password = REGISTRY_PASSWORD
+        self.username = f"falco-test-{uuid.uuid4().hex[:8]}"
+        self.password = secrets.token_urlsafe(16)
+        hashed_password = bcrypt.hashpw(self.password.encode(), bcrypt.gensalt()).decode()
+        self._htpasswd = f"{self.username}:{hashed_password}\n"
         self.ca_cert = root / "certs" / "server.crt"
         self._container_name = f"falco-oci-test-{uuid.uuid4().hex[:8]}"
         self._auth_dir = root / "auth"
@@ -217,9 +216,9 @@ class OciRegistry:
         )
 
     def _write_htpasswd(self) -> None:
-        """Write the fixed test htpasswd file."""
+        """Write the generated test htpasswd file."""
         self._auth_dir.mkdir()
-        (self._auth_dir / "htpasswd").write_text(REGISTRY_HTPASSWD, encoding="utf-8")
+        (self._auth_dir / "htpasswd").write_text(self._htpasswd, encoding="utf-8")
 
     def _write_falcoctl_config(self) -> None:
         """Write the falcoctl credentials used to push artifacts."""
@@ -273,20 +272,9 @@ def _run_command(*command: str) -> None:
 
 
 def _extract_falcoctl(charm_path: Path, destination: Path) -> Path:
-    """Extract falcoctl from the built charm so the host can push artifacts."""
-    if charm_path.is_dir():
-        source = charm_path / "falco" / "usr" / "bin" / "falcoctl"
-        if not source.is_file():
-            source = charm_path / "usr" / "bin" / "falcoctl"
-        if not source.is_file():
-            raise RuntimeError(f"falcoctl not found in {charm_path}")
-        shutil.copy2(source, destination)
-    else:
-        with zipfile.ZipFile(charm_path) as archive:
-            names = [name for name in archive.namelist() if name.endswith("usr/bin/falcoctl")]
-            if not names:
-                raise RuntimeError(f"falcoctl not found in {charm_path}")
-            destination.write_bytes(archive.read(names[0]))
+    """Extract falcoctl from the built charm archive."""
+    with zipfile.ZipFile(charm_path) as archive:
+        destination.write_bytes(archive.read("falco/usr/bin/falcoctl"))
     destination.chmod(0o755)
     return destination
 
