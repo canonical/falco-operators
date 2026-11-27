@@ -27,6 +27,7 @@ def mock_falco_layout(mock_falco_base_dir):
     """Create a temporary Falco directory structure."""
     (mock_falco_base_dir / "usr/bin").mkdir(parents=True)
     (mock_falco_base_dir / "usr/bin/falco").touch()
+    (mock_falco_base_dir / "usr/bin/falcoctl").touch()
     (mock_falco_base_dir / "usr/share/falco/plugins").mkdir(parents=True)
     (mock_falco_base_dir / "etc/falco/default_rules").mkdir(parents=True)
     yield FalcoLayout(base_dir=mock_falco_base_dir)

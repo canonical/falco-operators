@@ -1,0 +1,21 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+[Unit]
+Description=Falcoctl OCI rules follower
+Documentation=https://falco.org/docs/
+After=falco.service
+Wants=falco.service
+
+[Service]
+Type=simple
+EnvironmentFile=-{{ proxy_env_file }}
+ExecStart={{ falcoctl }} --config {{ config_file }} artifact follow --allowed-types rulesfile --rulesfiles-dir {{ rules_dir }} --state-dir {{ state_dir }} --tmp-dir {{ tmp_dir }} --falco-versions {{ falco_versions }} --every {{ every }} --startup-behavior immediate {{ oci_ref }}
+Restart=on-failure
+RestartSec=15s
+User=root
+UMask=0077
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

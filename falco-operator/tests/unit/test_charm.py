@@ -11,6 +11,7 @@ import ops.testing
 import pytest
 from pydantic import AnyUrl
 
+import service
 from charm import Falco
 from service import FalcoConfigurationError
 
@@ -28,6 +29,7 @@ class TestCharm:
             charm = manager.charm
             assert charm.falco_layout is not None
             assert charm.falco_service_file is not None
+            assert charm.falco_proxy_env_file is not None
             assert charm.managed_falco_config is not None
 
     def test_charm_initialization_missing_falco_directory(self, mock_charm_dir, mock_falco_layout):
@@ -262,6 +264,99 @@ class TestCharmConfigHandling:
         assert state_out.unit_status == ops.testing.BlockedStatus("Invalid charm config")
 
     @patch("charm.FalcoService")
+    def test_config_changed_invalid_secret_does_not_log_values(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout, caplog
+    ):
+        """Test that invalid secret values are not written to the logs."""
+        username = "robot-user"
+        password = "super-secret-token"  # nosec B105 - test credential
+        oci_ref = "https://quay.io/private/rules:latest"
+        secret = ops.testing.Secret(
+            tracked_content={
+                "username": username,
+                "password": password,
+                "oci-ref": oci_ref,
+            }
+        )
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        state_in = ops.testing.State(
+            config={"custom-rules-secret": secret.id},
+            secrets=[secret],
+        )
+
+        with caplog.at_level("WARNING", logger="charm"):
+            state_out = context.run(context.on.config_changed(), state_in)
+
+        assert state_out.unit_status == ops.testing.BlockedStatus("Invalid charm config")
+        assert "must not include a URL scheme" in caplog.text
+        assert username not in caplog.text
+        assert password not in caplog.text
+        assert oci_ref not in caplog.text
+
+    def test_secret_rotation_updates_falcoctl_credentials(self, mock_charm_dir, mock_falco_layout):
+        """Test that secret rotation updates the credentials used by falcoctl."""
+        old_secret = ops.testing.Secret(
+            tracked_content={
+                "username": "robot",
+                "password": "old-token",
+                "oci-ref": "quay.io/org/rules:latest",
+            }
+        )
+        new_secret = ops.testing.Secret(
+            id=old_secret.id,
+            tracked_content={
+                "username": "robot",
+                "password": "new-token",
+                "oci-ref": "quay.io/org/rules:latest",
+            },
+        )
+        config = {"custom-rules-secret": old_secret.id}
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        original_oci_init = service.FalcoOciRules.__init__
+
+        def oci_init(self, falco_layout, systemd_service_dir=mock_charm_dir / "systemd"):
+            original_oci_init(self, falco_layout, systemd_service_dir)
+
+        with (
+            patch("service.systemd") as mock_systemd,
+            patch.object(service.FalcoOciRules, "__init__", oci_init),
+            patch.object(
+                service.FalcoServiceFile,
+                "service_file",
+                mock_charm_dir / "falco.service",
+            ),
+        ):
+            mock_systemd.service_running.return_value = True
+
+            def restart(name):
+                if name == service.FALCOCTL_FOLLOW_SERVICE_NAME:
+                    (mock_falco_layout.rules_dir / "oci-rule.yaml").write_text(
+                        "rule", encoding="utf-8"
+                    )
+
+            mock_systemd.service_restart.side_effect = restart
+
+            context.run(
+                context.on.config_changed(),
+                ops.testing.State(config=config, secrets=[old_secret]),
+            )
+            config_file = mock_falco_layout.oci_rules_dir / "falcoctl.yaml"
+            assert "old-token" in config_file.read_text(encoding="utf-8")
+
+            mock_systemd.reset_mock()
+            mock_systemd.service_running.return_value = True
+            mock_systemd.service_restart.side_effect = restart
+            state_out = context.run(
+                context.on.secret_changed(new_secret),
+                ops.testing.State(config=config, secrets=[new_secret]),
+            )
+
+        config_content = config_file.read_text(encoding="utf-8")
+        assert "new-token" in config_content
+        assert "old-token" not in config_content
+        assert state_out.unit_status == ops.testing.ActiveStatus()
+
+    @patch("charm.FalcoService")
     def test_config_changed_git_clone_error(
         self, mock_service_class, mock_charm_dir, mock_falco_layout
     ):
@@ -277,6 +372,32 @@ class TestCharmConfigHandling:
         state_out = context.run(context.on.config_changed(), state_in)
 
         assert state_out.unit_status == ops.testing.BlockedStatus("Failed configuring Falco")
+
+    @patch("charm.FalcoService")
+    def test_config_changed_conflicting_rules_sources(
+        self, mock_service_class, mock_charm_dir, mock_falco_layout
+    ):
+        """Test config_changed when git and OCI rules sources are both configured."""
+        secret = ops.testing.Secret(
+            tracked_content={
+                "username": "robot",
+                "password": "token",
+                "oci-ref": "quay.io/canonical/falco-rules:latest",
+            }
+        )
+        context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+        state_in = ops.testing.State(
+            config={
+                "custom-config-repository": "git+ssh://git@github.com/owner/repo.git",
+                "custom-rules-secret": secret.id,
+            },
+            secrets=[secret],
+        )
+        state_out = context.run(context.on.config_changed(), state_in)
+
+        assert state_out.unit_status == ops.testing.BlockedStatus(
+            "Only one of custom-config-repository and custom-rules-secret can be configured"
+        )
 
 
 class TestCharmWithHttpEndpointRelation:
@@ -332,3 +453,38 @@ class TestCharmWithHttpEndpointRelation:
             # Verify charm does notretrieved http endpoint data from relation
             assert charm_state.http_output == {}
             assert state_out.unit_status == ops.testing.ActiveStatus()
+
+
+def test_install_writes_proxy_environment_file(
+    monkeypatch, mock_charm_dir, mock_falco_layout, tmp_path
+):
+    """Test the install event writes proxy settings to a root-only env file."""
+    proxy_url = "http://egress.ps7.internal:3128"
+    service_file_path = tmp_path / "falco.service"
+    monkeypatch.setattr("service.FalcoServiceFile.service_file", service_file_path)
+    monkeypatch.setattr("service.systemd.service_enable", MagicMock())
+    monkeypatch.setattr("service.systemd.service_start", MagicMock())
+
+    context = ops.testing.Context(charm_type=Falco, charm_root=mock_charm_dir)
+    state_in = ops.testing.State(
+        model=ops.testing.Model(
+            proxy_config=ops.testing.ProxyConfig(
+                http=proxy_url,
+                https=proxy_url,
+                no=("127.0.0.1", "localhost", "10.0.0.0/8"),
+            )
+        )
+    )
+
+    with context(context.on.install(), state_in) as manager:
+        state_out = manager.run()
+        charm = manager.charm
+
+    proxy_env_file = charm.falco_proxy_env_file.destination
+    assert proxy_env_file.exists()
+    assert proxy_env_file.stat().st_mode & 0o777 == 0o600
+
+    service_content = service_file_path.read_text()
+    assert f"EnvironmentFile=-{proxy_env_file}" in service_content
+    assert proxy_url not in service_content
+    assert state_out.unit_status == ops.testing.MaintenanceStatus("Installing Falco service")

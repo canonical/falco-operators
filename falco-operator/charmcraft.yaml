@@ -51,7 +51,7 @@ parts:
 
       # Set Falco version
       # renovate: depName=canonical/falco-operators
-      VERSION=0.45.0
+      VERSION=0.45.2
       # Determine architecture
       ARCH="$(uname -m)"
       # Github release URL for Falco. The tarball is created in the build and release falco workflow:
@@ -59,14 +59,16 @@ parts:
       # https//github.com/canonical/falco-operators/blob/main/.github/workflows/release_falco.yaml
       DOWNLOAD_URL="https://github.com/canonical/falco-operators/releases/download/falco/$VERSION/falco-$VERSION-$ARCH.tar.gz"
 
-      # Install falco
+      # Install Falco and falcoctl
       curl -s -L -o $CRAFT_PART_SRC/falco-$VERSION-$ARCH.tar.gz $DOWNLOAD_URL
       tar -xvf $CRAFT_PART_SRC/falco-$VERSION-$ARCH.tar.gz -C $CRAFT_PART_BUILD/
       cp -r $CRAFT_PART_BUILD/{etc,usr} $CRAFT_PART_INSTALL/
     organize:
       "*": falco/
     stage:
-      - falco/usr/bin/falco
+      # Stage the whole directory so the charm remains buildable with
+      # Falco tarballs created before falcoctl was added.
+      - falco/usr/bin/
       - falco/usr/share/falco/
       - falco/etc/falco/default_rules/
 
@@ -103,6 +105,18 @@ config:
         command. and use the secret ID output to configure this option.
 
         `juju add-secret custom-config-repo-ssh-key value=<ssh-key> && juju grant-secret custom-config-repo-ssh-key <falco-operator>`
+    custom-rules-secret:
+      type: secret
+      description: |
+        The Juju secret ID containing the OCI registry credentials and rules reference. The secret
+        must contain the keys `username`, `password`, and `oci-ref`.
+    custom-rules-refresh-interval:
+      type: string
+      default: "1h"
+      description: |
+        How often the charm checks the OCI registry for a newer rules artifact.
+        Accepts Go durations of at least `5m`, such as `5m`, `1h`, or `6h`. Whitespace and empty
+        values are not accepted. When unset, the default interval is one hour.
 
 requires:
   general-info:

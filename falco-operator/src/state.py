@@ -6,15 +6,42 @@
 import itertools
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Annotated, Optional
 
 import ops
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
-from pydantic import AnyUrl, BaseModel, ValidationError
+from pydantic import (
+    AfterValidator,
+    AnyUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+)
 
-from config import CharmConfig, InvalidCharmConfigError
+from config import (
+    DEFAULT_FOLLOW_INTERVAL,
+    CharmConfig,
+    ConflictingRulesSourceError,
+    InvalidCharmConfigError,
+    validate_oci_reference,
+)
 
 logger = logging.getLogger(__name__)
+
+
+class CustomRulesSecret(BaseModel):
+    """Validated OCI rules secret payload."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    username: str = Field(min_length=1, repr=False)
+    password: str = Field(min_length=1, repr=False)
+    oci_ref: Annotated[
+        str,
+        Field(min_length=1, repr=False, alias="oci-ref"),
+        AfterValidator(validate_oci_reference),
+    ]
 
 
 class CharmState(BaseModel):
@@ -24,12 +51,16 @@ class CharmState(BaseModel):
         custom_config_repo: Optional URL to a custom configuration repository.
         custom_config_repo_ref: Optional branch or tag to a custom configuration repository.
         custom_config_repo_ssh_key: Optional SSH key for custom configuration repository.
+        custom_rules: Optional validated OCI registry credentials and rules reference.
+        custom_rules_refresh_interval: How often falcoctl checks for OCI rules updates.
         http_output: Optional HTTP output data from http-output relation.
     """
 
     custom_config_repo: Optional[AnyUrl] = None
     custom_config_repo_ref: Optional[str] = None
     custom_config_repo_ssh_key: Optional[str] = None
+    custom_rules: Optional[CustomRulesSecret] = None
+    custom_rules_refresh_interval: str = DEFAULT_FOLLOW_INTERVAL
     http_output: Optional[dict[str, str]] = None
 
     @classmethod
@@ -66,6 +97,12 @@ class CharmState(BaseModel):
             custom_config_repo_ref = ref_string[0] if ref_string else ""
 
         custom_config_repo_ssh_key = _fetch_custom_ssh_key(charm.model, charm_config)
+        custom_rules = _fetch_custom_rules_secret(charm.model, charm_config)
+
+        if custom_config_repo and custom_rules:
+            raise ConflictingRulesSourceError(
+                "Only one of custom-config-repository and custom-rules-secret can be configured"
+            )
 
         http_output = {}
         app_urls = http_endpoint_requirer.get_app_urls()
@@ -79,6 +116,8 @@ class CharmState(BaseModel):
             custom_config_repo=custom_config_repo,
             custom_config_repo_ref=custom_config_repo_ref,
             custom_config_repo_ssh_key=custom_config_repo_ssh_key,
+            custom_rules=custom_rules,
+            custom_rules_refresh_interval=charm_config.custom_rules_refresh_interval,
             http_output=http_output,
         )
 
@@ -125,3 +164,39 @@ def _fetch_custom_ssh_key(model: ops.Model, config: CharmConfig) -> Optional[str
             "Repository secret is empty or does not contain the expected key 'value'."
         )
     return ssh_key_content
+
+
+def _fetch_custom_rules_secret(
+    model: ops.Model, config: CharmConfig
+) -> Optional[CustomRulesSecret]:
+    """Fetch OCI registry credentials and artifact reference from the charm config.
+
+    Args:
+        model: The Juju model.
+        config: The charm config.
+
+    Returns:
+        The validated secret payload, or None if not configured.
+
+    Raises:
+        InvalidCharmConfigError: If the secret cannot be accessed or is missing required keys.
+    """
+    if not config.custom_rules_secret:
+        return None
+
+    try:
+        secret = model.get_secret(id=config.custom_rules_secret.id)
+        content = secret.get_content(refresh=True)
+    except ops.SecretNotFoundError as exc:
+        raise InvalidCharmConfigError("Custom rules secret not found.") from exc
+
+    try:
+        return CustomRulesSecret.model_validate(content)
+    except ValidationError as e:
+        messages = "; ".join(
+            f"{'.'.join(str(part) for part in error['loc'])}: "
+            f"{error['msg'].removeprefix('Value error, ')}"
+            for error in e.errors()
+        )
+        # Do not chain the Pydantic error: its traceback includes the raw secret values.
+        raise InvalidCharmConfigError(f"Invalid custom rules secret: {messages}") from None

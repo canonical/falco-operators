@@ -102,9 +102,8 @@ community projects, contributions, suggestions, fixes and constructive feedback.
 
 - [Code of conduct](https://ubuntu.com/community/code-of-conduct)
 - [Contribute](https://github.com/canonical/falco-operators/blob/main/CONTRIBUTING.md)
-- [Get support](https://discourse.charmhub.io/)
+- [Get support](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
 - [Issues](https://github.com/canonical/falco-operators/issues)
-- [Matrix](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
 
 ## Licensing and trademark
 

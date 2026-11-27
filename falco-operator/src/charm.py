@@ -12,14 +12,16 @@ import ops
 from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from pfe.interfaces.falcosidekick_http_endpoint import HttpEndpointRequirer
 
-from config import InvalidCharmConfigError
+from config import ConflictingRulesSourceError, InvalidCharmConfigError
 from service import (
     FalcoConfigFile,
     FalcoConfigurationError,
     FalcoCustomSetting,
     FalcoLayout,
+    FalcoProxyEnvFile,
     FalcoService,
     FalcoServiceFile,
+    OciRulesError,
 )
 from state import CharmBaseWithState, CharmState
 
@@ -55,10 +57,14 @@ class Falco(CharmBaseWithState):
 
         self.falco_layout = FalcoLayout(base_dir=self.charm_dir / "falco")
         self.falco_service_file = FalcoServiceFile(self.falco_layout, self)
+        self.falco_proxy_env_file = FalcoProxyEnvFile(self.falco_layout, self.model.proxy_config)
         self.managed_falco_config = FalcoConfigFile(self.falco_layout)
         self.custom_falco_setting = FalcoCustomSetting(self.falco_layout)
         self.falco_service = FalcoService(
-            self.managed_falco_config, self.falco_service_file, self.custom_falco_setting
+            self.managed_falco_config,
+            self.falco_service_file,
+            self.falco_proxy_env_file,
+            self.custom_falco_setting,
         )
 
         self.framework.observe(self.on.remove, self._on_remove)
@@ -67,6 +73,7 @@ class Falco(CharmBaseWithState):
 
         self.framework.observe(self.on.config_changed, self.reconcile)
         self.framework.observe(self.on.secret_changed, self.reconcile)
+        self.framework.observe(self.on.update_status, self.reconcile)
 
         # Observe http-endpoint relation evnents to trigger reconciliation
         self.framework.observe(
@@ -97,7 +104,15 @@ class Falco(CharmBaseWithState):
         """Reconcile the charm state."""
         try:
             self.falco_service.configure(self.state)
-        except InvalidCharmConfigError:
+        except ConflictingRulesSourceError as e:
+            self.unit.status = ops.BlockedStatus(str(e))
+            return
+        except OciRulesError as e:
+            logger.error("Failed to fetch OCI rules: %s", e)
+            self.unit.status = ops.BlockedStatus("Failed to fetch OCI rules")
+            return
+        except InvalidCharmConfigError as e:
+            logger.warning("Invalid charm config: %s", e)
             self.unit.status = ops.BlockedStatus("Invalid charm config")
             return
         except FalcoConfigurationError:

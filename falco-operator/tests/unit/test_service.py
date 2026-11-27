@@ -4,10 +4,12 @@
 """Unit tests for Falco service module."""
 
 import os
+import stat
 import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
+from ops.model import ProxyConfig
 from pydantic import AnyUrl
 
 import service
@@ -18,15 +20,19 @@ from service import (
     FALCO_SERVICE_NAME,
     FalcoConfigurationError,
     FalcoCustomSetting,
+    FalcoOciRules,
+    FalcoProxyEnvFile,
     FalcoService,
+    FalcoServiceFile,
     GitCloneError,
+    OciRulesError,
     RsyncError,
     SshKeyScanError,
     SshKeyWriteError,
     Template,
     TemplateRenderError,
 )
-from state import CharmState
+from state import CharmState, CustomRulesSecret
 
 
 class TestTemplate:
@@ -93,6 +99,259 @@ class TestTemplate:
 
         with pytest.raises(TemplateRenderError, match="Failed to write template"):
             template.install()
+
+
+def test_proxy_environment_file(mock_falco_layout, tmp_path):
+    """Test proxy values are written to a root-only environment file."""
+    proxy_env_file = tmp_path / "proxy.env"
+    proxy_env = FalcoProxyEnvFile(
+        mock_falco_layout,
+        ProxyConfig(
+            http="http://egress.ps7.internal:3128",
+            https="http://egress.ps7.internal:3128",
+            no=("127.0.0.1", "localhost", "10.0.0.0/8"),
+        ),
+    )
+    proxy_env.destination = proxy_env_file
+    assert proxy_env.install() is True
+
+    proxy_content = proxy_env_file.read_text()
+    assert "HTTP_PROXY=http://egress.ps7.internal:3128" in proxy_content
+    assert "http_proxy=http://egress.ps7.internal:3128" in proxy_content
+    assert "HTTPS_PROXY=http://egress.ps7.internal:3128" in proxy_content
+    assert "https_proxy=http://egress.ps7.internal:3128" in proxy_content
+    assert "NO_PROXY=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
+    assert "no_proxy=127.0.0.1,localhost,10.0.0.0/8" in proxy_content
+    assert stat.S_IMODE(proxy_env_file.stat().st_mode) == 0o600
+    assert proxy_env.install() is False
+
+
+def test_proxy_environment_is_not_html_escaped(mock_falco_layout, tmp_path):
+    """Test ampersands in proxy values are preserved in the environment file."""
+    proxy_url = "http://egress.ps7.internal:3128/?x=1&y=2"
+    proxy_env_file = tmp_path / "proxy.env"
+    proxy_env = FalcoProxyEnvFile(
+        mock_falco_layout,
+        ProxyConfig(http=proxy_url),
+    )
+    proxy_env.destination = proxy_env_file
+    proxy_env.install()
+
+    proxy_content = proxy_env_file.read_text()
+    assert f"HTTP_PROXY={proxy_url}" in proxy_content
+    assert "&amp;" not in proxy_content
+
+
+@patch("service.JujuTopology")
+def test_systemd_values_are_not_html_escaped(mock_topology, mock_falco_layout, tmp_path):
+    """Test systemd values are rendered literally, not HTML-escaped."""
+    mock_topology.from_charm.return_value.as_dict.return_value = {
+        "unit": "falco/0",
+        "charm_name": "falco",
+        "model": "test-model",
+        "model_uuid": "test-uuid",
+        "application": "falco",
+    }
+    service_file = FalcoServiceFile(mock_falco_layout, MagicMock())
+    service_file.destination = tmp_path / "falco.service"
+    service_file.context["http_output"] = {
+        "url": "https://example.com/?a=1&b=2",
+    }
+    service_file.install()
+
+    content = service_file.destination.read_text()
+    assert "http_output.url=https://example.com/?a=1&b=2" in content
+    assert "&amp;" not in content
+
+
+@pytest.mark.parametrize("existing_file", [False, True])
+def test_no_proxy_environment_when_unset(mock_falco_layout, tmp_path, existing_file):
+    """Test unset proxy values leave no environment file, even if one existed."""
+    proxy_env_file = tmp_path / "proxy.env"
+    if existing_file:
+        proxy_env_file.write_text("HTTP_PROXY=http://old-proxy:3128\n", encoding="utf-8")
+    proxy_env = FalcoProxyEnvFile(mock_falco_layout, ProxyConfig())
+    proxy_env.destination = proxy_env_file
+    assert proxy_env.install() is existing_file
+
+    assert not proxy_env_file.exists()
+
+
+def _manager(falco_layout, systemd_service_dir):
+    """Create a manager with a service file in a temporary directory."""
+    manager = FalcoOciRules(falco_layout, systemd_service_dir=systemd_service_dir)
+    manager.startup_timeout = 0
+    return manager
+
+
+def _simulate_follow_rule(oci_rules, name="oci-rule.yaml", content="oci rule"):
+    """Simulate the separate falcoctl follower writing a rule file."""
+    oci_rules.rules_dir.mkdir(parents=True, exist_ok=True)
+    (oci_rules.rules_dir / name).write_text(content, encoding="utf-8")
+
+
+@patch("service.systemd")
+def test_configure_creates_service_and_installs_rules(mock_systemd, mock_falco_layout, tmp_path):
+    """Test configuring the follow service and installing rules directly."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    assert (mock_falco_layout.rules_dir / "oci-rule.yaml").read_text() == "oci rule"
+    assert oct(oci_rules.config_file.stat().st_mode)[-3:] == "600"
+    service_content = oci_rules.service_file.read_text()
+    assert "artifact follow" in service_content
+    assert "--rulesfiles-dir" in service_content
+    assert str(mock_falco_layout.rules_dir) in service_content
+    assert "--tmp-dir" in service_content
+    assert f"EnvironmentFile=-{mock_falco_layout.proxy_env_file}" in service_content
+    assert "--every 1h" in service_content
+    assert "--falco-versions http://127.0.0.1:8765/versions" in service_content
+    assert "quay.io/org/falco-rules:latest" in service_content
+    mock_systemd.service_enable.assert_called_with(oci_rules.service_name)
+    mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
+
+
+@patch("service.systemd")
+def test_configure_unchanged_does_not_restart_service(mock_systemd, mock_falco_layout, tmp_path):
+    """Test that an unchanged follow configuration does not restart the service."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    mock_systemd.reset_mock()
+    mock_systemd.service_running.return_value = True
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+    mock_systemd.service_restart.assert_not_called()
+
+
+@patch("service.systemd")
+def test_configure_force_restart_restarts_unchanged_service(
+    mock_systemd, mock_falco_layout, tmp_path
+):
+    """Test that a forced restart restarts the follower without a unit change."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    mock_systemd.reset_mock()
+    mock_systemd.service_running.return_value = True
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest", force_restart=True)
+
+    mock_systemd.service_stop.assert_not_called()
+    mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
+
+
+def test_configure_rejects_invalid_reference(mock_falco_layout, tmp_path):
+    """Test that references without a registry or repository are rejected."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+
+    with pytest.raises(OciRulesError, match="registry and repository"):
+        oci_rules.configure("robot", "token", "not-a-reference")
+
+
+@patch("service.systemd")
+def test_configure_fails_when_rules_do_not_appear(mock_systemd, mock_falco_layout, tmp_path):
+    """Test that a follower which installs no rules fails after all retries."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+
+    with pytest.raises(OciRulesError, match="No OCI rules appeared"):
+        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+
+@patch("service.systemd")
+def test_configure_keeps_existing_rules_when_follower_fails(
+    mock_systemd, mock_falco_layout, tmp_path, caplog
+):
+    """Test that existing rules are kept when the follower cannot run."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    mock_systemd.reset_mock()
+    mock_systemd.service_running.return_value = False
+
+    with caplog.at_level("WARNING", logger="service"):
+        oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    mock_systemd.service_stop.assert_not_called()
+    assert (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
+    assert "existing rules are retained" in caplog.text
+
+
+@patch("service.systemd")
+def test_configure_retries_when_rules_are_missing(mock_systemd, mock_falco_layout, tmp_path):
+    """Test that a missing rules directory forces a retry on the next reconcile."""
+    oci_rules = _manager(mock_falco_layout, tmp_path)
+    mock_systemd.service_running.return_value = False
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+    (mock_falco_layout.rules_dir / "oci-rule.yaml").unlink()
+
+    mock_systemd.reset_mock()
+    mock_systemd.service_running.return_value = True
+    mock_systemd.service_restart.side_effect = lambda _: _simulate_follow_rule(oci_rules)
+
+    oci_rules.configure("robot", "token", "quay.io/org/falco-rules:latest")
+
+    mock_systemd.service_stop.assert_called_with(oci_rules.service_name)
+    mock_systemd.service_restart.assert_called_with(oci_rules.service_name)
+    assert (mock_falco_layout.rules_dir / "oci-rule.yaml").exists()
+
+
+def test_configure_uses_configured_oci_rules(mock_falco_layout):
+    """Test that FalcoCustomSetting uses the OCI rules manager when configured."""
+    custom_setting = FalcoCustomSetting(mock_falco_layout)
+    custom_setting.oci_rules = MagicMock()
+    custom_setting.oci_rules.is_configured.return_value = True
+    custom_setting.oci_rules.configure.return_value = True
+    charm_state = CharmState(
+        custom_rules=CustomRulesSecret(
+            username="robot",
+            password="token",  # nosec B106 - test credential
+            oci_ref="quay.io/org/falco-rules:latest",
+        )
+    )
+
+    custom_setting.configure(charm_state)
+    custom_setting.oci_rules.configure.assert_called_once_with(
+        username="robot",
+        password="token",  # nosec B106 - test credential
+        oci_ref="quay.io/org/falco-rules:latest",
+        follow_interval="1h",
+        force_restart=False,
+    )
+
+
+def test_first_oci_configuration_clears_git_rules(mock_falco_layout):
+    """Test that switching to OCI rules removes rules from the previous source."""
+    existing_rule = mock_falco_layout.rules_dir / "git-rule.yaml"
+    existing_rule.write_text("git rule", encoding="utf-8")
+    custom_setting = FalcoCustomSetting(mock_falco_layout)
+    custom_setting.oci_rules = MagicMock()
+    custom_setting.oci_rules.is_configured.return_value = False
+    custom_setting.oci_rules.configure.return_value = True
+    charm_state = CharmState(
+        custom_rules=CustomRulesSecret(
+            username="robot",
+            password="token",  # nosec B106 - test credential
+            oci_ref="quay.io/org/falco-rules:latest",
+        )
+    )
+
+    custom_setting.configure(charm_state)
+    assert not existing_rule.exists()
 
 
 class TestFalcoCustomSetting:
@@ -195,9 +454,12 @@ class TestFalcoServiceEdgeCases:
         """Test FalcoService.configure handles custom config errors."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_custom_setting = MagicMock()
 
-        falco_service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        falco_service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
 
         # Mock custom_setting.configure to raise GitCloneError
         mock_custom_setting.configure.side_effect = GitCloneError("Test error")
@@ -216,25 +478,33 @@ class TestFalcoService:
         """Test Falco service installation."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_custom_setting = MagicMock()
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         service.install()
 
         mock_config.install.assert_called_once()
         mock_service_file.install.assert_called_once()
+        mock_proxy_env_file.install.assert_called_once()
         mock_systemd.service_enable.assert_called_once_with(FALCO_SERVICE_NAME)
+        mock_systemd.service_start.assert_called_once_with(FALCO_SERVICE_NAME)
 
     @patch("service.systemd")
     def test_remove(self, mock_systemd):
         """Test removing active Falco service."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_custom_setting = MagicMock()
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         service.remove()
 
         mock_systemd.service_stop.assert_called_once_with(FALCO_SERVICE_NAME)
@@ -242,24 +512,72 @@ class TestFalcoService:
         mock_systemd.daemon_reload.assert_called_once()
         mock_config.remove.assert_called_once()
         mock_service_file.remove.assert_called_once()
+        mock_proxy_env_file.remove.assert_called_once()
 
     @patch("service.systemd")
     def test_configure(self, mock_systemd):
         """Test Falco service configuration."""
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_service_file.context = {}
         mock_custom_setting = MagicMock()
+        mock_proxy_env_file.install.return_value = False
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         charm_state = CharmState()
         service.configure(charm_state)
 
-        mock_custom_setting.configure.assert_called_once_with(charm_state)
+        mock_custom_setting.configure.assert_called_once_with(charm_state, force_restart=False)
         mock_service_file.install.assert_not_called()
         mock_service_file.update.assert_called_once()
+        mock_proxy_env_file.install.assert_called_once()
         mock_systemd.daemon_reload.assert_called_once()
+        mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
+
+    @patch("service.systemd")
+    def test_configure_unchanged_does_not_restart_falco(self, mock_systemd):
+        """Test that an unchanged configuration does not restart Falco."""
+        mock_config = MagicMock()
+        mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
+        mock_service_file.service_name = FALCO_SERVICE_NAME
+        mock_service_file.context = {}
+        mock_custom_setting = MagicMock()
+        mock_proxy_env_file.install.return_value = False
+        mock_custom_setting.configure.return_value = False
+        mock_service_file.update.return_value = False
+        mock_systemd.service_running.return_value = True
+
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
+        service.configure(CharmState())
+
+        mock_systemd.daemon_reload.assert_called_once()
+        mock_systemd.service_restart.assert_not_called()
+
+    @patch("service.systemd")
+    def test_configure_restarts_follower_on_proxy_change(self, mock_systemd):
+        """Test that a proxy change forces the OCI follower to restart."""
+        mock_config = MagicMock()
+        mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
+        mock_service_file.service_name = FALCO_SERVICE_NAME
+        mock_service_file.context = {}
+        mock_custom_setting = MagicMock()
+        mock_proxy_env_file.install.return_value = True
+
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
+        charm_state = CharmState()
+        service.configure(charm_state)
+
+        mock_custom_setting.configure.assert_called_once_with(charm_state, force_restart=True)
         mock_systemd.service_restart.assert_called_once_with(FALCO_SERVICE_NAME)
 
     @patch("service.systemd")
@@ -269,10 +587,13 @@ class TestFalcoService:
 
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_custom_setting = MagicMock()
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         assert service.check_active() is True
         mock_systemd.service_running.assert_called_once_with(FALCO_SERVICE_NAME)
 
@@ -283,10 +604,13 @@ class TestFalcoService:
 
         mock_config = MagicMock()
         mock_service_file = MagicMock()
+        mock_proxy_env_file = MagicMock()
         mock_service_file.service_name = FALCO_SERVICE_NAME
         mock_custom_setting = MagicMock()
 
-        service = FalcoService(mock_config, mock_service_file, mock_custom_setting)
+        service = FalcoService(
+            mock_config, mock_service_file, mock_proxy_env_file, mock_custom_setting
+        )
         assert service.check_active() is False
         mock_systemd.service_running.assert_called_once_with(FALCO_SERVICE_NAME)
 
@@ -449,10 +773,53 @@ class TestUtilityFunctions:
 
         mock_subprocess.check_output.side_effect = check_output_side_effect
 
-        service._git_sync("git+ssh://git@github.com/user/repo.git", "github.com", ref="v1.0")
+        changed = service._git_sync(
+            "git+ssh://git@github.com/user/repo.git", "github.com", ref="v1.0"
+        )
 
         # Should not call run (git clone) if already synced
         mock_subprocess.run.assert_not_called()
+        assert changed is False
+
+    @patch("service.subprocess.check_output")
+    @patch("service.subprocess.run")
+    def test_git_sync_branch_unchanged(self, mock_run, mock_check_output, tmp_path):
+        """Test that an unchanged branch checkout reports no change."""
+        with patch("service.KNOWN_HOSTS_FILE", tmp_path / "known_hosts"):
+            mock_check_output.side_effect = [
+                b"git+ssh://git@github.com/user/repo.git\n",  # get_cloned_repo_url
+                subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_tag
+                b"same-commit\n",  # previous commit
+                b"github.com ssh-rsa AAAA...\n",  # add_known_hosts
+                b"same-commit\n",  # refreshed commit
+            ]
+
+            changed = service._git_sync(
+                "git+ssh://git@github.com/user/repo.git", "github.com", ref="main"
+            )
+
+        mock_run.assert_called_once()
+        assert changed is False
+
+    @patch("service.subprocess.check_output")
+    @patch("service.subprocess.run")
+    def test_git_sync_branch_changed(self, mock_run, mock_check_output, tmp_path):
+        """Test that a branch checkout with a new commit reports a change."""
+        with patch("service.KNOWN_HOSTS_FILE", tmp_path / "known_hosts"):
+            mock_check_output.side_effect = [
+                b"git+ssh://git@github.com/user/repo.git\n",  # get_cloned_repo_url
+                subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_tag
+                b"old-commit\n",  # previous commit
+                b"github.com ssh-rsa AAAA...\n",  # add_known_hosts
+                b"new-commit\n",  # refreshed commit
+            ]
+
+            changed = service._git_sync(
+                "git+ssh://git@github.com/user/repo.git", "github.com", ref="main"
+            )
+
+        mock_run.assert_called_once()
+        assert changed is True
 
     @patch("service.subprocess.check_output")
     @patch("service.subprocess.run")
@@ -465,19 +832,18 @@ class TestUtilityFunctions:
             patch("service.SSH_KEY_FILE", test_ssh_key_file),
             patch("service.KNOWN_HOSTS_FILE", test_known_hosts),
         ):
-            # Mock check_output calls: repo URL check, tag check, and keyscan
-            # _git_sync calls _get_cloned_repo_url, _get_cloned_repo_tag, and _add_known_hosts
+            # _git_sync calls _get_cloned_repo_url and _add_known_hosts.
             mock_check_output.side_effect = [
                 subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_url
-                subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_tag
                 b"github.com ssh-rsa AAAA...\n",  # add_known_hosts
             ]
 
-            service._git_sync(
+            changed = service._git_sync(
                 "git+ssh://git@github.com/user/repo.git", "github.com", ssh_private_key="test-key"
             )
 
             # Verify SSH key was written
+            assert changed is True
             assert test_ssh_key_file.exists()
             assert test_ssh_key_file.read_text() == "test-key"
 
@@ -488,10 +854,9 @@ class TestUtilityFunctions:
         test_known_hosts = tmp_path / "known_hosts"
 
         with patch("service.KNOWN_HOSTS_FILE", test_known_hosts):
-            # Mock check_output calls
+            # _git_sync calls _get_cloned_repo_url and _add_known_hosts.
             mock_check_output.side_effect = [
                 subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_url
-                subprocess.CalledProcessError(1, "git"),  # get_cloned_repo_tag
                 b"github.com ssh-rsa AAAA...\n",  # add_known_hosts
             ]
 

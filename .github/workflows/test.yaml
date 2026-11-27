@@ -16,3 +16,4 @@ jobs:
     with:
       with-uv: true
       working-directory: './${{ matrix.charm }}-operator'
+      shellcheck-working-directory: .
