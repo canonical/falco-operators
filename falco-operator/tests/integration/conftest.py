@@ -155,7 +155,7 @@ def registry_fixture(
 
 
 @pytest.fixture(scope="module", name="v1_rules")
-def v1_rules_fixture(registry: OciRegistry) -> Path:
+def rules_v1_fixture(registry: OciRegistry) -> Path:
     """Push the initial rules artifact."""
     rules = registry.root / "v1" / RULES_FILE_NAME
     _write_rules_file(rules, RULES_V1_MARKER)
@@ -192,7 +192,7 @@ def correct_secret_fixture(
 
 
 @pytest.fixture(scope="module", name="v1_installed")
-def v1_installed_fixture(
+def rules_v1_installed_fixture(
     juju: jubilant.Juju,
     deployment: Deployment,
     correct_secret,
@@ -205,7 +205,7 @@ def v1_installed_fixture(
 
 
 @pytest.fixture(scope="module", name="v2_rules")
-def v2_rules_fixture(registry: OciRegistry, v1_installed: Path) -> Path:
+def rules_v2_fixture(registry: OciRegistry, v1_installed: Path) -> Path:
     """Publish the updated artifact after the initial one is installed."""
     rules = registry.root / "v2" / RULES_FILE_NAME
     _write_rules_file(rules, RULES_V2_MARKER)
