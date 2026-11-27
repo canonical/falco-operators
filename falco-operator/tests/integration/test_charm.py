@@ -8,68 +8,37 @@
 import logging
 
 import jubilant
-import pytest
+
+from .helpers import PRINCIPAL_APP_UNITS, Deployment
 
 logger = logging.getLogger(__name__)
 
-FALCO_APP = "falco"
-PRINCIPAL_APP = "ubuntu"
-PRINCIPAL_APP_UNITS = 2
-PRINCIAPL_APP_CONSTRAINTS = {"virt-type": "virtual-machine"}
 
-
-def test_deploy_charms(juju: jubilant.Juju, charm: str, pytestconfig: pytest.Config):
+def test_deploy_charms(deployment: Deployment, juju: jubilant.Juju) -> None:
     """
-    Arrange: Deploy a principal charm with VM constraints and falco charm.
-    Act: Integrate falco charm with the principal charm.
+    Arrange: Deploy a principal charm with VM constraints and the Falco charm.
+    Act: Integrate the Falco charm with the principal charm.
     Assert: Both applications are deployed and active.
     """
-    logger.info("Deploying %s with constraints: %s", PRINCIPAL_APP, PRINCIAPL_APP_CONSTRAINTS)
-    juju.deploy(
-        PRINCIPAL_APP,
-        app=PRINCIPAL_APP,
-        num_units=PRINCIPAL_APP_UNITS,
-        base=pytestconfig.getoption("--base"),
-        constraints=PRINCIAPL_APP_CONSTRAINTS,
-    )
-
-    logger.info("Deploying %s", FALCO_APP)
-    juju.deploy(charm, app=FALCO_APP)
-
-    logger.info("Integrating %s with %s", PRINCIPAL_APP, FALCO_APP)
-    juju.integrate(PRINCIPAL_APP, FALCO_APP)
-
-    logger.info("Waiting for deployment to settle")
-    juju.wait(
-        lambda status: jubilant.all_active(status, PRINCIPAL_APP, FALCO_APP),
-        timeout=juju.wait_timeout,
-    )
-
-    logger.info("Deployment complete")
     status = juju.status()
 
-    # Verify ubuntu is deployed
-    assert PRINCIPAL_APP in status.apps
-    assert status.apps[PRINCIPAL_APP].app_status.current == "active"
+    assert deployment.principal_app in status.apps
+    assert status.apps[deployment.principal_app].app_status.current == "active"
 
-    # Verify falco is deployed (as subordinate)
-    assert FALCO_APP in status.apps
-    units = status.get_units(FALCO_APP)
-    assert len(units) == PRINCIPAL_APP_UNITS
-    for unit in units.values():
+    assert deployment.falco_app in status.apps
+    assert len(deployment.units) == PRINCIPAL_APP_UNITS
+    for unit_name in deployment.units:
+        unit = status.get_units(deployment.falco_app)[unit_name]
         assert unit.workload_status.current == "active"
 
 
-def test_falco_files_exist(juju: jubilant.Juju):
+def test_falco_files_exist(deployment: Deployment, juju: jubilant.Juju) -> None:
     """
     Arrange: Falco charm is deployed and active.
     Act: Check for expected files on the unit.
     Assert: Falco binary, config, and systemd service files exist.
     """
-    falco_units = juju.status().get_units(FALCO_APP)
-    assert falco_units, "No falco units found"
-
-    for unit_name in falco_units:
+    for unit_name in deployment.units:
         name = unit_name.replace("/", "-")
         logger.info("Checking if falco binary exists in unit %s", unit_name)
         result = juju.ssh(
@@ -99,16 +68,13 @@ def test_falco_files_exist(juju: jubilant.Juju):
         assert "exists" in result.strip(), "Falco systemd service file not found"
 
 
-def test_falco_service_running(juju: jubilant.Juju):
+def test_falco_service_running(deployment: Deployment, juju: jubilant.Juju) -> None:
     """
     Arrange: Falco charm is deployed and active.
     Act: Check if falco systemd service is running.
     Assert: Falco service is active and running.
     """
-    falco_units = juju.status().get_units(FALCO_APP)
-    assert falco_units, "No falco units found"
-
-    for unit_name in falco_units:
+    for unit_name in deployment.units:
         logger.info("Checking falco service status in unit %s", unit_name)
         result = juju.ssh(unit_name, "systemctl is-active falco")
         assert result.strip() == "active", f"Falco service is not active: {result}"
@@ -118,17 +84,25 @@ def test_falco_service_running(juju: jubilant.Juju):
         assert result.strip() == "enabled", f"Falco service is not enabled: {result}"
 
 
-def test_remove_integration(juju: jubilant.Juju):
+def test_remove_integration(deployment: Deployment, juju: jubilant.Juju) -> None:
     """
     Arrange: Falco charm is deployed and integrated with a principal charm.
     Act: Remove the integration between falco and the principal charm.
     Assert: Falco service is stopped and files are cleaned up.
     """
-    logger.info("Removing integration between %s and %s", PRINCIPAL_APP, FALCO_APP)
-    juju.remove_relation(PRINCIPAL_APP, FALCO_APP)
-    juju.wait(lambda status: status.apps[PRINCIPAL_APP].is_active, timeout=juju.wait_timeout)
+    logger.info(
+        "Removing integration between %s and %s", deployment.principal_app, deployment.falco_app
+    )
+    juju.remove_relation(deployment.principal_app, deployment.falco_app)
+    juju.wait(
+        lambda status: all(
+            deployment.falco_app not in {name.split("/")[0] for name in unit.subordinates}
+            for unit in status.get_units(deployment.principal_app).values()
+        ),
+        timeout=juju.wait_timeout,
+    )
 
-    principal_units = juju.status().get_units(PRINCIPAL_APP)
+    principal_units = juju.status().get_units(deployment.principal_app)
     for unit_name in principal_units:
         logger.info("Checking if falco service is stopped in unit %s", unit_name)
         result = juju.ssh(unit_name, "systemctl is-active falco || echo 'inactive'")

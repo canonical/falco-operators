@@ -11,3 +11,7 @@ providers:
   lxd:
     enable: true
     bootstrap: true
+
+host:
+  packages:
+    - docker.io
