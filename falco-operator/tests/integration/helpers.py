@@ -91,6 +91,8 @@ class OciRegistry:
         self.root = root
         self.host = host
         self.port = port
+        self.address = f"{host}:{port}"
+        self.oci_ref = f"{self.address}/{REGISTRY_REPO}:{REGISTRY_TAG}"
         self.falcoctl_binary = falcoctl_binary
         self.username = f"falco-test-{uuid.uuid4().hex[:8]}"
         self.password = secrets.token_urlsafe(16)
@@ -102,20 +104,11 @@ class OciRegistry:
         self._certs_dir = root / "certs"
         self._falcoctl_config = root / "falcoctl.yaml"
 
-    @property
-    def address(self) -> str:
-        """Return the registry address used in OCI references."""
-        return f"{self.host}:{self.port}"
-
-    @property
-    def oci_ref(self) -> str:
-        """Return the artifact reference configured in the charm secret."""
-        return f"{self.address}/{REGISTRY_REPO}:{REGISTRY_TAG}"
-
     def start(self) -> None:
         """Create the registry configuration and start the Docker registry."""
         self._create_certificates()
-        self._write_htpasswd()
+        self._auth_dir.mkdir()
+        (self._auth_dir / "htpasswd").write_text(self._htpasswd, encoding="utf-8")
         self._write_falcoctl_config()
         self._docker(
             "run",
@@ -123,7 +116,7 @@ class OciRegistry:
             "--name",
             self._container_name,
             "-p",
-            f"{self.host}:{self.port}:5000",
+            f"{self.address}:5000",
             "-v",
             f"{self._auth_dir}:/auth",
             "-v",
@@ -214,11 +207,6 @@ class OciRegistry:
             "-addext",
             "basicConstraints=critical,CA:TRUE",
         )
-
-    def _write_htpasswd(self) -> None:
-        """Write the generated test htpasswd file."""
-        self._auth_dir.mkdir()
-        (self._auth_dir / "htpasswd").write_text(self._htpasswd, encoding="utf-8")
 
     def _write_falcoctl_config(self) -> None:
         """Write the falcoctl credentials used to push artifacts."""
